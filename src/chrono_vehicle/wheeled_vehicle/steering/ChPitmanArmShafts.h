@@ -26,6 +26,7 @@
 #ifndef CH_PITMANARM_SHAFTS_H
 #define CH_PITMANARM_SHAFTS_H
 
+#include "chrono/physics/ChLinkMotorRotationDriveline.h"
 #include "chrono/physics/ChShaftsGear.h"
 #include "chrono/physics/ChShaftsMotorAngle.h"
 #include "chrono/physics/ChShaftsTorsionSpring.h"
@@ -95,13 +96,14 @@ class CH_VEHICLE_API ChPitmanArmShafts : public ChSteering {
     virtual void LogConstraintViolations() override;
 
     /// Return information on steering column shafts and couples (debugging).
-    void GetShaftInformation(double time,
-                             double& motor_input,
-                             double& motor_input_der,
-                             std::vector<double>& shaft_angles,
-                             std::vector<double>& shaft_velocities,
-                             std::vector<double>& constraint_violations,
-                             ChVector<>& arm_angular_vel) const;
+    void GetDebugInformation(double& motor_input,                        ///< input angle at steering wheel
+                             double& motor_input_der,                    ///< time derivative of input
+                             std::vector<double>& shaft_angles,          ///< angles in steering column shafts
+                             std::vector<double>& shaft_velocities,      ///< angular velocities in column shafts
+                             double& rel_angle,                          ///< relative angle chassis-arm
+                             double& rel_velocity,                       ///< relative angular velocity chassis-arm
+                             std::vector<double>& constraint_violations  ///< constraint violations
+                             ) const;
 
   protected:
     /// Identifiers for the various hardpoints.
@@ -174,17 +176,15 @@ class CH_VEHICLE_API ChPitmanArmShafts : public ChSteering {
 
     std::shared_ptr<ChBody> m_arm;  ///< handle to the Pitman arm body
 
-    std::shared_ptr<ChLinkLockRevolute> m_revolute;     ///< handle to the chassis-arm revolute joint
-    std::shared_ptr<ChLinkRevoluteSpherical> m_revsph;  ///< handle to the revolute-spherical joint (idler arm)
-    std::shared_ptr<ChLinkUniversal> m_universal;       ///< handle to the arm-link universal joint
+    std::shared_ptr<ChLinkRevoluteSpherical> m_revsph;       ///< handle to the revolute-spherical joint (idler arm)
+    std::shared_ptr<ChLinkUniversal> m_universal;            ///< handle to the arm-link universal joint
+    std::shared_ptr<ChLinkMotorRotationDriveline> m_column;  ///< handle to the entire steering column
 
     std::shared_ptr<ChShaft> m_shaft_A;   ///< shaft connected to arm body
     std::shared_ptr<ChShaft> m_shaft_C;   ///< shaft connected to chassis
     std::shared_ptr<ChShaft> m_shaft_A1;  ///< shaft for implementing gear ratio
     std::shared_ptr<ChShaft> m_shaft_C1;  ///< shaft for implementing steering input
 
-    std::shared_ptr<ChShaftsBody> m_shaft_arm;          ///< connection of shaft_A to arm body
-    std::shared_ptr<ChShaftsBody> m_shaft_chassis;      ///< connection of shaft_C to chassis body
     std::shared_ptr<ChShaftsGear> m_shaft_gear;         ///< reduction gear between shaft_A and shaft_A1
     std::shared_ptr<ChShaftsMotorAngle> m_shaft_motor;  ///< steering input motor between shaft_C and shaft_C1
 

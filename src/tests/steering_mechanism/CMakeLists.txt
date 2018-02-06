@@ -5,12 +5,13 @@
 SET(DEMOS
     test_steering_input
     test_steering_compliance
+    test_steering_hmmwv
 )
 
 # ------------------------------------------------------------------------------
 
 SET(CXX_FLAGS "${CH_CXX_FLAGS} ${CH_IRRLICHT_CXX_FLAGS}")
-SET(LIBRARIES ChronoEngine ChronoEngine_irrlicht)
+SET(LIBRARIES ChronoEngine ChronoEngine_vehicle ChronoModels_vehicle ChronoEngine_irrlicht)
 
 INCLUDE_DIRECTORIES(${CH_IRRLICHTINC})
 

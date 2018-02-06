@@ -25,18 +25,9 @@ namespace chrono {
 /// two frames on two bodies. Motors of this type assume that
 /// the spindle is directed along Z direction of the master frame.
 /// Look for children classes for specialized behaviors, 
-/// for example chrono::ChLinkMotorRotationAngle 
+/// for example chrono::ChLinkMotorRotationAngle
 
 class ChApi ChLinkMotorRotation : public ChLinkMotor {
-
-    /// type of guide constraint, exept the rotation constraint 
-    enum class SpindleConstraint {
-          FREE,
-          REVOLUTE,
-          CYLINDRICAL, 
-          OLDHAM
-      };
-
   protected:
     // aux data for optimization
     double mrot;
@@ -44,6 +35,9 @@ class ChApi ChLinkMotorRotation : public ChLinkMotor {
     double mrot_dtdt;
 
   public:
+    /// Type of guide constraint, exept the rotation constraint
+    enum class SpindleConstraint { FREE, REVOLUTE, CYLINDRICAL, OLDHAM };
+
     ChLinkMotorRotation();
     ChLinkMotorRotation(const ChLinkMotorRotation& other);
     virtual ~ChLinkMotorRotation();

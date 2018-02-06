@@ -109,20 +109,6 @@ void ChPitmanArmShafts::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
     m_pC = m_arm->TransformPointParentToLocal(points[REV]);
     m_pL = m_arm->TransformPointParentToLocal(points[UNIV]);
 
-    // Create and initialize the revolute joint between chassis and Pitman arm.
-    // The z direction of the joint orientation matrix is dirs[REV_AXIS], assumed
-    // to be a unit vector.
-    u = points[PITMANARM] - points[REV];
-    v = Vcross(dirs[REV_AXIS], u);
-    v.Normalize();
-    u = Vcross(v, dirs[REV_AXIS]);
-    rot.Set_A_axis(u, v, dirs[REV_AXIS]);
-
-    m_revolute = std::make_shared<ChLinkLockRevolute>();
-    m_revolute->SetNameString(m_name + "_revolute");
-    m_revolute->Initialize(chassis, m_arm, ChCoordsys<>(points[REV], rot.Get_A_quaternion()));
-    chassis->GetSystem()->AddLink(m_revolute);
-
     // Create and initialize the universal joint between the Pitman arm and steering link.
     // The x and y directions of the joint orientation matrix are given by
     // dirs[UNIV_AXIS_ARM] and dirs[UNIV_AXIS_LINK], assumed to be unit vectors
@@ -152,19 +138,33 @@ void ChPitmanArmShafts::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
     m_revsph->Initialize(chassis, m_link, ChCoordsys<>(points[REVSPH_R], rot.Get_A_quaternion()), distance);
     chassis->GetSystem()->AddLink(m_revsph);
 
-    //// TODO: Decide if shaftC should be attached to chassis or if it should be "fixed"
-    ////       Right now: fixed.
+    // Create and initialize the steering column (type ChLinkMotorRotationDriveline).
+    // We set the relative degree of freedom between the Pitman arm and the chassis to represent a revolute joint.
+    // This element embeds two shafts, the first connected to the arm and the second to the chassis.
+    u = points[PITMANARM] - points[REV];
+    v = Vcross(dirs[REV_AXIS], u);
+    v.Normalize();
+    u = Vcross(v, dirs[REV_AXIS]);
+    rot.Set_A_axis(u, v, dirs[REV_AXIS]);
 
-    // Create all shafts in steering column
+    m_column = std::make_shared<ChLinkMotorRotationDriveline>();
+    m_column->SetNameString(m_name + "_column");
+    m_column->SetSpindleConstraint(ChLinkMotorRotation::SpindleConstraint::REVOLUTE);
+    m_column->Initialize(m_arm, chassis, ChFrame<>(points[REV], rot.Get_A_quaternion()));
+    chassis->GetSystem()->AddLink(m_column);
+
+    // Create the shafts in the steering column:
     //    Chassis --X-- shaftC --M-- shaftC1 --S-- shaftA1 --G-- shaftA --X-- Arm
-    // All shafts are aligned with dir[REV_AXIS], assumed to be a unit vector.
+    // The end shafts are extracted from m_column
     double inertia = getSteeringColumnInertia();
 
-    m_shaft_C = std::make_shared<ChShaft>();
+    m_shaft_A = m_column->GetInnerShaft1();
+    m_shaft_A->SetNameString(m_name + "_shaftA");
+    m_shaft_A->SetInertia(inertia);
+
+    m_shaft_C = m_column->GetInnerShaft2();
     m_shaft_C->SetNameString(m_name + "_shaftC");
     m_shaft_C->SetInertia(inertia);
-    m_shaft_C->SetShaftFixed(true);
-    chassis->GetSystem()->Add(m_shaft_C);
 
     m_shaft_C1 = std::make_shared<ChShaft>();
     m_shaft_C1->SetNameString(m_name + "_shaftC1");
@@ -175,23 +175,6 @@ void ChPitmanArmShafts::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
     m_shaft_A1->SetNameString(m_name + "_shaftA1");
     m_shaft_A1->SetInertia(inertia);
     chassis->GetSystem()->Add(m_shaft_A1);
-
-    m_shaft_A = std::make_shared<ChShaft>();
-    m_shaft_A->SetNameString(m_name + "_shaftA");
-    m_shaft_A->SetInertia(inertia);
-    chassis->GetSystem()->Add(m_shaft_A);
-
-    // Rigidly attach shaftA to the arm body
-    m_shaft_arm = std::make_shared<ChShaftsBody>();
-    m_shaft_arm->SetNameString(m_name + "_shaftA_to_arm");
-    m_shaft_arm->Initialize(m_shaft_A, m_arm, dirs[REV_AXIS]);
-    chassis->GetSystem()->Add(m_shaft_arm);
-
-    // Rigidly attach shaftC to the chassis body
-    ////m_shaft_chassis = std::make_shared<ChShaftsBody>();
-    ////m_shaft_chassis->SetNameString(m_name + "_shaftC_to_chassis");
-    ////m_shaft_chassis->Initialize(m_shaft_C, chassis, dirs[REV_AXIS]);
-    ////chassis->GetSystem()->Add(m_shaft_chassis);
 
     // A motor (for steering input) between shaftC and shaftC1
     // The setpoint for the motor angle function is set in Synchronize()
@@ -309,17 +292,6 @@ void ChPitmanArmShafts::RemoveVisualizationAssets() {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 void ChPitmanArmShafts::LogConstraintViolations() {
-    // Revolute joint
-    {
-        ChMatrix<>* C = m_revolute->GetC();
-        GetLog() << "Revolute              ";
-        GetLog() << "  " << C->GetElement(0, 0) << "  ";
-        GetLog() << "  " << C->GetElement(1, 0) << "  ";
-        GetLog() << "  " << C->GetElement(2, 0) << "  ";
-        GetLog() << "  " << C->GetElement(3, 0) << "  ";
-        GetLog() << "  " << C->GetElement(4, 0) << "\n";
-    }
-
     // Universal joint
     {
         ChMatrix<>* C = m_universal->GetC();
@@ -339,38 +311,65 @@ void ChPitmanArmShafts::LogConstraintViolations() {
     }
 
     //// TODO
+    //// Constraint violations for the ChLinkMotorRotationDriveline
     //// Constraint violations for the various shaft couples
 }
 
-void ChPitmanArmShafts::GetShaftInformation(double time,
-                                            double& motor_input,
+void ChPitmanArmShafts::GetDebugInformation(double& motor_input,
                                             double& motor_input_der,
                                             std::vector<double>& shaft_angles,
                                             std::vector<double>& shaft_velocities,
-                                            std::vector<double>& constraint_violations,
-                                            ChVector<>& arm_angular_vel) const {
+                                            double& rel_angle,
+                                            double& rel_velocity,
+                                            std::vector<double>& constraint_violations) const {
+    double time = m_arm->GetChTime();
+
+    // Current motor input and its time-derivative
     auto fun = std::static_pointer_cast<ChFunction_Setpoint>(m_shaft_motor->GetAngleFunction());
     motor_input = fun->Get_y(time);
     motor_input_der = fun->Get_y_dx(time);
 
+    // Shaft angles
     shaft_angles.push_back(m_shaft_C->GetPos());
     shaft_angles.push_back(m_shaft_C1->GetPos());
     shaft_angles.push_back(m_shaft_A1->GetPos());
     shaft_angles.push_back(m_shaft_A->GetPos());
 
+    // Shaft angular velocities
     shaft_velocities.push_back(m_shaft_C->GetPos_dt());
     shaft_velocities.push_back(m_shaft_C1->GetPos_dt());
     shaft_velocities.push_back(m_shaft_A1->GetPos_dt());
     shaft_velocities.push_back(m_shaft_A->GetPos_dt());
 
+    // Constraint violations in shaft couples
     constraint_violations.push_back(m_shaft_motor->GetConstraintViolation());
     constraint_violations.push_back(m_shaft_gear->GetConstraintViolation());
     if (m_rigid)
         constraint_violations.push_back(m_rigid_connection->GetConstraintViolation());
+    
+    // CHECK RELATIVE ANGLE ARM-CHASSIS
 
-    arm_angular_vel = m_arm->GetWvel_loc();
+    // Absolute frames for the arm and chassis bodies
+    auto arm_frame = m_column->GetBody1();
+    auto chassis_frame = m_column->GetBody2();
 
-    auto coords = m_revolute->GetLinkRelativeCoords();
+    // Local frames on arm and chassis for the underlying joint
+    auto arm_local = m_column->GetFrame1();
+    auto chassis_local = m_column->GetFrame2();
+
+    // Arm joint frame expressed in absolute frame
+    ChFrame<> arm_global = *arm_frame * arm_local;
+
+    // Arm joint frame expressed in chassis joint frame
+    ChFrame<> arm_chassis = chassis_frame->GetInverse() * arm_global;
+
+    // The relative angle about z should be the same as rev_angle=m_column->GetMotorRot()
+    auto rel_angles = arm_chassis.GetRot().Q_to_Euler123();
+    rel_angle = rel_angles.z();
+    ////rel_angle = m_column->GetMotorRot();
+ 
+    //// TODO: get relative angle and angular speed (chassis-arm)
+    rel_velocity = 0;
 }
 
 // -----------------------------------------------------------------------------
@@ -391,9 +390,9 @@ void ChPitmanArmShafts::ExportComponentList(rapidjson::Document& jsonDocument) c
     ChPart::ExportShaftList(jsonDocument, shafts);
 
     std::vector<std::shared_ptr<ChLink>> joints;
-    joints.push_back(m_revolute);
     joints.push_back(m_revsph);
     joints.push_back(m_universal);
+    joints.push_back(m_column);
     ChPart::ExportJointList(jsonDocument, joints);
 
     std::vector<std::shared_ptr<ChShaftsCouple>> couples;
@@ -423,9 +422,9 @@ void ChPitmanArmShafts::Output(ChVehicleOutput& database) const {
     database.WriteShafts(shafts);
 
     std::vector<std::shared_ptr<ChLink>> joints;
-    joints.push_back(m_revolute);
     joints.push_back(m_revsph);
     joints.push_back(m_universal);
+    joints.push_back(m_column);
     database.WriteJoints(joints);
 
     std::vector<std::shared_ptr<ChShaftsCouple>> couples;
