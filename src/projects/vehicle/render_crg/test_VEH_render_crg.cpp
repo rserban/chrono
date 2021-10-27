@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
     std::cout << my_hmmwv.GetVehicle().GetVehiclePos() << std::endl;
 
     std::string filename1 = out_dir + "/" + filesystem::path(crg_road_file).stem() + ".dat";
-    utils::WriteShapesPovray(my_hmmwv.GetSystem(), filename1);
+    utils::WriteVisualizationAssets(my_hmmwv.GetSystem(), filename1);
 
     std::string filename2 = out_dir + "/" + filesystem::path(crg_road_file).stem() + ".jpg";
     app.WriteImageToFile(filename2);

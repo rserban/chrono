@@ -403,7 +403,7 @@ int main(int argc, char* argv[]) {
             if (povray_output) {
                 char filename[100];
                 sprintf(filename, "%s/data_%05d.dat", pov_dir.c_str(), render_frame + 1);
-                utils::WriteShapesPovray(vehicle.GetSystem(), filename);
+                utils::WriteVisualizationAssets(vehicle.GetSystem(), filename);
 
                 // if (useDefSoil) {
                 //  std::vector<ChVector<> >& vertices =
@@ -512,7 +512,7 @@ int main(int argc, char* argv[]) {
             // Output render data
             // char filename[100];
             // sprintf(filename, "%s/data_%05d.dat", pov_dir.c_str(), render_frame + 1);
-            // utils::WriteShapesPovray(vehicle.GetSystem(), filename);
+            // utils::WriteVisualizationAssets(vehicle.GetSystem(), filename);
             std::cout << "Output frame:   " << render_frame << std::endl;
             std::cout << "Sim frame:      " << step_number << std::endl;
             std::cout << "Time:           " << time << "   % Complete = " << time / tend * 100.0 << std::endl;
@@ -523,7 +523,7 @@ int main(int argc, char* argv[]) {
             if (povray_output) {
                 char filename[100];
                 sprintf(filename, "%s/data_%05d.dat", pov_dir.c_str(), render_frame + 1);
-                utils::WriteShapesPovray(vehicle.GetSystem(), filename);
+                utils::WriteVisualizationAssets(vehicle.GetSystem(), filename);
 
                 // if (useDefSoil) {
                 //  std::vector<ChVector<> >& vertices =

@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
             rig->GetSystem()->AddBody(dummy);
 
             std::string filename = out_dir + "/" + susp_name + ".dat";
-            utils::WriteShapesPovray(rig->GetSystem(), filename);
+            utils::WriteVisualizationAssets(rig->GetSystem(), filename);
             break;
         }
     }

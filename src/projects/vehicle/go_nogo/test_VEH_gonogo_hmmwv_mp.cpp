@@ -476,7 +476,7 @@ int main(int argc, char* argv[]) {
         if (pov_output && sim_frame % pov_steps == 0) {
             char filename[100];
             sprintf(filename, "%s/data_%04d.dat", pov_dir.c_str(), pov_frame + 1);
-            utils::WriteShapesPovray(system, filename);
+            utils::WriteVisualizationAssets(system, filename);
             pov_frame++;
         }
 

@@ -293,7 +293,7 @@ int main(int argc, char* argv[]) {
         if (povray_output && step_number % render_steps == 0) {
             char filename[100];
             sprintf(filename, "%s/data_%03d.dat", pov_dir.c_str(), render_frame + 1);
-            utils::WriteShapesPovray(wvp.GetSystem(), filename);
+            utils::WriteVisualizationAssets(wvp.GetSystem(), filename);
             render_frame++;
 
         }
