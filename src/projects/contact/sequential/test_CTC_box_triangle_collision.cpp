@@ -135,8 +135,8 @@ int main(int argc, char* argv[]) {
 
     double collision_envelope = .001;
     ChVector<> hdims(0.25, 0.25, 0.25);
-    std::vector<ChVector<>> vertices = {ChVector<>(0, 0, 0), ChVector<>(1, 0, 0), ChVector<>(0, 1, 0)};
-    double separation = 0;
+    std::vector<ChVector<>> vertices = {ChVector<>(0, 0, 0), ChVector<>(1.5, 0, 0), ChVector<>(0, 1.5, 0)};
+    double separation = 0.0;
 
     // -----------------
     // Create the system
@@ -228,8 +228,8 @@ int main(int argc, char* argv[]) {
         real depth[6];
         real eff_rad[6];
         int nC = 0;
-        auto coll = collision::ChNarrowphase::PRIMSCollision(&shape_box, &shape_tri, (real)separation, norm, pt1, pt2,
-                                                             depth, eff_rad, nC);
+        collision::ChNarrowphase::PRIMSCollision(&shape_box, &shape_tri, (real)separation, norm, pt1, pt2, depth,
+                                                 eff_rad, nC);
 
         application.BeginScene(true, true, irr::video::SColor(255, 140, 161, 192));
         application.DrawAll();
@@ -237,7 +237,7 @@ int main(int argc, char* argv[]) {
         if (nC > 0) {
             assert(nC <= 6);
             for (int i = 0; i < nC; i++) {
-                assert(depth[i] < 0);
+                assert(separation > 0 || depth[i] < 0);
                 irrlicht::tools::drawSegment(application.GetVideoDriver(), ToChVector(pt1[i]), ToChVector(pt2[i]),
                                              irr::video::SColor(255, 255, 0, 255));
             }

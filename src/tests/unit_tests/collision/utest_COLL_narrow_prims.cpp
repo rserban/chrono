@@ -1015,7 +1015,8 @@ TEST_P(Collision, sphere_sphere) {
         shapeS2->position = real3(2, 0, 0);
         shapeS2->dimensions = real3(0.5, 0, 0);
 
-        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shapeS1, shapeS2, separation, &norm, &pt1, &pt2, &depth, &eff_rad, nC));
+        ASSERT_TRUE(
+            ChNarrowphase::PRIMSCollision(shapeS1, shapeS2, separation, &norm, &pt1, &pt2, &depth, &eff_rad, nC));
         ASSERT_EQ(nC, 0);
     }
 
@@ -1027,7 +1028,8 @@ TEST_P(Collision, sphere_sphere) {
         shapeS2->position = real3(2, 0, 0);
         shapeS2->dimensions = real3(0.95, 0, 0);
 
-        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shapeS1, shapeS2, separation, &norm, &pt1, &pt2, &depth, &eff_rad, nC));
+        ASSERT_TRUE(
+            ChNarrowphase::PRIMSCollision(shapeS1, shapeS2, separation, &norm, &pt1, &pt2, &depth, &eff_rad, nC));
         if (sep) {
             ASSERT_EQ(nC, 1);
             Assert_near(norm, real3(0, -1, 0), precision);
@@ -1048,7 +1050,8 @@ TEST_P(Collision, sphere_sphere) {
         shapeS2->position = real3(2, 0, 0);
         shapeS2->dimensions = real3(1, 0, 0);
 
-        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shapeS1, shapeS2, separation, &norm, &pt1, &pt2, &depth, &eff_rad, nC));
+        ASSERT_TRUE(
+            ChNarrowphase::PRIMSCollision(shapeS1, shapeS2, separation, &norm, &pt1, &pt2, &depth, &eff_rad, nC));
         if (sep) {
             ASSERT_EQ(nC, 1);
             Assert_near(norm, real3(0, -1, 0), precision);
@@ -1069,7 +1072,8 @@ TEST_P(Collision, sphere_sphere) {
         shapeS2->position = real3(2.5, 1, 0);
         shapeS2->dimensions = real3(1, 0, 0);
 
-        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shapeS1, shapeS2, separation, &norm, &pt1, &pt2, &depth, &eff_rad, nC));
+        ASSERT_TRUE(
+            ChNarrowphase::PRIMSCollision(shapeS1, shapeS2, separation, &norm, &pt1, &pt2, &depth, &eff_rad, nC));
         ASSERT_EQ(nC, 1);
         Assert_near(norm, real3(1, 0, 0), precision);
         ASSERT_NEAR(depth, -0.5, precision);
@@ -1080,6 +1084,236 @@ TEST_P(Collision, sphere_sphere) {
 
     delete shapeS1;
     delete shapeS2;
+}
+
+TEST_P(Collision, box_triangle) {
+    real separation = sep ? 0.1 : 0.0;
+    real penetration;
+    real3 norm[8];
+    real3 pt1[8];
+    real3 pt2[8];
+    real depth[8];
+    real eff_rad[8];
+    int nC = 0;
+
+    // box face to triangle face
+    {
+        real3 hdims1(1.0, 1.0, 1.0);
+        real3 pos1(0.0, 0.0, 1.0);
+        quaternion rot1 = quaternion(1, 0, 0, 0);
+
+        ConvexShapeCustom* shape1 = new ConvexShapeCustom();
+        shape1->type = ChCollisionShape::Type::BOX;
+        shape1->position = pos1;
+        shape1->dimensions = hdims1;
+        shape1->rotation = rot1;
+
+        // penetrated - large penetration
+        penetration = -0.05;
+        real3 tri_pt1(0, 0, -penetration);
+        real3 tri_pt2(4, 0, -penetration);
+        real3 tri_pt3(0, 4, -penetration);
+        ConvexShapeTriangle* shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        ASSERT_EQ(nC, 4);
+        CheckValueList(depth, nC, penetration);
+        CheckPointList(norm, nC, real3(0, 0, 1));
+        CheckPointList(pt1, {real3(1, 1, 0), real3(0, 0, 0), real3(1, 0, 0), real3(0, 1, 0)});
+        CheckPointList(pt2, {real3(1, 1, 0 - penetration), real3(0, 0, 0 - penetration), real3(1, 0, 0 - penetration),
+                             real3(0, 1, 0 - penetration)});
+
+        // penetrated - small penetration
+        penetration = -1e-5;
+        tri_pt1 = real3(0, 0, -penetration);
+        tri_pt2 = real3(4, 0, -penetration);
+        tri_pt3 = real3(0, 4, -penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        ASSERT_EQ(nC, 4);
+        CheckValueList(depth, nC, penetration);
+        CheckPointList(norm, nC, real3(0, 0, 1));
+        CheckPointList(pt1, {real3(1, 1, 0), real3(0, 0, 0), real3(1, 0, 0), real3(0, 1, 0)});
+        CheckPointList(pt2, {real3(1, 1, 0 - penetration), real3(0, 0, 0 - penetration), real3(1, 0, 0 - penetration),
+                             real3(0, 1, 0 - penetration)});
+
+        // seperated - by less than seperation
+        penetration = +0.05;
+        tri_pt1 = real3(0, 0, -penetration);
+        tri_pt2 = real3(4, 0, -penetration);
+        tri_pt3 = real3(0, 4, -penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        if (sep) {
+            CheckValueList(depth, nC, penetration);
+            CheckPointList(norm, nC, real3(0, 0, 1));
+            CheckPointList(pt1, {real3(1, 1, 0), real3(0, 0, 0), real3(1, 0, 0), real3(0, 1, 0)});
+            CheckPointList(pt2, {real3(1, 1, 0 - penetration), real3(0, 0, 0 - penetration),
+                                 real3(1, 0, 0 - penetration), real3(0, 1, 0 - penetration)});
+        } else {
+            ASSERT_EQ(nC, 0);
+        }
+
+        // seperated - by more than seperation
+        penetration = +0.15;
+        tri_pt1 = real3(0, 0, -penetration);
+        tri_pt2 = real3(4, 0, -penetration);
+        tri_pt3 = real3(0, 4, -penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+        ASSERT_EQ(nC, 0);
+    }
+
+    // box edge to triangle face
+    {
+        real3 hdims1(1.0, 1.0, 1.0);
+        real3 pos1(0.0, 0.0, sqrt(2));
+        quaternion rot1 = FromChQuaternion(Q_from_AngY(CH_C_PI / 4));
+
+        ConvexShapeCustom* shape1 = new ConvexShapeCustom();
+        shape1->type = ChCollisionShape::Type::BOX;
+        shape1->position = pos1;
+        shape1->dimensions = hdims1;
+        shape1->rotation = rot1;
+
+        // penetrated - large penetration
+        penetration = -0.05;
+        real3 tri_pt1(-1, 3, 0 - penetration);
+        real3 tri_pt2(-1, -3, 0 - penetration);
+        real3 tri_pt3(4, 0, 0 - penetration);
+        ConvexShapeTriangle* shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        ASSERT_EQ(nC, 2);
+        CheckValueList(depth, nC, penetration);
+        CheckPointList(norm, nC, real3(0, 0, 1));
+        CheckPointList(pt1, {real3(0, -1, 0), real3(0, 1, 0)});
+        CheckPointList(pt2, {real3(0, -1, -penetration), real3(0, 1, -penetration)});
+
+        // penetrated - small penetration
+        penetration = -1e-5;
+        tri_pt1 = real3(-1, 3, 0 - penetration);
+        tri_pt2 = real3(-1, -3, 0 - penetration);
+        tri_pt3 = real3(4, 0, 0 - penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        ASSERT_EQ(nC, 2);
+        CheckValueList(depth, nC, penetration);
+        CheckPointList(norm, nC, real3(0, 0, 1));
+        CheckPointList(pt1, {real3(0, -1, 0), real3(0, 1, 0)});
+        CheckPointList(pt2, {real3(0, -1, -penetration), real3(0, 1, -penetration)});
+
+        // seperated - by less than seperation
+        penetration = +0.05;
+        tri_pt1 = real3(-1, 3, 0 - penetration);
+        tri_pt2 = real3(-1, -3, 0 - penetration);
+        tri_pt3 = real3(4, 0, 0 - penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        if (sep) {
+            ASSERT_EQ(nC, 2);
+            CheckValueList(depth, nC, penetration);
+            CheckPointList(norm, nC, real3(0, 0, 1));
+            CheckPointList(pt1, {real3(0, -1, 0), real3(0, 1, 0)});
+            CheckPointList(pt2, {real3(0, -1, -penetration), real3(0, 1, -penetration)});
+        } else {
+            ASSERT_EQ(nC, 0);
+        }
+
+        // seperated - by more than seperation
+        penetration = +0.15;
+        tri_pt1 = real3(-1, 3, 0 - penetration);
+        tri_pt2 = real3(-1, -3, 0 - penetration);
+        tri_pt3 = real3(4, 0, 0 - penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+        ASSERT_EQ(nC, 0);
+    }
+
+    // box corner to triangle face
+    {
+        real3 hdims1(1.0, 1.0, 1.0);
+        real3 pos1(0.0, 0.0, sqrt(3));
+        quaternion rot1 = FromChQuaternion(Q_from_AngAxis(atan(sqrt(2.0)), ChVector<>(1, 1, 0).GetNormalized()));
+
+        ConvexShapeCustom* shape1 = new ConvexShapeCustom();
+        shape1->type = ChCollisionShape::Type::BOX;
+        shape1->position = pos1;
+        shape1->dimensions = hdims1;
+        shape1->rotation = rot1;
+
+        // penetrated - large penetration
+        penetration = -0.05;
+        real3 tri_pt1(-1, 3, 0 - penetration);
+        real3 tri_pt2(-1, -3, 0 - penetration);
+        real3 tri_pt3(4, 0, 0 - penetration);
+        ConvexShapeTriangle* shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        ASSERT_EQ(nC, 1);
+        CheckValueList(depth, nC, penetration);
+        CheckPointList(norm, nC, real3(0, 0, 1));
+        CheckPointList(pt1, {real3(0, 0, 0)});
+        CheckPointList(pt2, {real3(0, 0, -penetration)});
+
+        // penetrated - small penetration
+        penetration = -1e-5;
+        tri_pt1 = real3(-1, 3, 0 - penetration);
+        tri_pt2 = real3(-1, -3, 0 - penetration);
+        tri_pt3 = real3(4, 0, 0 - penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        ASSERT_EQ(nC, 1);
+        CheckValueList(depth, nC, penetration);
+        CheckPointList(norm, nC, real3(0, 0, 1));
+        CheckPointList(pt1, {real3(0, 0, 0)});
+        CheckPointList(pt2, {real3(0, 0, -penetration)});
+
+        // seperated - by less than seperation
+        penetration = +0.05;
+        tri_pt1 = real3(-1, 3, 0 - penetration);
+        tri_pt2 = real3(-1, -3, 0 - penetration);
+        tri_pt3 = real3(4, 0, 0 - penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        if (sep) {
+            ASSERT_EQ(nC, 1);
+            CheckValueList(depth, nC, penetration);
+            CheckPointList(norm, nC, real3(0, 0, 1));
+            CheckPointList(pt1, {real3(0, 0, 0)});
+            CheckPointList(pt2, {real3(0, 0, -penetration)});
+        } else {
+            ASSERT_EQ(nC, 0);
+        }
+
+        // seperated - by more than seperation
+        penetration = +0.15;
+        tri_pt1 = real3(-1, 3, 0 - penetration);
+        tri_pt2 = real3(-1, -3, 0 - penetration);
+        tri_pt3 = real3(4, 0, 0 - penetration);
+        shape2 = new ConvexShapeTriangle(tri_pt1, tri_pt2, tri_pt3);
+
+        ASSERT_TRUE(ChNarrowphase::PRIMSCollision(shape1, shape2, separation, norm, pt1, pt2, depth, eff_rad, nC));
+
+        ASSERT_EQ(nC, 0);
+    }
 }
 
 // -----------------------------------------------------------------------------
