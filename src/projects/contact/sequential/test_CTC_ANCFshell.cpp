@@ -22,7 +22,7 @@
 #include "chrono/solver/ChIterativeSolverLS.h"
 
 #include "chrono/fea/ChContactSurfaceMesh.h"
-#include "chrono/fea/ChElementShellANCF.h"
+#include "chrono/fea/ChElementShellANCF_3423.h"
 #include "chrono/fea/ChLoadContactSurfaceMesh.h"
 #include "chrono/fea/ChMeshFileLoader.h"
 #include "chrono/fea/ChVisualizationFEAmesh.h"
@@ -84,10 +84,9 @@ int main(int argc, char* argv[]) {
     // Add a single layer of thickness 0.01 and with orientation 0 to each element.
     // Set structural damping.
     for (auto el : my_mesh->GetElements()) {
-        auto element = std::dynamic_pointer_cast<ChElementShellANCF>(el);
+        auto element = std::dynamic_pointer_cast<ChElementShellANCF_3423>(el);
         element->AddLayer(0.01, 0 * CH_C_DEG_TO_RAD, material);
         element->SetAlphaDamp(0.08);
-        element->SetGravityOn(false);
     }
 
     my_mesh->SetAutomaticGravity(true);
