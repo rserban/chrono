@@ -16,13 +16,14 @@
 //
 // =============================================================================
 
-#include "test_SCM_force.h"
+#include "test_SCM_ML_force.h"
 
 // -----------------------------------------------------------------------------
 
 // Run-time visualization system (IRRLICHT or VSG)
 ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
+bool enable_moving_patch = true;
 // -----------------------------------------------------------------------------
 
 int main(int argc, char* argv[]) {
@@ -50,23 +51,36 @@ int main(int argc, char* argv[]) {
         viper->GetWheel(ViperWheelID::V_RB)->GetBody()   //
     };
 
+    // Create the ML deformable terrain
+    auto terrain = CreateMLTerrain(0.02, false, sys, wheels);
+
+     // Add moving patches for each wheel
+    if (enable_moving_patch) {
+        double wheel_range = 0.5;
+        ChVector<> size(0.5, 2 * wheel_range, 2 * wheel_range);
+       
+        terrain->AddMovingPatch(wheels[0], VNULL, size);
+        terrain->AddMovingPatch(wheels[1], VNULL, size);
+        terrain->AddMovingPatch(wheels[2], VNULL, size);
+        terrain->AddMovingPatch(wheels[3], VNULL, size);
+    }
+
     // Create the run-time visualization interface
-    auto vis = CreateVisualization(vis_type, true, sys);
+    // auto vis = CreateVisualization(vis_type, true, sys); // vis ground grid
+    auto vis = CreateVisualization(vis_type, false, sys);
 
     // Open I/O files
-    std::ifstream SCM_forces(SCM_filename);
-    std::ofstream ROVER_states(out_dir + "/ROVER_states_applied.txt", std::ios::trunc);
-
-    if (!SCM_forces.is_open()) {
-        cout << "Unable to open the " << SCM_filename << " file!" << endl;
-        return 1;
-    }
+    std::ofstream ROVER_states(out_dir + "/ROVER_states_MLTerrain_applySCMMacroF.txt", std::ios::trunc);
+    // std::ofstream SCM_forces_o(out_dir + "/SCM_forces_MLTerrain_applySCMMacroF.txt", std::ios::trunc);
 
     // Simulation loop
     std::string line;
     double force_time;
     ChVector<> abs_force;
     ChVector<> abs_torque;
+
+    ChVector<> wheelContFList_F;
+    ChVector<> wheelContFList_M;
 
     for (int istep = 0; istep < num_steps; istep++) {
         if (istep % 100 == 0)
@@ -79,24 +93,19 @@ int main(int argc, char* argv[]) {
         vis->EndScene();
 #endif
 
-        // Read SCM force from file and apply to vehicle wheels
-        std::getline(SCM_forces, line);
-        std::istringstream iss(line);
-        iss >> force_time;
-        for (int i = 0; i < 4; i++) {
-            iss >> abs_force.x() >> abs_force.y() >> abs_force.z();
-            iss >> abs_torque.x() >> abs_torque.y() >> abs_torque.z();
-
-            wheels[i]->Empty_forces_accumulators();
-            wheels[i]->Accumulate_force(abs_force, wheels[i]->GetPos(), false);
-            wheels[i]->Accumulate_torque(abs_torque, false);
-        }
-
         // Advance system dynamics
         sys.DoStepDynamics(time_step);
         viper->Update();
 
         double time = sys.GetChTime();
+
+        // SCM_forces_o << time << "    ";
+        // // std::cout << time << std::endl;
+        // for (int i = 0; i < 4; i++) {
+        //     terrain->GetContactForceBody(wheels[i], wheelContFList_F, wheelContFList_M);
+        //     SCM_forces_o << wheelContFList_F << "  " << wheelContFList_M << "    ";
+        // }
+        // SCM_forces_o << endl;
 
         // Save vehicle states
         ROVER_states << time << "   ";
@@ -107,7 +116,7 @@ int main(int argc, char* argv[]) {
         ROVER_states << endl;
     }
 
-    SCM_forces.close();
+    // SCM_forces_o.close();
     ROVER_states.close();
 
     return 0;
