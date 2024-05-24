@@ -41,15 +41,14 @@ void ChAxle::SetOutput(bool state) {
     }
 }
 
-void ChAxle::Initialize(std::shared_ptr<ChChassis> chassis,        
-                std::shared_ptr<ChSubchassis> subchassis,  
-                std::shared_ptr<ChSteering> steering,      
-                const ChVector<>& susp_location,           
-                const ChVector<>& arb_location,            
-                double wheel_separation,               
-                double left_ang_vel,                   
-                double right_ang_vel                   
-) {
+void ChAxle::Initialize(std::shared_ptr<ChChassis> chassis,
+                        std::shared_ptr<ChSubchassis> subchassis,
+                        std::shared_ptr<ChSteering> steering,
+                        const ChVector3d& susp_location,
+                        const ChVector3d& arb_location,
+                        double wheel_separation,
+                        double left_ang_vel,
+                        double right_ang_vel) {
     m_suspension->Initialize(chassis, subchassis, steering, susp_location, left_ang_vel, right_ang_vel);
     if (m_brake_left && m_brake_right) {
         m_brake_left->Initialize(chassis, m_suspension, LEFT);
@@ -57,14 +56,14 @@ void ChAxle::Initialize(std::shared_ptr<ChChassis> chassis,
     }
     if (wheel_separation > 0) {
         assert(m_wheels.size() == 4);
-        m_wheels[0]->Initialize(m_suspension->GetSpindle(LEFT), LEFT, -wheel_separation / 2);    // inner left
-        m_wheels[1]->Initialize(m_suspension->GetSpindle(RIGHT), RIGHT, -wheel_separation / 2);  // inner right
-        m_wheels[2]->Initialize(m_suspension->GetSpindle(LEFT), LEFT, +wheel_separation / 2);    // outer left
-        m_wheels[3]->Initialize(m_suspension->GetSpindle(RIGHT), RIGHT, +wheel_separation / 2);  // outer right
+        m_wheels[0]->Initialize(chassis, m_suspension->GetSpindle(LEFT), LEFT, -wheel_separation / 2);    // inner left
+        m_wheels[1]->Initialize(chassis, m_suspension->GetSpindle(RIGHT), RIGHT, -wheel_separation / 2);  // inner right
+        m_wheels[2]->Initialize(chassis, m_suspension->GetSpindle(LEFT), LEFT, +wheel_separation / 2);    // outer left
+        m_wheels[3]->Initialize(chassis, m_suspension->GetSpindle(RIGHT), RIGHT, +wheel_separation / 2);  // outer right
     } else {
         assert(m_wheels.size() == 2);
-        m_wheels[0]->Initialize(m_suspension->GetSpindle(LEFT), LEFT);    // left
-        m_wheels[1]->Initialize(m_suspension->GetSpindle(RIGHT), RIGHT);  // right
+        m_wheels[0]->Initialize(chassis, m_suspension->GetSpindle(LEFT), LEFT);    // left
+        m_wheels[1]->Initialize(chassis, m_suspension->GetSpindle(RIGHT), RIGHT);  // right
     }
     if (m_antirollbar) {
         assert(m_suspension->IsIndependent());
@@ -74,17 +73,26 @@ void ChAxle::Initialize(std::shared_ptr<ChChassis> chassis,
 
 void ChAxle::Synchronize(double time, const DriverInputs& driver_inputs) {
     // Synchronize suspension subsystem (prepare to accept tire forces)
-    m_suspension->Synchronize();
+    m_suspension->Synchronize(time);
 
-    // Let the wheel subsystems get tire forces and pass them to their associated suspension.
+    // Let the wheel subsystems get tire forces and pass them to their associated suspension
     for (auto& wheel : m_wheels) {
         wheel->Synchronize();
     }
 
-    // Apply braking input.
+    // Apply braking input
     if (m_brake_left && m_brake_right) {
-        m_brake_left->Synchronize(driver_inputs.m_braking);
-        m_brake_right->Synchronize(driver_inputs.m_braking);
+        m_brake_left->Synchronize(time, driver_inputs.m_braking);
+        m_brake_right->Synchronize(time, driver_inputs.m_braking);
+    }
+}
+
+void ChAxle::Advance(double step) {
+    m_suspension->Advance(step);
+
+    if (m_brake_left && m_brake_right) {
+        m_brake_left->Advance(step);
+        m_brake_right->Advance(step);
     }
 }
 

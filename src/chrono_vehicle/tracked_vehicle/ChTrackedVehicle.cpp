@@ -36,8 +36,7 @@ ChTrackedVehicle::ChTrackedVehicle(const std::string& name, ChContactMethod cont
     m_contact_manager = chrono_types::make_shared<ChTrackContactManager>();
 }
 
-ChTrackedVehicle::ChTrackedVehicle(const std::string& name, ChSystem* system)
-    : ChVehicle(name, system) {
+ChTrackedVehicle::ChTrackedVehicle(const std::string& name, ChSystem* system) : ChVehicle(name, system) {
     m_contact_manager = chrono_types::make_shared<ChTrackContactManager>();
 }
 
@@ -50,20 +49,65 @@ ChTrackedVehicle::~ChTrackedVehicle() {}
 // vehicle subsystems (the two track assemblies and the driveline).
 // -----------------------------------------------------------------------------
 void ChTrackedVehicle::Initialize(const ChCoordsys<>& chassisPos, double chassisFwdVel) {
-    // Disable contacts between chassis with all other tracked vehicle subsystems, except the track shoes.
-    m_chassis->GetBody()->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::IDLERS);
-    m_chassis->GetBody()->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::WHEELS);
-    m_chassis->GetBody()->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::ROLLERS);
-
+    auto chassis_ct_model = m_chassis->GetBody()->GetCollisionModel();
+    if (chassis_ct_model) {
+        // Disable contacts between chassis with all other tracked vehicle subsystems, except the track shoes.
+        m_chassis->GetBody()->GetCollisionModel()->DisallowCollisionsWith(TrackedCollisionFamily::IDLERS);
+        m_chassis->GetBody()->GetCollisionModel()->DisallowCollisionsWith(TrackedCollisionFamily::WHEELS);
+        m_chassis->GetBody()->GetCollisionModel()->DisallowCollisionsWith(TrackedCollisionFamily::ROLLERS);
+    }
     ChVehicle::Initialize(chassisPos, chassisFwdVel);
 }
 
 // -----------------------------------------------------------------------------
 // Update the state of this vehicle at the current time.
 // The vehicle system is provided the current driver inputs (throttle between 0
-// and 1, steering between -1 and +1, braking between 0 and 1) and terrain
-// forces on the track shoes (expressed in the global reference frame).
+// and 1, steering between -1 and +1, braking between 0 and 1).
+// The first version is used when the track-terrain interaction is handled by
+// Chrono, within the same ChSystem. In this case, the track-terrain interaction
+// occurs through the internal Chrono collision and contact mechanism.
+// The second version is used in a co-simulation framework and provides the
+// terrain forces on the track shoes (assumed to be expressed in the global
+// reference frame).
 // -----------------------------------------------------------------------------
+void ChTrackedVehicle::Synchronize(double time, const DriverInputs& driver_inputs) {
+    // Let the driveline combine driver inputs if needed
+    double braking_left = 0;
+    double braking_right = 0;
+    if (m_driveline)
+        m_driveline->CombineDriverInputs(driver_inputs, braking_left, braking_right);
+
+    // Apply contact track shoe forces and braking.
+    // Attention: these calls also zero out the applied torque to the sprocket axles
+    // and so must be called before the driveline synchronization.
+    m_tracks[LEFT]->Synchronize(time, braking_left);
+    m_tracks[RIGHT]->Synchronize(time, braking_right);
+
+    double powertrain_torque = m_powertrain_assembly ? m_powertrain_assembly->GetOutputTorque() : 0;
+    double driveline_speed = m_driveline ? m_driveline->GetOutputDriveshaftSpeed() : 0;
+
+    // Set driveshaft speed for the transmission output shaft
+    if (m_powertrain_assembly)
+        m_powertrain_assembly->Synchronize(time, driver_inputs, driveline_speed);
+
+    // Apply powertrain torque to the driveline's input shaft
+    if (m_driveline)
+        m_driveline->Synchronize(time, driver_inputs, powertrain_torque);
+
+    // Pass the steering input to any chassis connectors (in case one of them is actuated)
+    for (auto& connector : m_chassis_connectors) {
+        connector->Synchronize(time, driver_inputs);
+    }
+
+    m_chassis->Synchronize(time);
+    for (auto& c : m_chassis_rear)
+        c->Synchronize(time);
+
+    // If in use, reset the collision manager
+    if (m_collision_manager)
+        m_collision_manager->Reset();
+}
+
 void ChTrackedVehicle::Synchronize(double time,
                                    const DriverInputs& driver_inputs,
                                    const TerrainForces& shoe_forces_left,
@@ -75,7 +119,7 @@ void ChTrackedVehicle::Synchronize(double time,
         m_driveline->CombineDriverInputs(driver_inputs, braking_left, braking_right);
 
     // Apply contact track shoe forces and braking.
-    // Attention: this function also zeroes out the applied torque to the sprocket axle
+    // Attention: these calls also zero out the applied torque to the sprocket axles
     // and so must be called before the driveline synchronization.
     m_tracks[LEFT]->Synchronize(time, braking_left, shoe_forces_left);
     m_tracks[RIGHT]->Synchronize(time, braking_right, shoe_forces_right);
@@ -109,15 +153,19 @@ void ChTrackedVehicle::Synchronize(double time,
 // Advance the state of this vehicle by the specified time step.
 // -----------------------------------------------------------------------------
 void ChTrackedVehicle::Advance(double step) {
+    // Advance state of the associated powertrain (if one is attached)
     if (m_powertrain_assembly) {
-        // Advance state of the associated powertrain.
         m_powertrain_assembly->Advance(step);
     }
 
-    // Invoke base class function to advance state of underlying Chrono system.
+    // Advance the state of the two track assemblies
+    m_tracks[LEFT]->Advance(step);
+    m_tracks[RIGHT]->Advance(step);
+
+    // Invoke base class function to advance state of underlying Chrono system
     ChVehicle::Advance(step);
 
-    // Process contacts.
+    // Process contacts
     m_contact_manager->Process(this);
 }
 
@@ -181,71 +229,71 @@ void ChTrackedVehicle::SetTrackAssemblyOutput(VehicleSide side, bool state) {
 // Enable/disable collision for the various subsystems
 // -----------------------------------------------------------------------------
 void ChTrackedVehicle::SetSprocketCollide(bool state) {
-    m_tracks[0]->GetSprocket()->SetCollide(state);
-    m_tracks[1]->GetSprocket()->SetCollide(state);
+    m_tracks[0]->GetSprocket()->EnableCollision(state);
+    m_tracks[1]->GetSprocket()->EnableCollision(state);
 }
 
 void ChTrackedVehicle::SetIdlerCollide(bool state) {
-    m_tracks[0]->GetIdlerWheel()->SetCollide(state);
-    m_tracks[1]->GetIdlerWheel()->SetCollide(state);
+    m_tracks[0]->GetIdlerWheel()->EnableCollision(state);
+    m_tracks[1]->GetIdlerWheel()->EnableCollision(state);
 }
 
 void ChTrackedVehicle::SetRoadWheelCollide(bool state) {
     for (size_t i = 0; i < m_tracks[0]->GetNumTrackSuspensions(); ++i)
-        m_tracks[0]->GetRoadWheel(i)->SetCollide(state);
+        m_tracks[0]->GetRoadWheel(i)->EnableCollision(state);
     for (size_t i = 0; i < m_tracks[1]->GetNumTrackSuspensions(); ++i)
-        m_tracks[1]->GetRoadWheel(i)->SetCollide(state);
+        m_tracks[1]->GetRoadWheel(i)->EnableCollision(state);
 }
 
 void ChTrackedVehicle::SetRollerCollide(bool state) {
     for (size_t i = 0; i < m_tracks[0]->GetNumRollers(); ++i)
-        m_tracks[0]->GetRoller(i)->SetCollide(state);
+        m_tracks[0]->GetRoller(i)->EnableCollision(state);
     for (size_t i = 0; i < m_tracks[1]->GetNumRollers(); ++i)
-        m_tracks[1]->GetRoller(i)->SetCollide(state);
+        m_tracks[1]->GetRoller(i)->EnableCollision(state);
 }
 
 void ChTrackedVehicle::SetTrackShoeCollide(bool state) {
     for (size_t i = 0; i < m_tracks[0]->GetNumTrackShoes(); ++i)
-        m_tracks[0]->GetTrackShoe(i)->SetCollide(state);
+        m_tracks[0]->GetTrackShoe(i)->EnableCollision(state);
     for (size_t i = 0; i < m_tracks[1]->GetNumTrackShoes(); ++i)
-        m_tracks[1]->GetTrackShoe(i)->SetCollide(state);
+        m_tracks[1]->GetTrackShoe(i)->EnableCollision(state);
 }
 
 // -----------------------------------------------------------------------------
 // Override collision flags for various subsystems
 // -----------------------------------------------------------------------------
-void ChTrackedVehicle::SetCollide(int flags) {
-    m_chassis->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::CHASSIS)) != 0);
+void ChTrackedVehicle::EnableCollision(int flags) {
+    m_chassis->EnableCollision((flags & static_cast<int>(TrackedCollisionFlag::CHASSIS)) != 0);
 
     for (auto& c : m_chassis_rear)
-        c->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::CHASSIS)) != 0);
+        c->EnableCollision((flags & static_cast<int>(TrackedCollisionFlag::CHASSIS)) != 0);
 
-    m_tracks[0]->GetIdlerWheel()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::IDLER_LEFT)) != 0);
-    m_tracks[1]->GetIdlerWheel()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::IDLER_RIGHT)) != 0);
+    m_tracks[0]->GetIdlerWheel()->EnableCollision((flags & static_cast<int>(TrackedCollisionFlag::IDLER_LEFT)) != 0);
+    m_tracks[1]->GetIdlerWheel()->EnableCollision((flags & static_cast<int>(TrackedCollisionFlag::IDLER_RIGHT)) != 0);
 
-    m_tracks[0]->GetSprocket()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_LEFT)) != 0);
-    m_tracks[1]->GetSprocket()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_RIGHT)) != 0);
+    m_tracks[0]->GetSprocket()->EnableCollision((flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_LEFT)) != 0);
+    m_tracks[1]->GetSprocket()->EnableCollision((flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_RIGHT)) != 0);
 
     bool collide_wheelsL = (flags & static_cast<int>(TrackedCollisionFlag::WHEELS_LEFT)) != 0;
     bool collide_wheelsR = (flags & static_cast<int>(TrackedCollisionFlag::WHEELS_RIGHT)) != 0;
     for (size_t i = 0; i < m_tracks[0]->GetNumTrackSuspensions(); ++i)
-        m_tracks[0]->GetRoadWheel(i)->SetCollide(collide_wheelsL);
+        m_tracks[0]->GetRoadWheel(i)->EnableCollision(collide_wheelsL);
     for (size_t i = 0; i < m_tracks[1]->GetNumTrackSuspensions(); ++i)
-        m_tracks[1]->GetRoadWheel(i)->SetCollide(collide_wheelsR);
+        m_tracks[1]->GetRoadWheel(i)->EnableCollision(collide_wheelsR);
 
     bool collide_rollersL = (flags & static_cast<int>(TrackedCollisionFlag::ROLLERS_LEFT)) != 0;
     bool collide_rollersR = (flags & static_cast<int>(TrackedCollisionFlag::ROLLERS_RIGHT)) != 0;
     for (size_t i = 0; i < m_tracks[0]->GetNumRollers(); ++i)
-        m_tracks[0]->GetRoller(i)->SetCollide(collide_rollersL);
+        m_tracks[0]->GetRoller(i)->EnableCollision(collide_rollersL);
     for (size_t i = 0; i < m_tracks[1]->GetNumRollers(); ++i)
-        m_tracks[1]->GetRoller(i)->SetCollide(collide_rollersR);
+        m_tracks[1]->GetRoller(i)->EnableCollision(collide_rollersR);
 
     bool collide_shoesL = (flags & static_cast<int>(TrackedCollisionFlag::SHOES_LEFT)) != 0;
     bool collide_shoesR = (flags & static_cast<int>(TrackedCollisionFlag::SHOES_RIGHT)) != 0;
     for (size_t i = 0; i < m_tracks[0]->GetNumTrackShoes(); ++i)
-        m_tracks[0]->GetTrackShoe(i)->SetCollide(collide_shoesL);
+        m_tracks[0]->GetTrackShoe(i)->EnableCollision(collide_shoesL);
     for (size_t i = 0; i < m_tracks[1]->GetNumTrackShoes(); ++i)
-        m_tracks[1]->GetTrackShoe(i)->SetCollide(collide_shoesR);
+        m_tracks[1]->GetTrackShoe(i)->EnableCollision(collide_shoesR);
 }
 
 // -----------------------------------------------------------------------------
@@ -257,14 +305,14 @@ void ChTrackedVehicle::SetCollide(int flags) {
 void ChTrackedVehicle::SetChassisVehicleCollide(bool state) {
     if (state) {
         // Chassis collides with track shoes
-        m_chassis->GetBody()->GetCollisionModel()->SetFamilyMaskDoCollisionWithFamily(TrackedCollisionFamily::SHOES);
+        m_chassis->GetBody()->GetCollisionModel()->AllowCollisionsWith(TrackedCollisionFamily::SHOES);
         for (auto& c : m_chassis_rear)
-            c->GetBody()->GetCollisionModel()->SetFamilyMaskDoCollisionWithFamily(TrackedCollisionFamily::SHOES);
+            c->GetBody()->GetCollisionModel()->AllowCollisionsWith(TrackedCollisionFamily::SHOES);
     } else {
         // Chassis does not collide with track shoes
-        m_chassis->GetBody()->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::SHOES);
+        m_chassis->GetBody()->GetCollisionModel()->DisallowCollisionsWith(TrackedCollisionFamily::SHOES);
         for (auto& c : m_chassis_rear)
-            c->GetBody()->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::SHOES);
+            c->GetBody()->GetCollisionModel()->DisallowCollisionsWith(TrackedCollisionFamily::SHOES);
     }
 }
 
@@ -308,14 +356,14 @@ void ChTrackedVehicle::InitializeInertiaProperties() {
 }
 
 // -----------------------------------------------------------------------------
-// Calculate current vehicle inertia properties 
+// Calculate current vehicle inertia properties
 // -----------------------------------------------------------------------------
 void ChTrackedVehicle::UpdateInertiaProperties() {
     // 1. Calculate the vehicle COM location relative to the global reference frame
     // 2. Calculate vehicle inertia relative to global reference frame
-    ChVector<> com(0);
+    ChVector3d com(0);
     ChMatrix33<> inertia(0);
-    
+
     m_chassis->AddInertiaProperties(com, inertia);
 
     for (auto& c : m_chassis_rear)
@@ -325,13 +373,13 @@ void ChTrackedVehicle::UpdateInertiaProperties() {
     m_tracks[1]->AddInertiaProperties(com, inertia);
 
     // 3. Express vehicle COM frame relative to vehicle reference frame
-    m_com.coord.pos = GetTransform().TransformPointParentToLocal(com / GetMass());
-    m_com.coord.rot = GetTransform().GetRot();
+    m_com.SetPos(GetTransform().TransformPointParentToLocal(com / GetMass()));
+    m_com.SetRot(GetTransform().GetRot());
 
     // 4. Express inertia relative to vehicle COM frame
     //    Notes: - vehicle COM frame aligned with vehicle frame
     //           - 'com' still scaled by total mass here
-    const ChMatrix33<>& A = GetTransform().GetA();
+    const ChMatrix33<>& A = GetTransform().GetRotMat();
     m_inertia = A.transpose() * (inertia - utils::CompositeInertia::InertiaShiftMatrix(com)) * A;
 }
 
@@ -339,15 +387,11 @@ void ChTrackedVehicle::UpdateInertiaProperties() {
 // Log constraint violations
 // -----------------------------------------------------------------------------
 void ChTrackedVehicle::LogConstraintViolations() {
-    GetLog().SetNumFormat("%16.4e");
-
     // Report constraint violations for the track assemblies.
-    GetLog() << "\n---- LEFT TRACK ASSEMBLY constraint violations\n\n";
+    std::cout << "\n---- LEFT TRACK ASSEMBLY constraint violations\n\n";
     m_tracks[0]->LogConstraintViolations();
-    GetLog() << "\n---- RIGHT TRACK ASSEMBLY constraint violations\n\n";
+    std::cout << "\n---- RIGHT TRACK ASSEMBLY constraint violations\n\n";
     m_tracks[1]->LogConstraintViolations();
-
-    GetLog().SetNumFormat("%g");
 }
 
 std::string ChTrackedVehicle::ExportComponentList() const {

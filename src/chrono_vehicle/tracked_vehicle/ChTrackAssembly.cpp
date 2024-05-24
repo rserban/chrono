@@ -23,8 +23,6 @@
 
 #include <cmath>
 
-#include "chrono/core/ChLog.h"
-
 #include "chrono_vehicle/tracked_vehicle/ChTrackAssembly.h"
 
 namespace chrono {
@@ -65,7 +63,7 @@ void ChTrackAssembly::GetTrackShoeStates(BodyStates& states) const {
 // -----------------------------------------------------------------------------
 // Initialize this track assembly subsystem.
 // -----------------------------------------------------------------------------
-void ChTrackAssembly::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector<>& location, bool create_shoes) {
+void ChTrackAssembly::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector3d& location, bool create_shoes) {
     m_parent = chassis;
     m_rel_loc = location;
 
@@ -95,12 +93,22 @@ void ChTrackAssembly::Initialize(std::shared_ptr<ChChassis> chassis, const ChVec
     // (implemented by derived classes)
     bool ccw = Assemble(chassis->GetBody());
 
-    // Loop over all track shoes and allow them to connect themselves to their neighbor
+    // Loop over all track shoes
+    // - allow them to connect themselves to their neighbor
+    // - add terrain loads to chassis container (these are used only when co-simulating with external terrain)
     size_t num_shoes = GetNumTrackShoes();
-    std::shared_ptr<ChTrackShoe> next;
     for (size_t i = 0; i < num_shoes; ++i) {
-        next = (i == num_shoes - 1) ? GetTrackShoe(0) : GetTrackShoe(i + 1);
-        GetTrackShoe(i)->Connect(next, this, chassis.get(), ccw);
+        auto this_shoe = GetTrackShoe(i);
+        auto next_shoe = (i == num_shoes - 1) ? GetTrackShoe(0) : GetTrackShoe(i + 1);
+        this_shoe->Connect(next_shoe, this, chassis.get(), ccw);
+        auto fload = chrono_types::make_shared<ChLoadBodyForce>(this_shoe->GetShoeBody(), VNULL, false, VNULL, false);
+        auto tload = chrono_types::make_shared<ChLoadBodyTorque>(this_shoe->GetShoeBody(), VNULL, false);
+        fload->SetName(this_shoe->m_name + "_terrain_force");
+        tload->SetName(this_shoe->m_name + "_terrain_torque");
+        m_shoe_terrain_forces.push_back(fload);
+        m_shoe_terrain_torques.push_back(tload);
+        chassis->AddTerrainLoad(fload);
+        chassis->AddTerrainLoad(tload);
     }
 
     // Mark as initialized
@@ -127,9 +135,9 @@ void ChTrackAssembly::InitializeInertiaProperties() {
 }
 
 void ChTrackAssembly::UpdateInertiaProperties() {
-    m_parent->GetTransform().TransformLocalToParent(ChFrame<>(m_rel_loc, QUNIT), m_xform);
+    m_xform = m_parent->GetTransform().TransformLocalToParent(ChFrame<>(m_rel_loc, QUNIT));
 
-    ChVector<> com(0);
+    ChVector3d com(0);
     ChMatrix33<> inertia(0);
 
     GetSprocket()->AddInertiaProperties(com, inertia);
@@ -145,10 +153,10 @@ void ChTrackAssembly::UpdateInertiaProperties() {
     for (size_t i = 0; i < GetNumTrackShoes(); ++i)
         GetTrackShoe(i)->AddInertiaProperties(com, inertia);
 
-    m_com.coord.pos = GetTransform().TransformPointParentToLocal(com / GetMass());
-    m_com.coord.rot = GetTransform().GetRot();
+    m_com.SetPos(GetTransform().TransformPointParentToLocal(com / GetMass()));
+    m_com.SetRot(GetTransform().GetRot());
 
-    const ChMatrix33<>& A = GetTransform().GetA();
+    const ChMatrix33<>& A = GetTransform().GetRotMat();
     m_inertia = A.transpose() * (inertia - utils::CompositeInertia::InertiaShiftMatrix(com)) * A;
 }
 
@@ -214,19 +222,27 @@ void ChTrackAssembly::SetWheelCollisionType(bool roadwheel_as_cylinder,
 // -----------------------------------------------------------------------------
 // Update the state of this track assembly at the current time.
 // -----------------------------------------------------------------------------
-void ChTrackAssembly::Synchronize(double time, double braking, const TerrainForces& shoe_forces) {
+void ChTrackAssembly::Synchronize(double time, double braking) {
     // Zero out applied torque on sprocket axle
-    GetSprocket()->m_axle->SetAppliedTorque(0.0);
+    GetSprocket()->m_axle->SetAppliedLoad(0.0);
+
+    // Apply braking input
+    m_brake->Synchronize(time, braking);
+}
+
+void ChTrackAssembly::Synchronize(double time, double braking, const TerrainForces& shoe_forces) {
+    Synchronize(time, braking);
 
     // Apply track shoe forces
     for (size_t i = 0; i < GetNumTrackShoes(); ++i) {
-        GetTrackShoe(i)->m_shoe->Empty_forces_accumulators();
-        GetTrackShoe(i)->m_shoe->Accumulate_force(shoe_forces[i].force, shoe_forces[i].point, false);
-        GetTrackShoe(i)->m_shoe->Accumulate_torque(shoe_forces[i].moment, false);
+        m_shoe_terrain_forces[i]->SetForce(shoe_forces[i].force, false);
+        m_shoe_terrain_forces[i]->SetApplicationPoint(shoe_forces[i].point, false);
+        m_shoe_terrain_torques[i]->SetTorque(shoe_forces[i].moment, false);
     }
+}
 
-    // Apply braking input
-    m_brake->Synchronize(braking);
+void ChTrackAssembly::Advance(double step) {
+    m_brake->Advance(step);
 }
 
 // -----------------------------------------------------------------------------
@@ -335,16 +351,16 @@ void ChTrackAssembly::Output(ChVehicleOutput& database) const {
 // Log constraint violations
 // -----------------------------------------------------------------------------
 void ChTrackAssembly::LogConstraintViolations() {
-    GetLog() << "SPROCKET constraint violations\n";
+    std::cout << "SPROCKET constraint violations\n";
     GetSprocket()->LogConstraintViolations();
-    GetLog() << "IDLER constraint violations\n";
+    std::cout << "IDLER constraint violations\n";
     m_idler->LogConstraintViolations();
     for (size_t i = 0; i < m_suspensions.size(); i++) {
-        GetLog() << "SUSPENSION #" << i << " constraint violations\n";
+        std::cout << "SUSPENSION #" << i << " constraint violations\n";
         m_suspensions[i]->LogConstraintViolations();
     }
     for (size_t i = 0; i < m_rollers.size(); i++) {
-        GetLog() << "ROLLER #" << i << " constraint violations\n";
+        std::cout << "ROLLER #" << i << " constraint violations\n";
         m_rollers[i]->LogConstraintViolations();
     }
 }

@@ -21,7 +21,7 @@
 // - Tip angle of twist with a small torque about the beam axis
 //
 // The multilayer formulation is checked against the solution given in Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics
-// of a large scale rigid–flexible multibody system composed of composite laminated plates." Multibody System Dynamics
+// of a large scale rigid-flexible multibody system composed of composite laminated plates." Multibody System Dynamics
 // 26, no. 3 (2011): 283-305.
 //
 // =============================================================================
@@ -98,7 +98,9 @@ bool AxialDisplacementCheck(int msglvl) {
 
     auto system = new ChSystemSMC();
     // Set gravity to 0 since this is a statics test against an analytical solution
-    system->Set_G_acc(ChVector<>(0, 0, 0));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, 0));
+
+    system->SetNumThreads(std::min(8, ChOMP::GetNumProcs()), 1, 1);
 
     auto solver = chrono_types::make_shared<ChSolverSparseQR>();
     solver->UseSparsityPatternLearner(true);
@@ -110,10 +112,8 @@ bool AxialDisplacementCheck(int msglvl) {
     system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::POSITION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
     integrator->SetModifiedNewton(true);
 
@@ -137,13 +137,13 @@ bool AxialDisplacementCheck(int msglvl) {
     double dx = length / (num_elements);
 
     // Setup shell position vector gradient to initially align with the global z direction
-    ChVector<> dir1(0, 0, 1);
+    ChVector3d dir1(0, 0, 1);
 
     // Create the first nodes and fix them completely to ground (Cantilever constraint)
-    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(0, -width / 2.0, 0.0), dir1);
+    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(0, -width / 2.0, 0.0), dir1);
     nodeA->SetFixed(true);
     mesh->AddNode(nodeA);
-    auto nodeD = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(0, width / 2.0, 0.0), dir1);
+    auto nodeD = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(0, width / 2.0, 0.0), dir1);
     nodeD->SetFixed(true);
     mesh->AddNode(nodeD);
 
@@ -151,15 +151,15 @@ bool AxialDisplacementCheck(int msglvl) {
     std::shared_ptr<ChNodeFEAxyzD> nodeEndPoint;
 
     for (int i = 1; i <= num_elements; i++) {
-        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, -width / 2.0, 0), dir1);
+        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, -width / 2.0, 0), dir1);
         mesh->AddNode(nodeB);
-        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, width / 2.0, 0), dir1);
+        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, width / 2.0, 0), dir1);
         mesh->AddNode(nodeC);
 
         auto element = chrono_types::make_shared<ChElementShellANCF_3423>();
         element->SetNodes(nodeA, nodeB, nodeC, nodeD);
         element->SetDimensions(dx, width);
-        element->AddLayer(height, 0 * CH_C_DEG_TO_RAD, material);
+        element->AddLayer(height, 0 * CH_DEG_TO_RAD, material);
         element->SetAlphaDamp(0.0);
         mesh->AddElement(element);
 
@@ -182,13 +182,12 @@ bool AxialDisplacementCheck(int msglvl) {
 
         // Compute F=F(u), the load at U. The load is a 6-row vector, i.e.
         // a wrench: forceX, forceY, forceZ, torqueX, torqueY, torqueZ.
-        virtual void ComputeF(
-            const double U,              ///< normalized position in the shell mid-plane u direction [-1...1]
-            const double V,              ///< normalized position in the shell mid-plane v direction [-1...1]
-            ChVectorDynamic<>& F,        ///< Load at UV
-            ChVectorDynamic<>* state_x,  ///< if != 0, update state (pos. part) to this, then evaluate F
-            ChVectorDynamic<>* state_w   ///< if != 0, update state (speed part) to this, then evaluate F
-            ) override {
+        virtual void ComputeF(double U,              // normalized position in the shell mid-plane u direction [-1...1]
+                              double V,              // normalized position in the shell mid-plane v direction [-1...1]
+                              ChVectorDynamic<>& F,  // Load at UV
+                              ChVectorDynamic<>* state_x,  // if != 0, update state (pos. part) to this, then evaluate F
+                              ChVectorDynamic<>* state_w  // if != 0, update state (speed part) to this, then evaluate F
+                              ) override {
             assert(auxsystem);
 
             F.setZero();
@@ -208,39 +207,38 @@ bool AxialDisplacementCheck(int msglvl) {
     // The ChLoad is a 'manager' for your ChLoader.
     // It is created using templates, that is instancing a ChLoad<my_loader_class>()
 
-    std::shared_ptr<ChLoad<MyLoaderTimeDependentTipLoad>> mload(new ChLoad<MyLoaderTimeDependentTipLoad>(elementlast));
-    mload->loader.auxsystem = system;        // initialize auxiliary data of the loader, if needed
-    mload->loader.SetApplication(1.0, 0.0);  // specify application point
-    loadcontainer->Add(mload);               // add the load to the load container.
+    auto loader = chrono_types::make_shared<MyLoaderTimeDependentTipLoad>(elementlast);
+    loader->auxsystem = system;        // initialize auxiliary data of the loader, if needed
+    loader->SetApplication(1.0, 0.0);  // specify application point
+    auto load = chrono_types::make_shared<ChLoad>(loader);
+    loadcontainer->Add(load);  // add the load to the load container.
 
     // Find the static solution for the system (final axial displacement)
     system->DoStaticLinear();
 
     // Calculate the axial displacement of the end of the ANCF shell mesh
-    ChVector<> point;
+    ChVector3d point;
     ChQuaternion<> rot;
     elementlast->EvaluateSectionFrame(1, 0, point, rot);
 
     // For Analytical Formula, see a mechanics of materials textbook (delta = (P*L)/(A*E))
     double Displacement_Theory = (TIP_FORCE * length) / (width * height * E);
     double Displacement_Model = point.x() - length;
-    ChVector<> Tip_Angles = rot.Q_to_Euler123();
+    ChVector3d Tip_Angles = rot.GetCardanAnglesXYZ();
 
     double Percent_Error = (Displacement_Model - Displacement_Theory) / Displacement_Theory * 100;
 
     bool passed_displacement = abs(Percent_Error) < 2.0;
-    bool passed_angles = (abs(Tip_Angles.x() * CH_C_RAD_TO_DEG) < 0.001) &&
-                         (abs(Tip_Angles.y() * CH_C_RAD_TO_DEG) < 0.001) &&
-                         (abs(Tip_Angles.z() * CH_C_RAD_TO_DEG) < 0.001);
+    bool passed_angles = (abs(Tip_Angles.x() * CH_RAD_TO_DEG) < 0.001) &&
+                         (abs(Tip_Angles.y() * CH_RAD_TO_DEG) < 0.001) && (abs(Tip_Angles.z() * CH_RAD_TO_DEG) < 0.001);
     bool passed_tests = passed_displacement && passed_angles;
 
     if (msglvl >= 2) {
         std::cout << "Axial Pull Test - ANCF Tip Position: " << point << "m" << std::endl;
         std::cout << "Axial Pull Test - ANCF Tip Displacement: " << Displacement_Model << "m" << std::endl;
         std::cout << "Axial Pull Test - Analytical Tip Displacement: " << Displacement_Theory << "m" << std::endl;
-        std::cout << "Axial Pull Test - ANCF Tip Angles: (" << Tip_Angles.x() * CH_C_RAD_TO_DEG << ", "
-                  << Tip_Angles.y() * CH_C_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_C_RAD_TO_DEG << ")deg"
-                  << std::endl;
+        std::cout << "Axial Pull Test - ANCF Tip Angles: (" << Tip_Angles.x() * CH_RAD_TO_DEG << ", "
+                  << Tip_Angles.y() * CH_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_RAD_TO_DEG << ")deg" << std::endl;
     }
     if (msglvl >= 1) {
         std::cout << "Axial Pull Test - Tip Displacement Check (Percent Error less than 2%) = " << Percent_Error << "%";
@@ -267,7 +265,9 @@ bool CantileverTipLoadCheck(int msglvl) {
 
     auto system = new ChSystemSMC();
     // Set gravity to 0 since this is a statics test against an analytical solution
-    system->Set_G_acc(ChVector<>(0, 0, 0));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, 0));
+
+    system->SetNumThreads(std::min(8, ChOMP::GetNumProcs()), 1, 1);
 
     auto solver = chrono_types::make_shared<ChSolverSparseQR>();
     solver->UseSparsityPatternLearner(true);
@@ -279,10 +279,8 @@ bool CantileverTipLoadCheck(int msglvl) {
     system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::POSITION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
     integrator->SetModifiedNewton(true);
 
@@ -306,13 +304,13 @@ bool CantileverTipLoadCheck(int msglvl) {
     double dx = length / (num_elements);
 
     // Setup shell position vector gradient to initially align with the global z direction
-    ChVector<> dir1(0, 0, 1);
+    ChVector3d dir1(0, 0, 1);
 
     // Create the first nodes and fix them completely to ground (Cantilever constraint)
-    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(0, -width / 2.0, 0.0), dir1);
+    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(0, -width / 2.0, 0.0), dir1);
     nodeA->SetFixed(true);
     mesh->AddNode(nodeA);
-    auto nodeD = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(0, width / 2.0, 0.0), dir1);
+    auto nodeD = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(0, width / 2.0, 0.0), dir1);
     nodeD->SetFixed(true);
     mesh->AddNode(nodeD);
 
@@ -320,15 +318,15 @@ bool CantileverTipLoadCheck(int msglvl) {
     std::shared_ptr<ChNodeFEAxyzD> nodeEndPoint;
 
     for (int i = 1; i <= num_elements; i++) {
-        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, -width / 2.0, 0), dir1);
+        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, -width / 2.0, 0), dir1);
         mesh->AddNode(nodeB);
-        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, width / 2.0, 0), dir1);
+        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, width / 2.0, 0), dir1);
         mesh->AddNode(nodeC);
 
         auto element = chrono_types::make_shared<ChElementShellANCF_3423>();
         element->SetNodes(nodeA, nodeB, nodeC, nodeD);
         element->SetDimensions(dx, width);
-        element->AddLayer(height, 0 * CH_C_DEG_TO_RAD, material);
+        element->AddLayer(height, 0 * CH_DEG_TO_RAD, material);
         element->SetAlphaDamp(0.0);
         mesh->AddElement(element);
 
@@ -351,13 +349,12 @@ bool CantileverTipLoadCheck(int msglvl) {
 
         // Compute F=F(u), the load at U. The load is a 6-row vector, i.e.
         // a wrench: forceX, forceY, forceZ, torqueX, torqueY, torqueZ.
-        virtual void ComputeF(
-            const double U,              ///< normalized position in the shell mid-plane u direction [-1...1]
-            const double V,              ///< normalized position in the shell mid-plane v direction [-1...1]
-            ChVectorDynamic<>& F,        ///< Load at UV
-            ChVectorDynamic<>* state_x,  ///< if != 0, update state (pos. part) to this, then evaluate F
-            ChVectorDynamic<>* state_w   ///< if != 0, update state (speed part) to this, then evaluate F
-            ) override {
+        virtual void ComputeF(double U,              // normalized position in the shell mid-plane u direction [-1...1]
+                              double V,              // normalized position in the shell mid-plane v direction [-1...1]
+                              ChVectorDynamic<>& F,  // Load at UV
+                              ChVectorDynamic<>* state_x,  // if != 0, update state (pos. part) to this, then evaluate F
+                              ChVectorDynamic<>* state_w  // if != 0, update state (speed part) to this, then evaluate F
+                              ) override {
             assert(auxsystem);
 
             F.setZero();
@@ -377,16 +374,17 @@ bool CantileverTipLoadCheck(int msglvl) {
     // The ChLoad is a 'manager' for your ChLoader.
     // It is created using templates, that is instancing a ChLoad<my_loader_class>()
 
-    std::shared_ptr<ChLoad<MyLoaderTimeDependentTipLoad>> mload(new ChLoad<MyLoaderTimeDependentTipLoad>(elementlast));
-    mload->loader.auxsystem = system;        // initialize auxiliary data of the loader, if needed
-    mload->loader.SetApplication(1.0, 0.0);  // specify application point
-    loadcontainer->Add(mload);               // add the load to the load container.
+    auto loader = chrono_types::make_shared<MyLoaderTimeDependentTipLoad>(elementlast);
+    loader->auxsystem = system;        // initialize auxiliary data of the loader, if needed
+    loader->SetApplication(1.0, 0.0);  // specify application point
+    auto load = chrono_types::make_shared<ChLoad>(loader);
+    loadcontainer->Add(load);  // add the load to the load container.
 
     // Find the static solution for the system (final displacement)
     system->DoStaticLinear();
 
     // Calculate the displacement of the end of the ANCF beam mesh
-    ChVector<> point;
+    ChVector3d point;
     ChQuaternion<> rot;
     elementlast->EvaluateSectionFrame(1, 0, point, rot);
 
@@ -394,7 +392,7 @@ bool CantileverTipLoadCheck(int msglvl) {
     double I = 1.0 / 12.0 * width * std::pow(height, 3);
     double Displacement_Theory = (TIP_FORCE * std::pow(length, 3)) / (3.0 * E * I);
     double Displacement_Model = point.z();
-    ChVector<> Tip_Angles = rot.Q_to_Euler123();
+    ChVector3d Tip_Angles = rot.GetCardanAnglesXYZ();
 
     double Percent_Error = (Displacement_Model - Displacement_Theory) / Displacement_Theory * 100.0;
 
@@ -402,8 +400,7 @@ bool CantileverTipLoadCheck(int msglvl) {
     // instead of 12%
     bool passed_displacement = abs(Percent_Error) < 15;
     // check the off-axis angles which should be zeros
-    bool passed_angles =
-        (abs(Tip_Angles.x() * CH_C_RAD_TO_DEG) < 0.001) && (abs(Tip_Angles.z() * CH_C_RAD_TO_DEG) < 0.001);
+    bool passed_angles = (abs(Tip_Angles.x() * CH_RAD_TO_DEG) < 0.001) && (abs(Tip_Angles.z() * CH_RAD_TO_DEG) < 0.001);
     bool passed_tests = passed_displacement && passed_angles;
 
     if (msglvl >= 2) {
@@ -411,9 +408,8 @@ bool CantileverTipLoadCheck(int msglvl) {
         std::cout << "Cantilever Beam (Tip Load) - ANCF Tip Displacement: " << Displacement_Model << "m" << std::endl;
         std::cout << "Cantilever Beam (Tip Load) - Analytical Tip Displacement: " << Displacement_Theory << "m"
                   << std::endl;
-        std::cout << "Cantilever Beam (Tip Load) - ANCF Tip Angles: (" << Tip_Angles.x() * CH_C_RAD_TO_DEG << ", "
-                  << Tip_Angles.y() * CH_C_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_C_RAD_TO_DEG << ")deg"
-                  << std::endl;
+        std::cout << "Cantilever Beam (Tip Load) - ANCF Tip Angles: (" << Tip_Angles.x() * CH_RAD_TO_DEG << ", "
+                  << Tip_Angles.y() * CH_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_RAD_TO_DEG << ")deg" << std::endl;
     }
     if (msglvl >= 1) {
         std::cout << "Cantilever Beam (Tip Load) - Tip Displacement Check (Percent Error less than 15%) = "
@@ -442,7 +438,9 @@ bool CantileverGravityCheck(int msglvl) {
 
     auto system = new ChSystemSMC();
     double g = -9.80665;
-    system->Set_G_acc(ChVector<>(0, 0, g));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, g));
+
+    system->SetNumThreads(std::min(8, ChOMP::GetNumProcs()), 1, 1);
 
     auto solver = chrono_types::make_shared<ChSolverSparseQR>();
     solver->UseSparsityPatternLearner(true);
@@ -454,10 +452,8 @@ bool CantileverGravityCheck(int msglvl) {
     system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::POSITION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
     integrator->SetModifiedNewton(true);
 
@@ -481,13 +477,13 @@ bool CantileverGravityCheck(int msglvl) {
     double dx = length / (num_elements);
 
     // Setup shell position vector gradient to initially align with the global z direction
-    ChVector<> dir1(0, 0, 1);
+    ChVector3d dir1(0, 0, 1);
 
     // Create the first nodes and fix them completely to ground (Cantilever constraint)
-    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(0, -width / 2.0, 0.0), dir1);
+    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(0, -width / 2.0, 0.0), dir1);
     nodeA->SetFixed(true);
     mesh->AddNode(nodeA);
-    auto nodeD = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(0, width / 2.0, 0.0), dir1);
+    auto nodeD = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(0, width / 2.0, 0.0), dir1);
     nodeD->SetFixed(true);
     mesh->AddNode(nodeD);
 
@@ -495,15 +491,15 @@ bool CantileverGravityCheck(int msglvl) {
     std::shared_ptr<ChNodeFEAxyzD> nodeEndPoint;
 
     for (int i = 1; i <= num_elements; i++) {
-        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, -width / 2.0, 0), dir1);
+        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, -width / 2.0, 0), dir1);
         mesh->AddNode(nodeB);
-        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, width / 2.0, 0), dir1);
+        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, width / 2.0, 0), dir1);
         mesh->AddNode(nodeC);
 
         auto element = chrono_types::make_shared<ChElementShellANCF_3423>();
         element->SetNodes(nodeA, nodeB, nodeC, nodeD);
         element->SetDimensions(dx, width);
-        element->AddLayer(height, 0 * CH_C_DEG_TO_RAD, material);
+        element->AddLayer(height, 0 * CH_DEG_TO_RAD, material);
         element->SetAlphaDamp(0.0);
         mesh->AddElement(element);
 
@@ -518,7 +514,7 @@ bool CantileverGravityCheck(int msglvl) {
     system->DoStaticLinear();
 
     // Calculate the displacement of the end of the ANCF beam mesh
-    ChVector<> point;
+    ChVector3d point;
     ChQuaternion<> rot;
     elementlast->EvaluateSectionFrame(1, 0, point, rot);
 
@@ -526,7 +522,7 @@ bool CantileverGravityCheck(int msglvl) {
     double I = 1.0 / 12.0 * width * std::pow(height, 3);
     double Displacement_Theory = (rho * width * height * g * std::pow(length, 4)) / (8.0 * E * I);
     double Displacement_Model = point.z();
-    ChVector<> Tip_Angles = rot.Q_to_Euler123();
+    ChVector3d Tip_Angles = rot.GetCardanAnglesXYZ();
 
     double Percent_Error = (Displacement_Model - Displacement_Theory) / Displacement_Theory * 100.0;
 
@@ -534,8 +530,7 @@ bool CantileverGravityCheck(int msglvl) {
     // instead of 12%
     bool passed_displacement = abs(Percent_Error) < 15;
     // check the off-axis angles which should be zeros
-    bool passed_angles =
-        (abs(Tip_Angles.x() * CH_C_RAD_TO_DEG) < 0.001) && (abs(Tip_Angles.z() * CH_C_RAD_TO_DEG) < 0.001);
+    bool passed_angles = (abs(Tip_Angles.x() * CH_RAD_TO_DEG) < 0.001) && (abs(Tip_Angles.z() * CH_RAD_TO_DEG) < 0.001);
     bool passed_tests = passed_displacement && passed_angles;
 
     if (msglvl >= 2) {
@@ -544,9 +539,8 @@ bool CantileverGravityCheck(int msglvl) {
                   << std::endl;
         std::cout << "Cantilever Beam (Gravity Load) - Analytical Tip Displacement: " << Displacement_Theory << "m"
                   << std::endl;
-        std::cout << "Cantilever Beam (Gravity Load) - ANCF Tip Angles: (" << Tip_Angles.x() * CH_C_RAD_TO_DEG << ", "
-                  << Tip_Angles.y() * CH_C_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_C_RAD_TO_DEG << ")deg"
-                  << std::endl;
+        std::cout << "Cantilever Beam (Gravity Load) - ANCF Tip Angles: (" << Tip_Angles.x() * CH_RAD_TO_DEG << ", "
+                  << Tip_Angles.y() * CH_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_RAD_TO_DEG << ")deg" << std::endl;
     }
     if (msglvl >= 1) {
         std::cout << "Cantilever Beam (Gravity Load) - Tip Displacement Check (Percent Error less than 15%) = "
@@ -575,7 +569,9 @@ bool AxialTwistCheck(int msglvl) {
 
     auto system = new ChSystemSMC();
     // Set gravity to 0 since this is a statics test against an analytical solution
-    system->Set_G_acc(ChVector<>(0, 0, 0));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, 0));
+
+    system->SetNumThreads(std::min(8, ChOMP::GetNumProcs()), 1, 1);
 
     auto solver = chrono_types::make_shared<ChSolverSparseQR>();
     solver->UseSparsityPatternLearner(true);
@@ -587,10 +583,8 @@ bool AxialTwistCheck(int msglvl) {
     system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::POSITION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
     integrator->SetModifiedNewton(true);
 
@@ -615,13 +609,13 @@ bool AxialTwistCheck(int msglvl) {
     double dx = length / (num_elements);
 
     // Setup shell position vector gradient to initially align with the global z direction
-    ChVector<> dir1(0, 0, 1);
+    ChVector3d dir1(0, 0, 1);
 
     // Create the first nodes and fix them completely to ground (Cantilever constraint)
-    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(0, -width / 2.0, 0.0), dir1);
+    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(0, -width / 2.0, 0.0), dir1);
     nodeA->SetFixed(true);
     mesh->AddNode(nodeA);
-    auto nodeD = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(0, width / 2.0, 0.0), dir1);
+    auto nodeD = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(0, width / 2.0, 0.0), dir1);
     nodeD->SetFixed(true);
     mesh->AddNode(nodeD);
 
@@ -629,15 +623,15 @@ bool AxialTwistCheck(int msglvl) {
     std::shared_ptr<ChNodeFEAxyzD> nodeEndPoint;
 
     for (int i = 1; i <= num_elements; i++) {
-        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, -width / 2.0, 0), dir1);
+        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, -width / 2.0, 0), dir1);
         mesh->AddNode(nodeB);
-        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, width / 2.0, 0), dir1);
+        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, width / 2.0, 0), dir1);
         mesh->AddNode(nodeC);
 
         auto element = chrono_types::make_shared<ChElementShellANCF_3423>();
         element->SetNodes(nodeA, nodeB, nodeC, nodeD);
         element->SetDimensions(dx, width);
-        element->AddLayer(height, 0 * CH_C_DEG_TO_RAD, material);
+        element->AddLayer(height, 0 * CH_DEG_TO_RAD, material);
         element->SetAlphaDamp(0.0);
         mesh->AddElement(element);
 
@@ -660,13 +654,12 @@ bool AxialTwistCheck(int msglvl) {
 
         // Compute F=F(u), the load at U. The load is a 6-row vector, i.e.
         // a wrench: forceX, forceY, forceZ, torqueX, torqueY, torqueZ.
-        virtual void ComputeF(
-            const double U,              ///< normalized position in the shell mid-plane u direction [-1...1]
-            const double V,              ///< normalized position in the shell mid-plane v direction [-1...1]
-            ChVectorDynamic<>& F,        ///< Load at UV
-            ChVectorDynamic<>* state_x,  ///< if != 0, update state (pos. part) to this, then evaluate F
-            ChVectorDynamic<>* state_w   ///< if != 0, update state (speed part) to this, then evaluate F
-            ) override {
+        virtual void ComputeF(double U,              // normalized position in the shell mid-plane u direction [-1...1]
+                              double V,              // normalized position in the shell mid-plane v direction [-1...1]
+                              ChVectorDynamic<>& F,  // Load at UV
+                              ChVectorDynamic<>* state_x,  // if != 0, update state (pos. part) to this, then evaluate F
+                              ChVectorDynamic<>* state_w  // if != 0, update state (speed part) to this, then evaluate F
+                              ) override {
             assert(auxsystem);
 
             F.setZero();
@@ -686,19 +679,20 @@ bool AxialTwistCheck(int msglvl) {
     // The ChLoad is a 'manager' for your ChLoader.
     // It is created using templates, that is instancing a ChLoad<my_loader_class>()
 
-    std::shared_ptr<ChLoad<MyLoaderTimeDependentTipLoad>> mload(new ChLoad<MyLoaderTimeDependentTipLoad>(elementlast));
-    mload->loader.auxsystem = system;        // initialize auxiliary data of the loader, if needed
-    mload->loader.SetApplication(1.0, 0.0);  // specify application point
-    loadcontainer->Add(mload);               // add the load to the load container.
+    auto loader = chrono_types::make_shared<MyLoaderTimeDependentTipLoad>(elementlast);
+    loader->auxsystem = system;        // initialize auxiliary data of the loader, if needed
+    loader->SetApplication(1.0, 0.0);  // specify application point
+    auto load = chrono_types::make_shared<ChLoad>(loader);
+    loadcontainer->Add(load);  // add the load to the load container.
 
     // Find the static solution for the system (final twist angle)
     system->DoStaticLinear();
 
     // Calculate the twist angle of the end of the ANCF beam mesh
-    ChVector<> point;
+    ChVector3d point;
     ChQuaternion<> rot;
     elementlast->EvaluateSectionFrame(1, 0, point, rot);
-    ChVector<> Tip_Angles = rot.Q_to_Euler123();
+    ChVector3d Tip_Angles = rot.GetCardanAnglesXYZ();
 
     // For Analytical Formula, see: https://en.wikipedia.org/wiki/Torsion_constant
     double J = 0.281 * width * std::pow(height, 3);
@@ -708,18 +702,16 @@ bool AxialTwistCheck(int msglvl) {
 
     bool passed_twist = abs(Percent_Error) < 15;
     // check the off-axis angles which should be zeros
-    bool passed_angles =
-        (abs(Tip_Angles.y() * CH_C_RAD_TO_DEG) < 0.001) && (abs(Tip_Angles.z() * CH_C_RAD_TO_DEG) < 0.001);
+    bool passed_angles = (abs(Tip_Angles.y() * CH_RAD_TO_DEG) < 0.001) && (abs(Tip_Angles.z() * CH_RAD_TO_DEG) < 0.001);
     bool passed_tests = passed_twist && passed_angles;
 
     if (msglvl >= 2) {
         std::cout << "Axial Twist - ANCF Tip Position: " << point << "m" << std::endl;
-        std::cout << "Axial Twist - ANCF Twist Angles (Euler 123): " << Tip_Angles * CH_C_RAD_TO_DEG << "deg"
+        std::cout << "Axial Twist - ANCF Twist Angles (Euler 123): " << Tip_Angles * CH_RAD_TO_DEG << "deg"
                   << std::endl;
-        std::cout << "Axial Twist - Analytical Twist Angle: " << Angle_Theory * CH_C_RAD_TO_DEG << "deg" << std::endl;
-        std::cout << "Axial Twist - ANCF Tip Angles: (" << Tip_Angles.x() * CH_C_RAD_TO_DEG << ", "
-                  << Tip_Angles.y() * CH_C_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_C_RAD_TO_DEG << ")deg"
-                  << std::endl;
+        std::cout << "Axial Twist - Analytical Twist Angle: " << Angle_Theory * CH_RAD_TO_DEG << "deg" << std::endl;
+        std::cout << "Axial Twist - ANCF Tip Angles: (" << Tip_Angles.x() * CH_RAD_TO_DEG << ", "
+                  << Tip_Angles.y() * CH_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_RAD_TO_DEG << ")deg" << std::endl;
     }
     if (msglvl >= 1) {
         std::cout << "Axial Twist - Twist Angle Check (Percent Error less than 15%) = " << Percent_Error << "%";
@@ -741,14 +733,16 @@ bool AxialTwistCheck(int msglvl) {
 bool MLCantileverCheck1A(int msglvl) {
     // =============================================================================
     //  Check the Displacement of a Composite Layup
-    //  Test Problem From Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics of a large scale rigid–flexible multibody
+    //  Test Problem From Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics of a large scale rigidï¿½flexible multibody
     //  system composed of composite laminated plates." Multibody System Dynamics 26, no. 3 (2011): 283-305.
     //  Layup 1 - All 4 Orthotropic Layers Aligned - 1st Load Case
     // =============================================================================
 
     auto system = new ChSystemSMC();
     // Set gravity to 0 to match the reference solution
-    system->Set_G_acc(ChVector<>(0, 0, -9810));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, -9810));
+
+    system->SetNumThreads(std::min(8, ChOMP::GetNumProcs()), 1, 1);
 
     auto solver = chrono_types::make_shared<ChSolverSparseQR>();
     solver->UseSparsityPatternLearner(true);
@@ -760,10 +754,8 @@ bool MLCantileverCheck1A(int msglvl) {
     system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::POSITION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
     integrator->SetModifiedNewton(true);
 
@@ -775,9 +767,9 @@ bool MLCantileverCheck1A(int msglvl) {
     double layer_thickness = 0.25;  // mm
 
     double rho = 7.8e-9;                  // kg/mm^3
-    ChVector<> E(177e3, 10.8e3, 10.8e3);  // MPa
-    ChVector<> nu(0, 0, 0);
-    ChVector<> G(7.6e3, 7.6e3, 8.504e3);  // MPa
+    ChVector3d E(177e3, 10.8e3, 10.8e3);  // MPa
+    ChVector3d nu(0, 0, 0);
+    ChVector3d G(7.6e3, 7.6e3, 8.504e3);  // MPa
 
     auto material = chrono_types::make_shared<ChMaterialShellANCF>(rho, E, nu, G);
 
@@ -790,7 +782,7 @@ bool MLCantileverCheck1A(int msglvl) {
     double dy = width / (num_elements_y);
 
     // Setup shell position vector gradient to initially align with the global z direction
-    ChVector<> dir1(0, 0, 1);
+    ChVector3d dir1(0, 0, 1);
 
     auto elementlast = chrono_types::make_shared<ChElementShellANCF_3423>();
     std::shared_ptr<ChNodeFEAxyzD> nodeEndPoint;
@@ -798,7 +790,7 @@ bool MLCantileverCheck1A(int msglvl) {
     // Create and add the nodes
     for (auto i = 0; i <= num_elements_x; i++) {
         for (auto j = 0; j <= num_elements_y; j++) {
-            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, dy * j, 0.0), dir1);
+            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, dy * j, 0.0), dir1);
             mesh->AddNode(node);
 
             // Fix only the nodes along x=0
@@ -824,10 +816,10 @@ bool MLCantileverCheck1A(int msglvl) {
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(nodeC_idx)),
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(nodeD_idx)));
             element->SetDimensions(dx, dy);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
             element->SetAlphaDamp(0.0);
             mesh->AddElement(element);
 
@@ -839,20 +831,19 @@ bool MLCantileverCheck1A(int msglvl) {
     system->DoStaticNonlinear(50);
 
     // Calculate the displacement of the corner of the ANCF shell mesh
-    ChVector<> point;
+    ChVector3d point;
     ChQuaternion<> rot;
     elementlast->EvaluateSectionFrame(1, 1, point, rot);
 
     // Expect Value From Liu et al. ABAQUS Model
     double Displacement_Expected = -40.3;
     double Displacement_Model = point.z();
-    ChVector<> Tip_Angles = rot.Q_to_Euler123();
+    ChVector3d Tip_Angles = rot.GetCardanAnglesXYZ();
 
     double Percent_Error = (Displacement_Model - Displacement_Expected) / Displacement_Expected * 100.0;
 
     bool passed_displacement = abs(Percent_Error) < 5.0;
-    bool passed_angles =
-        (abs(Tip_Angles.x() * CH_C_RAD_TO_DEG) < 0.01) && (abs(Tip_Angles.z() * CH_C_RAD_TO_DEG) < 0.01);
+    bool passed_angles = (abs(Tip_Angles.x() * CH_RAD_TO_DEG) < 0.01) && (abs(Tip_Angles.z() * CH_RAD_TO_DEG) < 0.01);
     bool passed_tests = passed_displacement && passed_angles;
 
     if (msglvl >= 2) {
@@ -860,9 +851,8 @@ bool MLCantileverCheck1A(int msglvl) {
         std::cout << "Multilayer Plate Layup 1A - ANCF Tip Displacement: " << Displacement_Model << "mm" << std::endl;
         std::cout << "Multilayer Plate Layup 1A - Expected Tip Displacement: " << Displacement_Expected << "mm"
                   << std::endl;
-        std::cout << "Multilayer Plate Layup 1A - ANCF Tip Angles: (" << Tip_Angles.x() * CH_C_RAD_TO_DEG << ", "
-                  << Tip_Angles.y() * CH_C_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_C_RAD_TO_DEG << ")deg"
-                  << std::endl;
+        std::cout << "Multilayer Plate Layup 1A - ANCF Tip Angles: (" << Tip_Angles.x() * CH_RAD_TO_DEG << ", "
+                  << Tip_Angles.y() * CH_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_RAD_TO_DEG << ")deg" << std::endl;
     }
     if (msglvl >= 1) {
         std::cout << "Multilayer Plate Layup 1A - Tip Displacement Check (Percent Error less than 5%) = "
@@ -885,14 +875,16 @@ bool MLCantileverCheck1A(int msglvl) {
 bool MLCantileverCheck1B(int msglvl) {
     // =============================================================================
     //  Check the Displacement of a Composite Layup
-    //  Test Problem From Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics of a large scale rigid–flexible multibody
+    //  Test Problem From Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics of a large scale rigidï¿½flexible multibody
     //  system composed of composite laminated plates." Multibody System Dynamics 26, no. 3 (2011): 283-305.
     //  Layup 1 - All 4 Orthotropic Layers Aligned - 2nd Load Case
     // =============================================================================
 
     auto system = new ChSystemSMC();
     // Set gravity to 0 to match the reference solution
-    system->Set_G_acc(ChVector<>(0, 0, -9810));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, -9810));
+
+    system->SetNumThreads(std::min(8, ChOMP::GetNumProcs()), 1, 1);
 
     auto solver = chrono_types::make_shared<ChSolverSparseQR>();
     solver->UseSparsityPatternLearner(true);
@@ -904,10 +896,8 @@ bool MLCantileverCheck1B(int msglvl) {
     system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::POSITION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
     integrator->SetModifiedNewton(true);
 
@@ -919,9 +909,9 @@ bool MLCantileverCheck1B(int msglvl) {
     double layer_thickness = 0.25;  // mm
 
     double rho = 7.8e-9;                  // kg/mm^3
-    ChVector<> E(177e3, 10.8e3, 10.8e3);  // MPa
-    ChVector<> nu(0, 0, 0);
-    ChVector<> G(7.6e3, 7.6e3, 8.504e3);  // MPa
+    ChVector3d E(177e3, 10.8e3, 10.8e3);  // MPa
+    ChVector3d nu(0, 0, 0);
+    ChVector3d G(7.6e3, 7.6e3, 8.504e3);  // MPa
 
     auto material = chrono_types::make_shared<ChMaterialShellANCF>(rho, E, nu, G);
 
@@ -934,7 +924,7 @@ bool MLCantileverCheck1B(int msglvl) {
     double dy = width / (num_elements_y);
 
     // Setup shell position vector gradient to initially align with the global z direction
-    ChVector<> dir1(0, 0, 1);
+    ChVector3d dir1(0, 0, 1);
 
     auto elementlast = chrono_types::make_shared<ChElementShellANCF_3423>();
     std::shared_ptr<ChNodeFEAxyzD> nodeEndPoint;
@@ -942,7 +932,7 @@ bool MLCantileverCheck1B(int msglvl) {
     // Create and add the nodes
     for (auto i = 0; i <= num_elements_x; i++) {
         for (auto j = 0; j <= num_elements_y; j++) {
-            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, dy * j, 0.0), dir1);
+            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, dy * j, 0.0), dir1);
             mesh->AddNode(node);
 
             // Fix only the nodes along y=0
@@ -971,10 +961,10 @@ bool MLCantileverCheck1B(int msglvl) {
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(nodeC_idx)),
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(nodeD_idx)));
             element->SetDimensions(dx, dy);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
             element->SetAlphaDamp(0.0);
             mesh->AddElement(element);
 
@@ -986,20 +976,19 @@ bool MLCantileverCheck1B(int msglvl) {
     system->DoStaticNonlinear(50);
 
     // Calculate the displacement of the corner of the ANCF shell mesh
-    ChVector<> point;
+    ChVector3d point;
     ChQuaternion<> rot;
     elementlast->EvaluateSectionFrame(1, 1, point, rot);
 
     // Expect Value From Liu et al. ABAQUS Model
     double Displacement_Expected = -357.5;
     double Displacement_Model = point.z();
-    ChVector<> Tip_Angles = rot.Q_to_Euler123();
+    ChVector3d Tip_Angles = rot.GetCardanAnglesXYZ();
 
     double Percent_Error = (Displacement_Model - Displacement_Expected) / Displacement_Expected * 100.0;
 
     bool passed_displacement = abs(Percent_Error) < 5.0;
-    bool passed_angles =
-        (abs(Tip_Angles.y() * CH_C_RAD_TO_DEG) < 0.01) && (abs(Tip_Angles.z() * CH_C_RAD_TO_DEG) < 0.01);
+    bool passed_angles = (abs(Tip_Angles.y() * CH_RAD_TO_DEG) < 0.01) && (abs(Tip_Angles.z() * CH_RAD_TO_DEG) < 0.01);
     bool passed_tests = passed_displacement && passed_angles;
 
     if (msglvl >= 2) {
@@ -1007,9 +996,8 @@ bool MLCantileverCheck1B(int msglvl) {
         std::cout << "Multilayer Plate Layup 1B - ANCF Tip Displacement: " << Displacement_Model << "mm" << std::endl;
         std::cout << "Multilayer Plate Layup 1B - Expected Tip Displacement: " << Displacement_Expected << "mm"
                   << std::endl;
-        std::cout << "Multilayer Plate Layup 1B - ANCF Tip Angles: (" << Tip_Angles.x() * CH_C_RAD_TO_DEG << ", "
-                  << Tip_Angles.y() * CH_C_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_C_RAD_TO_DEG << ")deg"
-                  << std::endl;
+        std::cout << "Multilayer Plate Layup 1B - ANCF Tip Angles: (" << Tip_Angles.x() * CH_RAD_TO_DEG << ", "
+                  << Tip_Angles.y() * CH_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_RAD_TO_DEG << ")deg" << std::endl;
     }
     if (msglvl >= 1) {
         std::cout << "Multilayer Plate Layup 1B - Tip Displacement Check (Percent Error less than 5%) = "
@@ -1032,14 +1020,16 @@ bool MLCantileverCheck1B(int msglvl) {
 bool MLCantileverCheck2A(int msglvl) {
     // =============================================================================
     //  Check the Displacement of a Composite Layup
-    //  Test Problem From Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics of a large scale rigid–flexible multibody
+    //  Test Problem From Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics of a large scale rigidï¿½flexible multibody
     //  system composed of composite laminated plates." Multibody System Dynamics 26, no. 3 (2011): 283-305.
     //  Layup 2 - Top and Bottom Orthotropic Layers Aligned, Middle Aligned at 90deg - 1st Load Case
     // =============================================================================
 
     auto system = new ChSystemSMC();
     // Set gravity to 0 to match the reference solution
-    system->Set_G_acc(ChVector<>(0, 0, -9810));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, -9810));
+
+    system->SetNumThreads(std::min(8, ChOMP::GetNumProcs()), 1, 1);
 
     auto solver = chrono_types::make_shared<ChSolverSparseQR>();
     solver->UseSparsityPatternLearner(true);
@@ -1051,10 +1041,8 @@ bool MLCantileverCheck2A(int msglvl) {
     system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::POSITION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
     integrator->SetModifiedNewton(true);
 
@@ -1066,9 +1054,9 @@ bool MLCantileverCheck2A(int msglvl) {
     double layer_thickness = 0.25;  // mm
 
     double rho = 7.8e-9;                  // kg/mm^3
-    ChVector<> E(177e3, 10.8e3, 10.8e3);  // MPa
-    ChVector<> nu(0, 0, 0);
-    ChVector<> G(7.6e3, 7.6e3, 8.504e3);  // MPa
+    ChVector3d E(177e3, 10.8e3, 10.8e3);  // MPa
+    ChVector3d nu(0, 0, 0);
+    ChVector3d G(7.6e3, 7.6e3, 8.504e3);  // MPa
 
     auto material = chrono_types::make_shared<ChMaterialShellANCF>(rho, E, nu, G);
 
@@ -1081,7 +1069,7 @@ bool MLCantileverCheck2A(int msglvl) {
     double dy = width / (num_elements_y);
 
     // Setup shell position vector gradient to initially align with the global z direction
-    ChVector<> dir1(0, 0, 1);
+    ChVector3d dir1(0, 0, 1);
 
     auto elementlast = chrono_types::make_shared<ChElementShellANCF_3423>();
     std::shared_ptr<ChNodeFEAxyzD> nodeEndPoint;
@@ -1089,7 +1077,7 @@ bool MLCantileverCheck2A(int msglvl) {
     // Create and add the nodes
     for (auto i = 0; i <= num_elements_x; i++) {
         for (auto j = 0; j <= num_elements_y; j++) {
-            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, dy * j, 0.0), dir1);
+            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, dy * j, 0.0), dir1);
             mesh->AddNode(node);
 
             // Fix only the nodes along x=0
@@ -1118,10 +1106,10 @@ bool MLCantileverCheck2A(int msglvl) {
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(nodeC_idx)),
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(nodeD_idx)));
             element->SetDimensions(dx, dy);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 90 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 90 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 90 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 90 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
             element->SetAlphaDamp(0.0);
             mesh->AddElement(element);
 
@@ -1133,20 +1121,19 @@ bool MLCantileverCheck2A(int msglvl) {
     system->DoStaticNonlinear(50);
 
     // Calculate the displacement of the end of the ANCF beam mesh
-    ChVector<> point;
+    ChVector3d point;
     ChQuaternion<> rot;
     elementlast->EvaluateSectionFrame(1, 1, point, rot);
 
     // Expect Value From Liu et al. ABAQUS Model
     double Displacement_Expected = -45.6;
     double Displacement_Model = point.z();
-    ChVector<> Tip_Angles = rot.Q_to_Euler123();
+    ChVector3d Tip_Angles = rot.GetCardanAnglesXYZ();
 
     double Percent_Error = (Displacement_Model - Displacement_Expected) / Displacement_Expected * 100.0;
 
     bool passed_displacement = abs(Percent_Error) < 5.0;
-    bool passed_angles =
-        (abs(Tip_Angles.x() * CH_C_RAD_TO_DEG) < 0.01) && (abs(Tip_Angles.z() * CH_C_RAD_TO_DEG) < 0.01);
+    bool passed_angles = (abs(Tip_Angles.x() * CH_RAD_TO_DEG) < 0.01) && (abs(Tip_Angles.z() * CH_RAD_TO_DEG) < 0.01);
     bool passed_tests = passed_displacement && passed_angles;
 
     if (msglvl >= 2) {
@@ -1154,9 +1141,8 @@ bool MLCantileverCheck2A(int msglvl) {
         std::cout << "Multilayer Plate Layup 2A - ANCF Tip Displacement: " << Displacement_Model << "mm" << std::endl;
         std::cout << "Multilayer Plate Layup 2A - Expected Tip Displacement: " << Displacement_Expected << "mm"
                   << std::endl;
-        std::cout << "Multilayer Plate Layup 2A - ANCF Tip Angles: (" << Tip_Angles.x() * CH_C_RAD_TO_DEG << ", "
-                  << Tip_Angles.y() * CH_C_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_C_RAD_TO_DEG << ")deg"
-                  << std::endl;
+        std::cout << "Multilayer Plate Layup 2A - ANCF Tip Angles: (" << Tip_Angles.x() * CH_RAD_TO_DEG << ", "
+                  << Tip_Angles.y() * CH_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_RAD_TO_DEG << ")deg" << std::endl;
     }
     if (msglvl >= 1) {
         std::cout << "Multilayer Plate Layup 2A - Tip Displacement Check (Percent Error less than 5%) = "
@@ -1179,14 +1165,16 @@ bool MLCantileverCheck2A(int msglvl) {
 bool MLCantileverCheck2B(int msglvl) {
     // =============================================================================
     //  Check the Displacement of a Composite Layup
-    //  Test Problem From Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics of a large scale rigid–flexible multibody
+    //  Test Problem From Liu, Cheng, Qiang Tian, and Haiyan Hu. "Dynamics of a large scale rigidï¿½flexible multibody
     //  system composed of composite laminated plates." Multibody System Dynamics 26, no. 3 (2011): 283-305.
     //  Layup 2 - Top and Bottom Orthotropic Layers Aligned, Middle Aligned at 90deg - 2nd Load Case
     // =============================================================================
 
     auto system = new ChSystemSMC();
     // Set gravity to 0 to match the reference solution
-    system->Set_G_acc(ChVector<>(0, 0, -9810));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, -9810));
+
+    system->SetNumThreads(std::min(8, ChOMP::GetNumProcs()), 1, 1);
 
     auto solver = chrono_types::make_shared<ChSolverSparseQR>();
     solver->UseSparsityPatternLearner(true);
@@ -1198,10 +1186,8 @@ bool MLCantileverCheck2B(int msglvl) {
     system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::POSITION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
     integrator->SetModifiedNewton(true);
 
@@ -1213,9 +1199,9 @@ bool MLCantileverCheck2B(int msglvl) {
     double layer_thickness = 0.25;  // mm
 
     double rho = 7.8e-9;                  // kg/mm^3
-    ChVector<> E(177e3, 10.8e3, 10.8e3);  // MPa
-    ChVector<> nu(0, 0, 0);
-    ChVector<> G(7.6e3, 7.6e3, 8.504e3);  // MPa
+    ChVector3d E(177e3, 10.8e3, 10.8e3);  // MPa
+    ChVector3d nu(0, 0, 0);
+    ChVector3d G(7.6e3, 7.6e3, 8.504e3);  // MPa
 
     auto material = chrono_types::make_shared<ChMaterialShellANCF>(rho, E, nu, G);
 
@@ -1228,7 +1214,7 @@ bool MLCantileverCheck2B(int msglvl) {
     double dy = width / (num_elements_y);
 
     // Setup shell position vector gradient to initially align with the global z direction
-    ChVector<> dir1(0, 0, 1);
+    ChVector3d dir1(0, 0, 1);
 
     auto elementlast = chrono_types::make_shared<ChElementShellANCF_3423>();
     std::shared_ptr<ChNodeFEAxyzD> nodeEndPoint;
@@ -1236,7 +1222,7 @@ bool MLCantileverCheck2B(int msglvl) {
     // Create and add the nodes
     for (auto i = 0; i <= num_elements_x; i++) {
         for (auto j = 0; j <= num_elements_y; j++) {
-            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(dx * i, dy * j, 0.0), dir1);
+            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(dx * i, dy * j, 0.0), dir1);
             mesh->AddNode(node);
 
             // Fix only the nodes along y=0
@@ -1262,10 +1248,10 @@ bool MLCantileverCheck2B(int msglvl) {
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(nodeC_idx)),
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(nodeD_idx)));
             element->SetDimensions(dx, dy);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 90 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 90 * CH_C_DEG_TO_RAD, material);
-            element->AddLayer(layer_thickness, 0 * CH_C_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 90 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 90 * CH_DEG_TO_RAD, material);
+            element->AddLayer(layer_thickness, 0 * CH_DEG_TO_RAD, material);
             element->SetAlphaDamp(0.0);
             mesh->AddElement(element);
 
@@ -1277,20 +1263,19 @@ bool MLCantileverCheck2B(int msglvl) {
     system->DoStaticNonlinear(50);
 
     // Calculate the displacement of the end of the ANCF beam mesh
-    ChVector<> point;
+    ChVector3d point;
     ChQuaternion<> rot;
     elementlast->EvaluateSectionFrame(1, 1, point, rot);
 
     // Expect Value From Liu et al. ABAQUS Model
     double Displacement_Expected = -198.0;
     double Displacement_Model = point.z();
-    ChVector<> Tip_Angles = rot.Q_to_Euler123();
+    ChVector3d Tip_Angles = rot.GetCardanAnglesXYZ();
 
     double Percent_Error = (Displacement_Model - Displacement_Expected) / Displacement_Expected * 100.0;
 
     bool passed_displacement = abs(Percent_Error) < 5.0;
-    bool passed_angles =
-        (abs(Tip_Angles.y() * CH_C_RAD_TO_DEG) < 0.01) && (abs(Tip_Angles.z() * CH_C_RAD_TO_DEG) < 0.01);
+    bool passed_angles = (abs(Tip_Angles.y() * CH_RAD_TO_DEG) < 0.01) && (abs(Tip_Angles.z() * CH_RAD_TO_DEG) < 0.01);
     bool passed_tests = passed_displacement && passed_angles;
 
     if (msglvl >= 2) {
@@ -1298,9 +1283,8 @@ bool MLCantileverCheck2B(int msglvl) {
         std::cout << "Multilayer Plate Layup 2B - ANCF Tip Displacement: " << Displacement_Model << "mm" << std::endl;
         std::cout << "Multilayer Plate Layup 2B - Expected Tip Displacement: " << Displacement_Expected << "mm"
                   << std::endl;
-        std::cout << "Multilayer Plate Layup 2B - ANCF Tip Angles: (" << Tip_Angles.x() * CH_C_RAD_TO_DEG << ", "
-                  << Tip_Angles.y() * CH_C_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_C_RAD_TO_DEG << ")deg"
-                  << std::endl;
+        std::cout << "Multilayer Plate Layup 2B - ANCF Tip Angles: (" << Tip_Angles.x() * CH_RAD_TO_DEG << ", "
+                  << Tip_Angles.y() * CH_RAD_TO_DEG << ", " << Tip_Angles.z() * CH_RAD_TO_DEG << ")deg" << std::endl;
     }
     if (msglvl >= 1) {
         std::cout << "Multilayer Plate Layup 2B - Tip Displacement Check (Percent Error less than 5%) = "

@@ -74,9 +74,6 @@ TerrainType terrain_type = TerrainType::RIGID;
 // Read from JSON specification file?
 bool use_JSON = false;
 
-// Output directory
-const std::string out_dir = GetChronoOutputPath() + "TIRE_TEST_RIG";
-
 bool gnuplot_output = true;
 bool blender_output = true;
 
@@ -97,7 +94,7 @@ int main() {
         ancf_tire->SetPressure(320e3);
         ancf_tire->SetAlpha(0.15);
         if (terrain_type == TerrainType::SCM)
-            ancf_tire->SetContactSurfaceType(ChDeformableTire::ContactSurfaceType::TRIANGLE_MESH);
+            ancf_tire->SetContactSurfaceType(ChTire::ContactSurfaceType::TRIANGLE_MESH, 0.02);
         tire = ancf_tire;
     } else if (use_JSON) {
         std::string tire_file;
@@ -146,7 +143,7 @@ int main() {
                 auto hmmwv_tire = chrono_types::make_shared<hmmwv::HMMWV_ANCFTire>(
                     "ANCF tire", hmmwv::HMMWV_ANCFTire::ElementType::ANCF_4);
                 if (terrain_type == TerrainType::SCM)
-                    hmmwv_tire->SetContactSurfaceType(ChDeformableTire::ContactSurfaceType::TRIANGLE_MESH);
+                    hmmwv_tire->SetContactSurfaceType(ChTire::ContactSurfaceType::TRIANGLE_MESH, 0.02);
                 tire = hmmwv_tire;
                 break;
             }
@@ -154,14 +151,14 @@ int main() {
                 auto hmmwv_tire = chrono_types::make_shared<hmmwv::HMMWV_ANCFTire>(
                     "ANCF tire", hmmwv::HMMWV_ANCFTire::ElementType::ANCF_8);
                 if (terrain_type == TerrainType::SCM)
-                    hmmwv_tire->SetContactSurfaceType(ChDeformableTire::ContactSurfaceType::TRIANGLE_MESH);
+                    hmmwv_tire->SetContactSurfaceType(ChTire::ContactSurfaceType::TRIANGLE_MESH, 0.02);
                 tire = hmmwv_tire;
                 break;
             }
             case TireType::REISSNER: {
                 auto hmmwv_tire = chrono_types::make_shared<hmmwv::HMMWV_ReissnerTire>("Reissner tire");
                 if (terrain_type == TerrainType::SCM)
-                    hmmwv_tire->SetContactSurfaceType(ChDeformableTire::ContactSurfaceType::TRIANGLE_MESH);
+                    hmmwv_tire->SetContactSurfaceType(ChTire::ContactSurfaceType::TRIANGLE_MESH, 0.02);
                 tire = hmmwv_tire;
                 break;
             }
@@ -187,7 +184,6 @@ int main() {
             step_size = 2e-4;
             solver_type = ChSolver::Type::PARDISO_MKL;
             integrator_type = ChTimestepper::Type::EULER_IMPLICIT_PROJECTED;
-            std::static_pointer_cast<ChDeformableTire>(tire)->SetContactFaceThickness(0.02);
             break;
 
         case ChContactMethod::NSC:
@@ -198,6 +194,8 @@ int main() {
             break;
     }
 
+    sys->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
+
     SetChronoSolver(*sys, solver_type, integrator_type);
 
     // Create and configure test rig
@@ -206,7 +204,7 @@ int main() {
     ////rig.SetGravitationalAcceleration(0);
     rig.SetNormalLoad(8000);
 
-    ////rig.SetCamberAngle(+15 * CH_C_DEG_TO_RAD);
+    ////rig.SetCamberAngle(+15 * CH_DEG_TO_RAD);
 
     rig.SetTireStepsize(step_size);
     rig.SetTireCollisionType(ChTire::CollisionType::FOUR_POINTS);
@@ -221,25 +219,25 @@ int main() {
     // -----------------
 
     // Scenario: driven wheel
-    ////rig.SetAngSpeedFunction(chrono_types::make_shared<ChFunction_Const>(10.0));
+    ////rig.SetAngSpeedFunction(chrono_types::make_shared<ChFunctionConst>(10.0));
     ////rig.Initialize();
 
     // Scenario: pulled wheel
-    ////rig.SetLongSpeedFunction(chrono_types::make_shared<ChFunction_Const>(1.0));
+    ////rig.SetLongSpeedFunction(chrono_types::make_shared<ChFunctionConst>(1.0));
     ////rig.Initialize();
 
     // Scenario: imobilized wheel
-    ////rig.SetLongSpeedFunction(chrono_types::make_shared<ChFunction_Const>(0.0));
-    ////rig.SetAngSpeedFunction(chrono_types::make_shared<ChFunction_Const>(0.0));
+    ////rig.SetLongSpeedFunction(chrono_types::make_shared<ChFunctionConst>(0.0));
+    ////rig.SetAngSpeedFunction(chrono_types::make_shared<ChFunctionConst>(0.0));
     ////rig.Initialize();
 
     // Scenario: prescribe all motion functions
     //   longitudinal speed: 0.2 m/s
     //   angular speed: 10 RPM
     //   slip angle: sinusoidal +- 5 deg with 5 s period
-    rig.SetLongSpeedFunction(chrono_types::make_shared<ChFunction_Const>(0.2));
-    rig.SetAngSpeedFunction(chrono_types::make_shared<ChFunction_Const>(10 * CH_C_RPM_TO_RPS));
-    rig.SetSlipAngleFunction(chrono_types::make_shared<ChFunction_Sine>(0, 0.2, 5 * CH_C_DEG_TO_RAD));
+    rig.SetLongSpeedFunction(chrono_types::make_shared<ChFunctionConst>(0.2));
+    rig.SetAngSpeedFunction(chrono_types::make_shared<ChFunctionConst>(10 * CH_RPM_TO_RAD_S));
+    rig.SetSlipAngleFunction(chrono_types::make_shared<ChFunctionSine>(5 * CH_DEG_TO_RAD, 0.2));
 
     // Scenario: specified longitudinal slip (overrrides other definitons of motion functions)
     ////rig.SetConstantLongitudinalSlip(0.2, 0.1);
@@ -255,6 +253,7 @@ int main() {
     }
 
     // Initialize output
+    const std::string out_dir = GetChronoOutputPath() + "TIRE_TEST_RIG";
     if (!filesystem::create_directory(filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
@@ -282,7 +281,7 @@ int main() {
             vis_irr->Initialize();
             vis_irr->AddLogo();
             vis_irr->AddSkyBox();
-            vis_irr->AddCamera(ChVector<>(1.0, 2.5, 1.0));
+            vis_irr->AddCamera(ChVector3d(1.0, 2.5, 1.0));
             vis_irr->AddLightDirectional();
 
             vis_irr->GetActiveCamera()->setFOV(irr::core::PI / 4.5f);
@@ -299,7 +298,9 @@ int main() {
             vis_vsg->SetCameraVertical(CameraVerticalDir::Z);
             vis_vsg->SetWindowSize(1200, 600);
             vis_vsg->SetWindowTitle("Tire Test Rig");
-            vis_vsg->AddCamera(ChVector<>(1.0, 2.5, 1.0));
+            vis_vsg->AddCamera(ChVector3d(1.0, 2.5, 1.0));
+            vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+            vis_vsg->SetShadows(true);
             vis_vsg->Initialize();
 
             vis = vis_vsg;
@@ -322,15 +323,15 @@ int main() {
         blender_exporter.SetBlenderUp_is_ChronoZ();
         blender_exporter.SetBasePath(blender_dir);
         blender_exporter.AddAll();
-        blender_exporter.SetCamera(ChVector<>(3, 3, 1), ChVector<>(0, 0, 0), 50);
+        blender_exporter.SetCamera(ChVector3d(3, 3, 1), ChVector3d(0, 0, 0), 50);
         blender_exporter.ExportScript();
     }
 #endif
 
     // Perform the simulation
-    ChFunction_Recorder long_slip;
-    ChFunction_Recorder slip_angle;
-    ChFunction_Recorder camber_angle;
+    ChFunctionInterp long_slip;
+    ChFunctionInterp slip_angle;
+    ChFunctionInterp camber_angle;
 
     double time_offset = 0.5;
 
@@ -339,12 +340,12 @@ int main() {
 
         if (time > time_offset) {
             long_slip.AddPoint(time, tire->GetLongitudinalSlip());
-            slip_angle.AddPoint(time, tire->GetSlipAngle() * CH_C_RAD_TO_DEG);
-            camber_angle.AddPoint(time, tire->GetCamberAngle() * CH_C_RAD_TO_DEG);
+            slip_angle.AddPoint(time, tire->GetSlipAngle() * CH_RAD_TO_DEG);
+            camber_angle.AddPoint(time, tire->GetCamberAngle() * CH_RAD_TO_DEG);
         }
 
         auto& loc = rig.GetPos();
-        vis->UpdateCamera(loc + ChVector<>(1.0, 2.5, 0.5), loc + ChVector<>(0, 0.25, -0.25));
+        vis->UpdateCamera(loc + ChVector3d(1.0, 2.5, 0.5), loc + ChVector3d(0, 0.25, -0.25));
 
         vis->BeginScene();
         vis->Render();

@@ -70,9 +70,7 @@ class CH_VEHICLE_API ChTrackedVehicle : public ChVehicle {
 
     /// Get the complete states for all track shoes of the specified track assembly.
     /// It is assumed that the vector of body states was properly sized.
-    void GetTrackShoeStates(VehicleSide side, BodyStates& states) const {
-        m_tracks[side]->GetTrackShoeStates(states);
-    }
+    void GetTrackShoeStates(VehicleSide side, BodyStates& states) const { m_tracks[side]->GetTrackShoeStates(states); }
 
     /// Set visualization type for the sprocket subsystem.
     void SetSprocketVisualizationType(VisualizationType vis);
@@ -115,7 +113,7 @@ class CH_VEHICLE_API ChTrackedVehicle : public ChVehicle {
     /// track shoes. To override these default settings, this function must be called
     /// called after the call to Initialize(). The 'flags' argument can be any of the
     /// TrackedCollisionFlag enums, or a combination thereof (using bit-wise operators).
-    void SetCollide(int flags);
+    void EnableCollision(int flags);
 
     /// Enable/disable collision between the chassis and all other vehicle
     /// subsystems. This only controls collisions between the chassis and the
@@ -148,7 +146,7 @@ class CH_VEHICLE_API ChTrackedVehicle : public ChVehicle {
 
     /// Return estimated resistive torque on the specified sprocket.
     /// This torque is available only if monitoring of contacts for that sprocket is enabled.
-    ChVector<> GetSprocketResistiveTorque(VehicleSide side) const {
+    ChVector3d GetSprocketResistiveTorque(VehicleSide side) const {
         return m_contact_manager->GetSprocketResistiveTorque(side);
     }
 
@@ -175,9 +173,16 @@ class CH_VEHICLE_API ChTrackedVehicle : public ChVehicle {
 
     /// Update the state of this vehicle at the current time.
     /// The vehicle system is provided the current driver inputs (throttle between 0 and 1, steering between -1 and +1,
-    /// braking between 0 and 1) and terrain forces on the track shoes (expressed in the global reference frame).
+    /// braking between 0 and 1).
+    void Synchronize(double time,                       ///< [in] current time
+                     const DriverInputs& driver_inputs  ///< [in] current driver inputs
+    );
+
+    /// Update the state of this vehicle at the current time.
+    /// This version can be used in a co-simulation framework and it provides the terrain forces on the track shoes
+    /// (assumed to be expressed in the global reference frame).
     void Synchronize(double time,                            ///< [in] current time
-                     const DriverInputs& driver_inputs,  ///< [in] current driver inputs
+                     const DriverInputs& driver_inputs,      ///< [in] current driver inputs
                      const TerrainForces& shoe_forces_left,  ///< [in] vector of track shoe forces (left side)
                      const TerrainForces& shoe_forces_right  ///< [in] vector of track shoe forces (left side)
     );
