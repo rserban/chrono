@@ -34,7 +34,7 @@ const std::string WVP_TMsimpleTire::m_meshFile_left = "wvp/tire/WVP_Tire.obj";
 const std::string WVP_TMsimpleTire::m_meshFile_right = "wvp/tire/WVP_Tire.obj";
 
 const double WVP_TMsimpleTire::m_mass = 71.1;
-const ChVector<> WVP_TMsimpleTire::m_inertia(9.8713, 18.1640, 9.8713);
+const ChVector3d WVP_TMsimpleTire::m_inertia(9.8713, 18.1640, 9.8713);
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

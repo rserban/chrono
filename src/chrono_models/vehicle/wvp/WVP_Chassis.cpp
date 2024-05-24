@@ -16,7 +16,7 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
@@ -31,11 +31,11 @@ namespace wvp {
 // Static variables
 // -----------------------------------------------------------------------------
 const double WVP_Chassis::m_body_mass = 7597.0;
-const ChVector<> WVP_Chassis::m_body_inertiaXX(6700.0000, 25000.0000, 28000.0000);
-const ChVector<> WVP_Chassis::m_body_inertiaXY(0, 0, 0);
-const ChVector<> WVP_Chassis::m_body_COM_loc(-2.0700, 0.0100, 0.4950);
-const ChVector<> WVP_Chassis::m_connector_rear_loc(-4.5, 0, -0.25);
-const ChCoordsys<> WVP_Chassis::m_driverCsys(ChVector<>(-1.8000, 0.7000, 0.5600), ChQuaternion<>(1, 0, 0, 0));
+const ChVector3d WVP_Chassis::m_body_inertiaXX(6700.0000, 25000.0000, 28000.0000);
+const ChVector3d WVP_Chassis::m_body_inertiaXY(0, 0, 0);
+const ChVector3d WVP_Chassis::m_body_COM_loc(-2.0700, 0.0100, 0.4950);
+const ChVector3d WVP_Chassis::m_connector_rear_loc(-4.5, 0, -0.25);
+const ChCoordsys<> WVP_Chassis::m_driverCsys(ChVector3d(-1.8000, 0.7000, 0.5600), ChQuaternion<>(1, 0, 0, 0));
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -60,8 +60,8 @@ WVP_Chassis::WVP_Chassis(const std::string& name, bool fixed, CollisionType chas
 
     //// TODO:
     //// A more appropriate contact shape from primitives
-    ChVehicleGeometry::BoxShape box1(ChVector<>(0.0, 0.0, 0.1), ChQuaternion<>(1, 0, 0, 0), ChVector<>(2.0, 1.0, 0.2));
-    ChVehicleGeometry::BoxShape box2(ChVector<>(0.0, 0.0, 0.3), ChQuaternion<>(1, 0, 0, 0), ChVector<>(1.0, 0.5, 0.2));
+    ChVehicleGeometry::BoxShape box1(ChVector3d(0.0, 0.0, 0.1), ChQuaternion<>(1, 0, 0, 0), ChVector3d(2.0, 1.0, 0.2));
+    ChVehicleGeometry::BoxShape box2(ChVector3d(0.0, 0.0, 0.3), ChQuaternion<>(1, 0, 0, 0), ChVector3d(1.0, 0.5, 0.2));
 
     m_geometry.m_has_primitives = true;
     m_geometry.m_vis_boxes.push_back(box1);

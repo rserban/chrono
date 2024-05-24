@@ -18,7 +18,7 @@ namespace chrono {
 namespace vehicle {
 namespace wvp {
 
-const double rpm2rads = CH_C_PI / 30;
+const double rpm2rads = CH_PI / 30;
 const double drive_eff = 0.5137;  // based on auxillary power consumption and gearbox efficiencies
 
 WVP_EngineSimpleMap::WVP_EngineSimpleMap(const std::string& name) : ChEngineSimpleMap(name) {}
@@ -27,7 +27,7 @@ double WVP_EngineSimpleMap::GetMaxEngineSpeed() {
     return 2700 * rpm2rads;
 }
 
-void WVP_EngineSimpleMap::SetEngineTorqueMaps(ChFunction_Recorder& map0, ChFunction_Recorder& mapF) {
+void WVP_EngineSimpleMap::SetEngineTorqueMaps(ChFunctionInterp& map0, ChFunctionInterp& mapF) {
     map0.AddPoint(-100 * rpm2rads, 0.0);
     map0.AddPoint(800 * rpm2rads, -20.0);
     map0.AddPoint(1000 * rpm2rads, -20.0);

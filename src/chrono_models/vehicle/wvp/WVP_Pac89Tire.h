@@ -19,8 +19,6 @@
 #ifndef WVP_PAC89_TIRE_H
 #define WVP_PAC89_TIRE_H
 
-#include "chrono/assets/ChTriangleMeshShape.h"
-
 #include "chrono_vehicle/wheeled_vehicle/tire/ChPac89Tire.h"
 
 #include "chrono_models/ChApiModels.h"
@@ -44,7 +42,7 @@ class CH_MODELS_API WVP_Pac89Tire : public ChPac89Tire {
     }
 
     virtual double GetTireMass() const override { return m_mass; }
-    virtual ChVector<> GetTireInertia() const override { return m_inertia; }
+    virtual ChVector3d GetTireInertia() const override { return m_inertia; }
 
     virtual double GetVisualizationWidth() const override { return m_width; }
 
@@ -56,13 +54,13 @@ class CH_MODELS_API WVP_Pac89Tire : public ChPac89Tire {
   private:
     static const double m_normalDamping;
     static const double m_mass;
-    static const ChVector<> m_inertia;
+    static const ChVector3d m_inertia;
 
     static const std::string m_meshFile_left;
     static const std::string m_meshFile_right;
-    std::shared_ptr<ChTriangleMeshShape> m_trimesh_shape;
+    std::shared_ptr<ChVisualShapeTriangleMesh> m_trimesh_shape;
 
-    ChFunction_Recorder m_stiffnessMap;
+    ChFunctionInterp m_stiffnessMap;
 };
 
 /// @} vehicle_models_wvp

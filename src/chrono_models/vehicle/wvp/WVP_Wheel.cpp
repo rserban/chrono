@@ -31,7 +31,7 @@ namespace wvp {
 // -----------------------------------------------------------------------------
 
 const double WVP_Wheel::m_mass = 52.0;
-const ChVector<> WVP_Wheel::m_inertia(2.2170, 3.2794, 2.2170);
+const ChVector3d WVP_Wheel::m_inertia(2.2170, 3.2794, 2.2170);
 
 const double WVP_Wheel::m_radius = 0.254;
 const double WVP_Wheel::m_width = 0.254;

@@ -33,7 +33,7 @@ namespace wvp {
 const double WVP_Pac89Tire::m_normalDamping = 8154 * .01;
 
 const double WVP_Pac89Tire::m_mass = 71.1;
-const ChVector<> WVP_Pac89Tire::m_inertia(9.8713, 18.1640, 9.8713);
+const ChVector3d WVP_Pac89Tire::m_inertia(9.8713, 18.1640, 9.8713);
 
 const std::string WVP_Pac89Tire::m_meshFile_left = "wvp/tire/WVP_Tire.obj";
 const std::string WVP_Pac89Tire::m_meshFile_right = "wvp/tire/WVP_Tire.obj";
@@ -124,7 +124,7 @@ double WVP_Pac89Tire::GetNormalStiffnessForce(double depth) const {
     }
     // normal case - interpolate from tire map
     else {
-        return m_stiffnessMap.Get_y(depth);
+        return m_stiffnessMap.GetVal(depth);
     }
 }
 

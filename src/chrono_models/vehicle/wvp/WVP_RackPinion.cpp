@@ -27,7 +27,7 @@ namespace wvp {
 // -----------------------------------------------------------------------------
 
 const double WVP_RackPinion::m_steeringLinkMass = 1.889;
-const ChVector<> WVP_RackPinion::m_steeringLinkInertia(.138, 0.00009, .138);
+const ChVector3d WVP_RackPinion::m_steeringLinkInertia(.138, 0.00009, .138);
 const double WVP_RackPinion::m_steeringLinkCOM = 0;
 //const double WVP_RackPinion::m_steeringLinkLength = 0.896;
 const double WVP_RackPinion::m_steeringLinkLength = 0.25;

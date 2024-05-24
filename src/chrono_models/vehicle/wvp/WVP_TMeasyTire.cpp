@@ -33,7 +33,7 @@ namespace wvp {
 const std::string WVP_TMeasyTire::m_meshFile = "wvp/tire/WVP_Tire.obj";
 
 const double WVP_TMeasyTire::m_mass = 71.1;
-const ChVector<> WVP_TMeasyTire::m_inertia(9.8713, 18.1640, 9.8713);
+const ChVector3d WVP_TMeasyTire::m_inertia(9.8713, 18.1640, 9.8713);
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

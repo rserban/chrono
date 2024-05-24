@@ -33,7 +33,7 @@ const double WVP_RigidTire::m_radius = 1.0960 / 2;
 const double WVP_RigidTire::m_width = 0.365;
 
 const double WVP_RigidTire::m_mass = 71.1;
-const ChVector<> WVP_RigidTire::m_inertia(9.8713, 18.1640, 9.8713);
+const ChVector3d WVP_RigidTire::m_inertia(9.8713, 18.1640, 9.8713);
 
 const std::string WVP_RigidTire::m_meshFile = "wvp/tire/WVP_Tire.obj";
 
