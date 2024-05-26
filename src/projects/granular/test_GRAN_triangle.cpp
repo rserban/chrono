@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "chrono/ChConfig.h"
-#include "chrono/core/ChStream.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGeometry.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
@@ -35,7 +34,6 @@
 #endif
 
 using namespace chrono;
-using namespace chrono::collision;
 
 using std::cout;
 using std::endl;
@@ -47,12 +45,12 @@ using std::endl;
 // Comment the following line to use NSC contact
 #define USE_SMC
 
-ChVector<> initPos(0.1, 0.1, 0.05);
+ChVector3d initPos(0.1, 0.1, 0.05);
 ChQuaternion<> initRot(1.0, 0.0, 0.0, 0.0);
-//ChQuaternion<> initRot = Q_from_AngAxis(CH_C_PI / 3, ChVector<>(1, 0, 0));
+//ChQuaternion<> initRot = QuatFromAngleAxis(CH_PI / 3, ChVector3d(1, 0, 0));
 
-ChVector<> initLinVel(0.0, 0.0, 0.0);
-ChVector<> initAngVel(0.0, 0.0, 0.0);
+ChVector3d initLinVel(0.0, 0.0, 0.0);
+ChVector3d initAngVel(0.0, 0.0, 0.0);
 
 // -----------------------------------------------------------------------------
 // Simulation parameters
@@ -87,36 +85,34 @@ int out_fps = 60;
 // =============================================================================
 void CreateGround(ChSystemMulticore* system) {
 
-    auto ground = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
+    auto ground = chrono_types::make_shared<ChBody>();
 
 #ifdef USE_SMC
-    auto mat_g = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto mat_g = chrono_types::make_shared<ChContactMaterialSMC>();
     mat_g->SetYoungModulus(1e7f);
     mat_g->SetFriction(0.7f);
     mat_g->SetRestitution(0.01f);
 #else
-    auto mat_g = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto mat_g = chrono_types::make_shared<ChContactMaterialNSC>();
     mat_g->SetFriction(0.7f);
 #endif
 
-    ground->SetIdentifier(-1);
+    ground->SetTag(-1);
     ground->SetMass(1);
-    ground->SetPos(ChVector<>(0, 0, 0));
+    ground->SetPos(ChVector3d(0, 0, 0));
     ground->SetRot(ChQuaternion<>(1, 0, 0, 0));
-    ground->SetBodyFixed(true);
-    ground->SetCollide(true);
+    ground->SetFixed(true);
+    ground->EnableCollision(true);
 
     // Set fixed contact shapes (grid of 10x10 spheres)
     double spacing = 0.6;
     double bigR = 1;
-    ground->GetCollisionModel()->ClearModel();
     for (int ix = -5; ix < 5; ix++) {
         for (int iy = -5; iy < 5; iy++) {
-            ChVector<> pos(ix * spacing, iy * spacing, -bigR);
+            ChVector3d pos(ix * spacing, iy * spacing, -bigR);
             utils::AddSphereGeometry(ground.get(), mat_g, bigR, pos);
         }
     }
-    ground->GetCollisionModel()->BuildModel();
 
     system->AddBody(ground);
 }
@@ -127,42 +123,40 @@ void CreateGround(ChSystemMulticore* system) {
 std::shared_ptr<ChBody> CreateObject(ChSystemMulticore* system) {
     double rho_o = 2000.0;
 
-    auto obj = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
+    auto obj = chrono_types::make_shared<ChBody>();
 
 #ifdef USE_SMC
-    auto mat_o = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto mat_o = chrono_types::make_shared<ChContactMaterialSMC>();
     mat_o->SetYoungModulus(1e7f);
     mat_o->SetFriction(0.7f);
     mat_o->SetRestitution(0.01f);
 #else
-    auto mat_o = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto mat_o = chrono_types::make_shared<ChContactMaterialNSC>();
     mat_o->SetFriction(0.7f);
 #endif
 
-    obj->SetIdentifier(1);
-    obj->SetCollide(true);
-    obj->SetBodyFixed(false);
+    obj->SetTag(1);
+    obj->EnableCollision(true);
+    obj->SetFixed(false);
 
     // Mass and inertia
     double mass = 1;
-    ChVector<> inertia = 1e-3 * mass * ChVector<>(0.1, 0.1, 0.1);
+    ChVector3d inertia = 1e-3 * mass * ChVector3d(0.1, 0.1, 0.1);
     obj->SetMass(mass);
     obj->SetInertia(inertia);
 
     // Set contact and visualization shape
-    obj->GetCollisionModel()->ClearModel();
     double len = 1;
-    ChVector<> A(len, -len, 0);
-    ChVector<> B(-len, -len, 0);
-    ChVector<> C(0, len, 0);	
+    ChVector3d A(len, -len, 0);
+    ChVector3d B(-len, -len, 0);
+    ChVector3d C(0, len, 0);	
     utils::AddTriangleGeometry(obj.get(), mat_o, A, B, C, "triangle");
-    obj->GetCollisionModel()->BuildModel();
 
     // Set initial state.
     obj->SetPos(initPos);
     obj->SetRot(initRot);
-    obj->SetPos_dt(initLinVel);
-    obj->SetWvel_loc(initAngVel);
+    obj->SetPosDt(initLinVel);
+    obj->SetAngVelLocal(initAngVel);
 
     // Add object to system.
     system->AddBody(obj);
@@ -185,7 +179,8 @@ int main(int argc, char* argv[]) {
     ChSystemMulticoreNSC* msystem = new ChSystemMulticoreNSC();
 #endif
 
-    msystem->Set_G_acc(ChVector<>(0, 0, -9.81));
+    msystem->SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
+    msystem->SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
 
     // ----------------------
     // Set number of threads.
@@ -233,7 +228,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(0, -5, 2), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(0, -5, 2), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
 #endif
@@ -280,7 +275,7 @@ int main(int argc, char* argv[]) {
         time += time_step;
         sim_frame++;
         exec_time += msystem->GetTimerStep();
-        num_contacts += msystem->GetNcontacts();
+        num_contacts += msystem->GetNumContacts();
     }
 
     // Final stats

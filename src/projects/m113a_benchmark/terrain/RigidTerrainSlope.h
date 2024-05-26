@@ -64,7 +64,7 @@ class RigidTerrainSlope : public ChTerrain {
     /// Initialize the terrain system (flat).
     /// This version uses a rigid box of specified dimensions and with specified
     /// material properties. If tiled = true, multiple side-by-side boxes are used.
-    void Initialize(std::shared_ptr<ChMaterialSurface> mat,  ///< [in] contact material
+    void Initialize(std::shared_ptr<ChContactMaterial> mat,  ///< [in] contact material
                     double height1,                          ///< [in] terrain
                     double height2,                          ///< [in] terrain height (after slope)
                     double grade,                            ///< [in] slope grade (percentage)
@@ -74,13 +74,13 @@ class RigidTerrainSlope : public ChTerrain {
     );
 
     /// Get the terrain height at the specified (x,y) location.
-    virtual double GetHeight(const ChVector<>& loc) const override;
+    virtual double GetHeight(const ChVector3d& loc) const override;
 
     /// Get the terrain normal at the specified (x,y) location.
-    virtual chrono::ChVector<> GetNormal(const ChVector<>& loc) const override;
+    virtual chrono::ChVector3d GetNormal(const ChVector3d& loc) const override;
 
     /// Return the coefficient of friction at the specified (x,y) location.
-    virtual float GetCoefficientFriction(const ChVector<>& loc) const override { return m_friction; }
+    virtual float GetCoefficientFriction(const ChVector3d& loc) const override { return m_friction; }
 
   private:
     std::shared_ptr<ChBody> m_ground;

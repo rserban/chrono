@@ -29,8 +29,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Print the sim set - up parameters to userlog
-    GetLog() << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << ".VCMS\n";
-    GetLog() << "\nTesting SMC multicore oblique impacts....\n";
+    std::cout << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << ".VCMS\n";
+    std::cout << "\nTesting SMC multicore oblique impacts....\n";
 
     // Create a file for logging data
     const std::string fname = GetChronoOutputPath() + "/dat.csv";
@@ -55,11 +55,11 @@ int main(int argc, char* argv[]) {
             float adDMT = 0.0f;        /// Magnitude of the adhesion in the DMT adhesion model
             float adSPerko = 0.0f;     /// Magnitude of the adhesion in the SPerko adhesion model
 
-            auto mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+            auto mat = chrono_types::make_shared<ChContactMaterialSMC>();
             mat->SetYoungModulus(y_modulus);
             mat->SetPoissonRatio(p_ratio);
-            mat->SetSfriction(s_frict);
-            mat->SetKfriction(k_frict);
+            mat->SetStaticFriction(s_frict);
+            mat->SetSlidingFriction(k_frict);
             mat->SetRollingFriction(roll_frict);
             mat->SetSpinningFriction(spin_frict);
             mat->SetRestitution(cor_in);
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
             double out_step = 1.0E-2;
             double time_sim = 0.5;
 
-            ChVector<> gravity(0, 0, 0);
+            ChVector3d gravity(0, 0, 0);
 
             ChSystemMulticoreSMC msystem;
             SetSimParameters(&msystem, gravity, force_to_enum(fmodels[f]));
@@ -80,16 +80,16 @@ int main(int argc, char* argv[]) {
 
             // Add the wall to the system
             double wmass = 10.0;
-            ChVector<> wsize(20, 1, 4);
-            ChVector<> wpos(0, -wsize.y() / 2, 0);
+            ChVector3d wsize(20, 1, 4);
+            ChVector3d wpos(0, -wsize.y() / 2, 0);
 
-            auto wall = AddWall(-1, &msystem, mat, wsize, wmass, wpos, ChVector<>(0, 0, 0), true);
+            auto wall = AddWall(-1, &msystem, mat, wsize, wmass, wpos, ChVector3d(0, 0, 0), true);
 
             // Add the sphere to the system
             double srad = 0.5;
             double smass = 1.0;
-            ChVector<> spos(0, srad * 1.25, 0);
-            ChVector<> init_v(tan((var * 2.0 * CH_C_PI) / 180), -1, 0);
+            ChVector3d spos(0, srad * 1.25, 0);
+            ChVector3d init_v(tan((var * 2.0 * CH_PI) / 180), -1, 0);
 
             auto body = AddSphere(0, &msystem, mat, srad, smass, spos, init_v);
 
@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 
             // Print the sim set - up parameters to userlog once
             if (f == 0 && var == 1) {
-                GetLog() << "\ntime_step, " << time_step << "\nout_step, " << out_step << "\ntotal_sim_time, "
+                std::cout << "\ntime_step, " << time_step << "\nout_step, " << out_step << "\ntotal_sim_time, "
                          << time_sim << "\nadhesion_model, "
                          << static_cast<int>(msystem.GetSettings()->solver.adhesion_force_model)
                          << "\ntangential_displ_model, "
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
                          << ad << "\nDMT_adhesion_multiplier, " << adDMT << "\nperko_adhesion_multiplier, " << adSPerko
                          << "\n";
             }
-            GetLog() << "\nModel #" << f << " (" << fmodels[f].c_str() << ") var setting #" << var << "\n";
+            std::cout << "\nModel #" << f << " (" << fmodels[f].c_str() << ") var setting #" << var << "\n";
 
             // Set the soft-real-time cycle parameters
             double time = 0.0;
@@ -143,15 +143,15 @@ int main(int argc, char* argv[]) {
             real theta = atan(abs(init_v.x() / init_v.y()));
             real cor_out_t_thy = 1 - (k_frict * (1 + cor_in) / tan(theta));
 
-            real cor_out_n = abs(body->GetPos_dt().y() / init_v.y());
-            real cor_out_t = abs(body->GetPos_dt().x() / init_v.x());
-            real cor_out = body->GetPos_dt().Length() / init_v.Length();
+            real cor_out_n = abs(body->GetPosDt().y() / init_v.y());
+            real cor_out_t = abs(body->GetPosDt().x() / init_v.x());
+            real cor_out = body->GetPosDt().Length() / init_v.Length();
 
             real w_out_thy = (5.0 / 2) * (k_frict / srad) * (1.0 + cor_in) * init_v.y();
-            real w_out_act = body->GetWvel_par().z();
+            real w_out_act = body->GetAngVelParent().z();
             real w_out_err = abs((w_out_thy - w_out_act) / w_out_thy) * 100;
 
-            dat << fmodels[f].c_str() << "," << theta * 180 / CH_C_PI << "," << cor_in << "," << cor_out << ","
+            dat << fmodels[f].c_str() << "," << theta * 180 / CH_PI << "," << cor_in << "," << cor_out << ","
                 << cor_out_n << "," << cor_out_t << "," << cor_out_t_thy << "," << w_out_act << "," << w_out_thy << ","
                 << w_out_err << "\n";
         }

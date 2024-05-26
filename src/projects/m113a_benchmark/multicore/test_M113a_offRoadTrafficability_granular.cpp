@@ -19,10 +19,9 @@
 
 // Chrono::Engine header files
 #include "chrono/ChConfig.h"
-#include "chrono/core/ChStream.h"
 #include "chrono/physics/ChLinkMotorRotationAngle.h"
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 
 // Chrono::Multicore header files
 #include "chrono_multicore/physics/ChSystemMulticore.h"
@@ -52,7 +51,6 @@
 #include "chrono_thirdparty/filesystem/path.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::m113;
 
@@ -100,9 +98,9 @@ double rotSpeed = 1;
 
 // Create material that will be used for all surfaces
 #ifdef USE_SMC
-auto mat_g = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+auto mat_g = chrono_types::make_shared<ChContactMaterialSMC>();
 #else
-auto mat_g = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+auto mat_g = chrono_types::make_shared<ChContactMaterialNSC>();
 #endif
 
 // -----------------------------------------------------------------------------
@@ -110,7 +108,7 @@ auto mat_g = chrono_types::make_shared<ChMaterialSurfaceNSC>();
 // -----------------------------------------------------------------------------
 
 // Initial vehicle position and orientation
-ChVector<> initLoc(-hdimX + 4.5, 0, 1.2);
+ChVector3d initLoc(-hdimX + 4.5, 0, 1.2);
 ChQuaternion<> initRot(1, 0, 0, 0);
 
 // Simple powertrain model
@@ -158,41 +156,41 @@ int out_fps = 60;
 double CreateParticles(ChSystem* system, double sphRatio) {
     // Create a particle generator and a mixture entirely made out of spheres
     double r = 1.01 * r_g;
-    chrono::utils::PDSampler<double> sampler(2 * r);
-    chrono::utils::Generator gen(system);
-    std::shared_ptr<chrono::utils::MixtureIngredient> m1;
+    chrono::utils::ChPDSampler<double> sampler(2 * r);
+    chrono::utils::ChGenerator gen(system);
+    std::shared_ptr<chrono::utils::ChMixtureIngredient> m1;
     if (sphRatio == 1) {
         m1 = gen.AddMixtureIngredient(chrono::utils::MixtureType::SPHERE, 1.0);
-        m1->setDefaultMaterial(mat_g);
-        m1->setDefaultDensity(rho_g);
-        m1->setDefaultSize(r_g);
+        m1->SetDefaultMaterial(mat_g);
+        m1->SetDefaultDensity(rho_g);
+        m1->SetDefaultSize(r_g);
     } else {
         if (sphRatio < 1) {
             m1 = gen.AddMixtureIngredient(chrono::utils::MixtureType::ELLIPSOID, 1.0);
-            m1->setDefaultMaterial(mat_g);
-            m1->setDefaultDensity(rho_g);
-            m1->setDefaultSize(ChVector<>(r_g, sphRatio * r_g, r_g));
+            m1->SetDefaultMaterial(mat_g);
+            m1->SetDefaultDensity(rho_g);
+            m1->SetDefaultSize(ChVector3d(r_g, sphRatio * r_g, r_g));
         } else {
             m1 = gen.AddMixtureIngredient(chrono::utils::MixtureType::ELLIPSOID, 1.0);
-            m1->setDefaultMaterial(mat_g);
-            m1->setDefaultDensity(rho_g);
-            m1->setDefaultSize(ChVector<>(r_g / sphRatio, r_g, r_g / sphRatio));
+            m1->SetDefaultMaterial(mat_g);
+            m1->SetDefaultDensity(rho_g);
+            m1->SetDefaultSize(ChVector3d(r_g / sphRatio, r_g, r_g / sphRatio));
         }
     }
 
     // Set starting value for body identifiers
-    gen.setBodyIdentifier(Id_g);
+    gen.SetStartTag(Id_g);
 
     // Create particles in layers until reaching the desired number of particles
-    ChVector<> hdims(hdimX - r, hdimY - r, 0);
-    ChVector<> center(0, 0, 2 * r);
+    ChVector3d hdims(hdimX - r, hdimY - r, 0);
+    ChVector3d center(0, 0, 2 * r);
 
-    while (gen.getTotalNumBodies() < num_particles) {
+    while (gen.GetTotalNumBodies() < num_particles) {
         gen.CreateObjectsBox(sampler, center, hdims);
         center.z() += 2 * r;
     }
 
-    std::cout << "Created " << gen.getTotalNumBodies() << " particles." << std::endl;
+    std::cout << "Created " << gen.GetTotalNumBodies() << " particles." << std::endl;
 
     return center.z();
 }
@@ -211,14 +209,14 @@ static inline void TimingOutput(chrono::ChSystem* mSys,
     double UPDT = drawbarPull;
     double RESID = 0;
     int REQ_ITS = 0;
-    int BODS = mSys->GetNbodies();
-    int CNTC = mSys->GetNcontacts();
+    int BODS = mSys->GetNumBodies();
+    int CNTC = mSys->GetNumContacts();
     if (chrono::ChSystemMulticore* mc_sys = dynamic_cast<chrono::ChSystemMulticore*>(mSys)) {
         auto msolver = std::static_pointer_cast<ChIterativeSolverMulticore>(mSys->GetSolver());
         RESID = msolver->GetResidual();
         REQ_ITS = msolver->GetIterations();
-        BODS = mc_sys->GetNbodies();
-        CNTC = mc_sys->GetNcontacts();
+        BODS = mc_sys->GetNumBodies();
+        CNTC = mc_sys->GetNumContacts();
     }
 
     if (ofile) {
@@ -279,9 +277,9 @@ int main(int argc, char* argv[]) {
         std::cout << pov_dir << std::endl;
     }
 
-    double vol_g = (4.0 / 3) * CH_C_PI * r_g * r_g * r_g;
+    double vol_g = (4.0 / 3) * CH_PI * r_g * r_g * r_g;
     double mass_g = rho_g * vol_g;
-    ChVector<> inertia_g = 0.4 * mass_g * r_g * r_g * ChVector<>(1, 1, 1);
+    ChVector3d inertia_g = 0.4 * mass_g * r_g * r_g * ChVector3d(1, 1, 1);
 
     // -----------------
     // Initialize output
@@ -333,7 +331,7 @@ int main(int argc, char* argv[]) {
 
 #endif
 
-    system->Set_G_acc(ChVector<>(0, 0, -9.81));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
     // ---------------------
     // Edit system settings.
@@ -341,14 +339,7 @@ int main(int argc, char* argv[]) {
 
 #ifdef USE_SEQ
 
-    ////system->SetSolverType(ChSolver::Type::MINRES);
-    system->SetMaxItersSolverSpeed(50);
-    system->SetMaxItersSolverStab(50);
-    ////system->SetTol(0);
-    ////system->SetMaxPenetrationRecoverySpeed(1.5);
-    ////system->SetMinBounceSpeed(2.0);
-    ////system->SetSolverOverrelaxationParam(0.8);
-    ////system->SetSolverSharpnessParam(1.0);
+    system->GetSolver()->AsIterative()->SetMaxIterations(50);
 
 #else
 
@@ -395,94 +386,89 @@ int main(int argc, char* argv[]) {
 #endif
 
     // Ground body
-    auto ground = std::shared_ptr<ChBody>(system->NewBody());
-    ground->SetIdentifier(-1);
-    ground->SetBodyFixed(true);
-    ground->SetCollide(true);
-
-    ground->GetCollisionModel()->ClearModel();
+    auto ground = chrono_types::make_shared<ChBody>();
+    ground->SetFixed(true);
+    ground->EnableCollision(true);
 
     // Bottom box
     if (terrain_type == GRANULAR_TERRAIN) {
-        ChVector<> r_e = ChVector<>(r_g, r_g, sphereRatio * r_g);
-        ChVector<> pos = ChVector<>(0, 0, -hthick);
-        ChVector<> size = ChVector<>(hdimX, hdimY, hthick);
+        ChVector3d r_e = ChVector3d(r_g, r_g, sphereRatio * r_g);
+        ChVector3d pos = ChVector3d(0, 0, -hthick);
+        ChVector3d size = ChVector3d(hdimX, hdimY, hthick);
         for (int i = 0; i <= 2 * (int)(size.x() / r_g); i++) {
             for (int j = 0; j <= 2 * (int)(size.y() / r_g); j++) {
                 chrono::utils::AddEllipsoidGeometry(
                     ground.get(), mat_g, r_e,                                                //
-                    pos + size - ChVector<>((double)i * r_e.x(), (double)j * r_e.y(), 0.0),  //
+                    pos + size - ChVector3d((double)i * r_e.x(), (double)j * r_e.y(), 0.0),  //
                     ChQuaternion<>(1, 0, 0, 0),                                              //
                     true);
             }
         }
 
         // Front box
-        pos = ChVector<>(hdimX - hthick, 0, hdimZ - hthick);
-        size = ChVector<>(hthick, hdimY, hdimZ + hthick);
+        pos = ChVector3d(hdimX - hthick, 0, hdimZ - hthick);
+        size = ChVector3d(hthick, hdimY, hdimZ + hthick);
         // utils::AddBoxGeometry(ground.get(), mat_g, size, pos, ChQuaternion<>(1, 0, 0, 0), visible_walls);
-        r_e = ChVector<>(sphereRatio * r_g, r_g, r_g);
+        r_e = ChVector3d(sphereRatio * r_g, r_g, r_g);
         for (int i = 0; i <= 2 * (int)(size.y() / r_g); i++) {
             for (int j = 0; j <= 2 * (int)(size.z() / r_g); j++) {
                 chrono::utils::AddEllipsoidGeometry(
                     ground.get(), mat_g, r_e,                                                //
-                    pos + size - ChVector<>(0.0, (double)i * r_e.y(), (double)j * r_e.z()),  //
+                    pos + size - ChVector3d(0.0, (double)i * r_e.y(), (double)j * r_e.z()),  //
                     ChQuaternion<>(1, 0, 0, 0),                                              //
                     visible_walls);
             }
         }
 
         // Rear box
-        pos = ChVector<>(-hdimX - hthick, 0, hdimZ - hthick);
-        size = ChVector<>(hthick, hdimY, hdimZ + hthick);
+        pos = ChVector3d(-hdimX - hthick, 0, hdimZ - hthick);
+        size = ChVector3d(hthick, hdimY, hdimZ + hthick);
         // utils::AddBoxGeometry(ground.get(), mat_g, size, pos, ChQuaternion<>(1, 0, 0, 0), visible_walls);
-        r_e = ChVector<>(sphereRatio * r_g, r_g, r_g);
+        r_e = ChVector3d(sphereRatio * r_g, r_g, r_g);
         for (int i = 0; i <= 2 * (int)(size.y() / r_g); i++) {
             for (int j = 0; j <= 2 * (int)(size.z() / r_g); j++) {
                 chrono::utils::AddEllipsoidGeometry(
                     ground.get(), mat_g, r_e,                                                //
-                    pos + size - ChVector<>(0.0, (double)i * r_e.y(), (double)j * r_e.z()),  //
+                    pos + size - ChVector3d(0.0, (double)i * r_e.y(), (double)j * r_e.z()),  //
                     ChQuaternion<>(1, 0, 0, 0),                                              //
                     visible_walls);
             }
         }
 
         // Left box
-        pos = ChVector<>(0, hdimY - hthick, hdimZ - hthick);
-        size = ChVector<>(hdimX, hthick, hdimZ + hthick);
+        pos = ChVector3d(0, hdimY - hthick, hdimZ - hthick);
+        size = ChVector3d(hdimX, hthick, hdimZ + hthick);
         // utils::AddBoxGeometry(ground.get(), mat_g, size, pos, ChQuaternion<>(1, 0, 0, 0), visible_walls);
-        r_e = ChVector<>(r_g, sphereRatio * r_g, r_g);
+        r_e = ChVector3d(r_g, sphereRatio * r_g, r_g);
         for (int i = 0; i <= 2 * (int)(size.x() / r_g); i++) {
             for (int j = 0; j <= 2 * (int)(size.z() / r_g); j++) {
                 chrono::utils::AddEllipsoidGeometry(
                     ground.get(), mat_g, r_e,                                                //
-                    pos + size - ChVector<>((double)i * r_e.x(), 0.0, (double)j * r_e.z()),  //
+                    pos + size - ChVector3d((double)i * r_e.x(), 0.0, (double)j * r_e.z()),  //
                     ChQuaternion<>(1, 0, 0, 0),                                              //
                     visible_walls);
             }
         }
 
         // Right box
-        pos = ChVector<>(0, -hdimY - hthick, hdimZ - hthick);
-        size = ChVector<>(hdimX, hthick, hdimZ + hthick);
+        pos = ChVector3d(0, -hdimY - hthick, hdimZ - hthick);
+        size = ChVector3d(hdimX, hthick, hdimZ + hthick);
         // utils::AddBoxGeometry(ground.get(), mat_g, size, pos, ChQuaternion<>(1, 0, 0, 0), visible_walls);
-        r_e = ChVector<>(r_g, sphereRatio * r_g, r_g);
+        r_e = ChVector3d(r_g, sphereRatio * r_g, r_g);
         for (int i = 0; i <= 2 * (int)(size.x() / r_g); i++) {
             for (int j = 0; j <= 2 * (int)(size.z() / r_g); j++) {
                 chrono::utils::AddEllipsoidGeometry(
                     ground.get(), mat_g, r_e,                                                //
-                    pos + size - ChVector<>((double)i * r_e.x(), 0.0, (double)j * r_e.z()),  //
+                    pos + size - ChVector3d((double)i * r_e.x(), 0.0, (double)j * r_e.z()),  //
                     ChQuaternion<>(1, 0, 0, 0),                                              //
                     visible_walls);
             }
         }
     } else {
-        chrono::utils::AddBoxGeometry(ground.get(), mat_g, ChVector<>(hdimX, hdimY, hthick),  //
-                                      ChVector<>(0, 0, -hthick), ChQuaternion<>(1, 0, 0, 0),  //
+        chrono::utils::AddBoxGeometry(ground.get(), mat_g, ChVector3d(hdimX, hdimY, hthick),  //
+                                      ChVector3d(0, 0, -hthick), ChQuaternion<>(1, 0, 0, 0),  //
                                       true);
     }
-
-    ground->GetCollisionModel()->BuildModel();
 
     system->AddBody(ground);
 
@@ -504,7 +490,7 @@ int main(int argc, char* argv[]) {
     m113.SetTrackShoeType(TrackShoeType::SINGLE_PIN);
     m113.SetDrivelineType(DrivelineTypeTV::SIMPLE);
     m113.SetEngineType(EngineModelType::SIMPLE_MAP);
-    m113.SetTransmissionType(TransmissionModelType::SIMPLE_MAP);
+    m113.SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_MAP);
 
     m113.SetInitPosition(ChCoordsys<>(initLoc, initRot));
     m113.Initialize();
@@ -514,9 +500,9 @@ int main(int argc, char* argv[]) {
     // Control steering type (enable crossdrive capability).
     m113.GetDriveline()->SetGyrationMode(true);
 
-    ////vehicle.SetCollide(TrackCollide::NONE);
-    ////vehicle.SetCollide(TrackCollide::WHEELS_LEFT | TrackCollide::WHEELS_RIGHT);
-    ////vehicle.SetCollide(TrackCollide::ALL & (~TrackCollide::SPROCKET_LEFT) & (~TrackCollide::SPROCKET_RIGHT));
+    ////vehicle.EnableCollision(TrackCollide::NONE);
+    ////vehicle.EnableCollision(TrackCollide::WHEELS_LEFT | TrackCollide::WHEELS_RIGHT);
+    ////vehicle.EnableCollision(TrackCollide::ALL & (~TrackCollide::SPROCKET_LEFT) & (~TrackCollide::SPROCKET_RIGHT));
 
     // Create the driver system
     ChDataDriver driver(vehicle, vehicle::GetDataFile("M113a_benchmark/driver/Acceleration.txt"));
@@ -524,43 +510,38 @@ int main(int argc, char* argv[]) {
     double drawbarPull = 0;
 
     // Control the slip of the vehicle
-    auto slipRig = std::shared_ptr<ChBody>(m113.GetSystem()->NewBody());
-    slipRig->SetIdentifier(-1);
+    auto slipRig = chrono_types::make_shared<ChBody>();
     slipRig->SetName("slipRig");
     slipRig->SetPos(initLoc);
-    slipRig->SetBodyFixed(false);
-    slipRig->SetCollide(false);
+    slipRig->SetFixed(false);
+    slipRig->EnableCollision(false);
     system->AddBody(slipRig);
 
-    slipRig->GetCollisionModel()->ClearModel();
-
-    auto box = chrono_types::make_shared<ChBoxShape>(0.4, 0.2, 0.2);
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(0.4, 0.2, 0.2);
     slipRig->AddVisualShape(box);
 
-    auto cyl = chrono_types::make_shared<ChCylinderShape>(0.05, 0.2);
-    slipRig->AddVisualShape(cyl, ChFrame<>(ChVector<>(0, 0, -0.1)));
-
-    slipRig->GetCollisionModel()->BuildModel();
+    auto cyl = chrono_types::make_shared<ChVisualShapeCylinder>(0.05, 0.2);
+    slipRig->AddVisualShape(cyl, ChFrame<>(ChVector3d(0, 0, -0.1)));
 
     auto transJoint = chrono_types::make_shared<ChLinkLockPrismatic>();
-    transJoint->SetNameString("_transJoint");
-    transJoint->Initialize(slipRig, m113.GetChassisBody(), ChCoordsys<>(initLoc, QUNIT));
+    transJoint->SetName("_transJoint");
+    transJoint->Initialize(slipRig, m113.GetChassisBody(), ChFrame<>(initLoc, QUNIT));
     system->AddLink(transJoint);
 
     auto lockJoint = chrono_types::make_shared<ChLinkLockLock>();
-    lockJoint->SetNameString("_lockJoint");
+    lockJoint->SetName("_lockJoint");
     lockJoint->Initialize(slipRig, ground, ChCoordsys<>(initLoc, QUNIT));
     system->AddLink(lockJoint);
 
     double transSpeed = (1.0 - slip) * sprocketRadius * rotSpeed;
-    auto motion = chrono_types::make_shared<ChFunction_Ramp>(-transSpeed * time_hold, transSpeed);
+    auto motion = chrono_types::make_shared<ChFunctionRamp>(-transSpeed * time_hold, transSpeed);
 
     auto motor = chrono_types::make_shared<ChLinkMotorRotationAngle>();
     motor->Initialize(
         vehicle.GetTrackAssembly(chrono::vehicle::RIGHT)->GetSprocket()->GetGearBody(), m113.GetChassisBody(),
         ChFrame<>(vehicle.GetTrackAssembly(chrono::vehicle::RIGHT)->GetSprocket()->GetGearBody()->GetPos(),
-                  chrono::Q_from_AngAxis(CH_C_PI / 2, VECT_X)));
-    auto speedFunc = chrono_types::make_shared<ChFunction_Ramp>(0, -rotSpeed);
+                  chrono::QuatFromAngleAxis(CH_PI / 2, VECT_X)));
+    auto speedFunc = chrono_types::make_shared<ChFunctionRamp>(0, -rotSpeed);
     motor->SetAngleFunction(speedFunc);
     system->AddLink(motor);
 
@@ -568,8 +549,8 @@ int main(int argc, char* argv[]) {
     motor2->Initialize(
         vehicle.GetTrackAssembly(chrono::vehicle::LEFT)->GetSprocket()->GetGearBody(), m113.GetChassisBody(),
         ChFrame<>(vehicle.GetTrackAssembly(chrono::vehicle::LEFT)->GetSprocket()->GetGearBody()->GetPos(),
-                  chrono::Q_from_AngAxis(CH_C_PI / 2, VECT_X)));
-    auto speedFunc2 = chrono_types::make_shared<ChFunction_Ramp>(0, -rotSpeed);
+                  chrono::QuatFromAngleAxis(CH_PI / 2, VECT_X)));
+    auto speedFunc2 = chrono_types::make_shared<ChFunctionRamp>(0, -rotSpeed);
     motor2->SetAngleFunction(speedFunc2);
     system->AddLink(motor2);
 
@@ -585,7 +566,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(0, -10, 0), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(0, -10, 0), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 #endif
 
@@ -629,7 +610,7 @@ int main(int argc, char* argv[]) {
         // Release the vehicle chassis at the end of the hold time.
         if (m113.GetChassis()->IsFixed() && time > time_hold) {
             std::cout << std::endl << "Release vehicle t = " << time << std::endl;
-            m113.GetChassisBody()->SetBodyFixed(false);
+            m113.GetChassisBody()->SetFixed(false);
             mat_g->SetFriction(mu_g);  // set friction of soil to true value
             lockJoint->SetMotion_X(motion);
         }
@@ -662,14 +643,14 @@ int main(int argc, char* argv[]) {
         }
 
         if (time > time_hold)
-            drawbarPull = lockJoint->Get_react_force().x();
+            drawbarPull = lockJoint->GetReaction2().force.x();
         TimingOutput(system, drawbarPull, &statsStream);
 
         // Update counters.
         time += time_step;
         sim_frame++;
         exec_time += system->GetTimerStep();
-        num_contacts += system->GetNcontacts();
+        num_contacts += system->GetNumContacts();
     }
 
     // Final stats

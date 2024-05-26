@@ -45,7 +45,7 @@ using std::endl;
 // USER SETTINGS
 // =============================================================================
 // Initial vehicle position
-ChVector<> initLoc(-40, 0, 0.8);
+ChVector3d initLoc(-40, 0, 0.8);
 
 // Initial vehicle orientation
 ChQuaternion<> initRot(1, 0, 0, 0);
@@ -65,7 +65,7 @@ double step_size = 1e-3;
 double render_step_size = 1.0 / 120;  // FPS = 120
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(-3.5, 0.0, 0.0);
+ChVector3d trackPoint(-3.5, 0.0, 0.0);
 
 // Output
 const std::string out_dir = GetChronoOutputPath() + "M113";
@@ -74,7 +74,7 @@ bool dbg_output = false;
 
 // =============================================================================
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // --------------------------
     // Construct the M113 vehicle
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
     ////m113.SetWheelCollisionType(RIGHT, false, false);
 
     // Disable gravity in this simulation
-    ////m113.GetSystem()->Set_G_acc(ChVector<>(0, 0, 0));
+    ////m113.GetSystem()->SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
     // Control steering type (enable crossdrive capability)
     ////m113.GetDriveline()->SetGyrationMode(true);
@@ -141,10 +141,10 @@ int main(int argc, char* argv[]) {
     // --------------------------------------------------
 
     // Enable contact on all tracked vehicle parts, except the left sprocket
-    ////m113.GetVehicle().SetCollide(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
+    ////m113.GetVehicle().EnableCollision(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
 
     // Disable contact for all tracked vehicle parts
-    ////m113.GetVehicle().SetCollide(TrackedCollisionFlag::NONE);
+    ////m113.GetVehicle().EnableCollision(TrackedCollisionFlag::NONE);
 
     // Disable all contacts for vehicle chassis (if chassis collision was defined)
     m113.GetVehicle().SetChassisCollide(false);
@@ -194,9 +194,9 @@ int main(int argc, char* argv[]) {
     auto vis = chrono_types::make_shared<ChTrackedVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("M113 Vehicle Demo");
     vis->SetChaseCamera(trackPoint, 3.0, 0.0);
-    ////vis->SetChaseCamera(ChVector<>(-3.5, 0,0), 3.0, 0.0);
-    vis->SetChaseCameraAngle(-CH_C_PI_2);
-    ////vis->SetChaseCameraPosition(m113.GetVehicle().GetPos() + ChVector<>(0, 2, 0));
+    ////vis->SetChaseCamera(ChVector3d(-3.5, 0,0), 3.0, 0.0);
+    vis->SetChaseCameraAngle(-CH_PI_2);
+    ////vis->SetChaseCameraPosition(m113.GetVehicle().GetPos() + ChVector3d(0, 2, 0));
     vis->SetChaseCameraMultipliers(1e-4, 10);
     vis->Initialize();
     vis->AddTypicalLights();
@@ -249,7 +249,7 @@ int main(int argc, char* argv[]) {
     // ------------------------------
 
     {
-        m113.GetSystem()->SetSolverMaxIterations(1000);
+        m113.GetSystem()->GetSolver()->AsIterative()->SetMaxIterations(1000);
     }
 
     // ---------------
@@ -275,27 +275,27 @@ int main(int argc, char* argv[]) {
             auto track_L = m113.GetVehicle().GetTrackAssembly(LEFT);
             auto track_R = m113.GetVehicle().GetTrackAssembly(RIGHT);
             cout << "Time: " << m113.GetSystem()->GetChTime() << endl;
-            cout << "      Num. contacts: " << m113.GetSystem()->GetNcontacts() << endl;
-            const ChFrameMoving<>& c_ref = m113.GetChassisBody()->GetFrame_REF_to_abs();
-            const ChVector<>& c_pos = m113.GetVehicle().GetPos();
+            cout << "      Num. contacts: " << m113.GetSystem()->GetNumContacts() << endl;
+            const ChFrameMoving<>& c_ref = m113.GetChassisBody()->GetFrameRefToAbs();
+            const ChVector3d& c_pos = m113.GetVehicle().GetPos();
             cout << "      chassis:    " << c_pos.x() << "  " << c_pos.y() << "  " << c_pos.z() << endl;
             {
-                const ChVector<>& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
-                const ChVector<>& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
-                const ChVector<>& s_omg_rel = track_L->GetSprocket()->GetGearBody()->GetWvel_loc();
+                const ChVector3d& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
+                const ChVector3d& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
+                const ChVector3d& s_omg_rel = track_L->GetSprocket()->GetGearBody()->GetAngVelLocal();
                 auto s_appl_trq = track_L->GetSprocket()->GetAxle()->GetAppliedTorque();
-                ChVector<> i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
-                ChVector<> s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
+                ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
+                ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                 cout << "      L idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  " << i_pos_rel.z() << endl;
                 cout << "      L sprocket: " << s_pos_rel.x() << "  " << s_pos_rel.y() << "  " << s_pos_rel.z() << endl;
                 cout << "      L sprocket omg: " << s_omg_rel << endl;
                 cout << "      L sprocket trq: " << s_appl_trq << endl;
             }
             {
-                const ChVector<>& i_pos_abs = track_R->GetIdler()->GetWheelBody()->GetPos();
-                const ChVector<>& s_pos_abs = track_R->GetSprocket()->GetGearBody()->GetPos();
-                ChVector<> i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
-                ChVector<> s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
+                const ChVector3d& i_pos_abs = track_R->GetIdler()->GetWheelBody()->GetPos();
+                const ChVector3d& s_pos_abs = track_R->GetSprocket()->GetGearBody()->GetPos();
+                ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
+                ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                 cout << "      R idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  " << i_pos_rel.z() << endl;
                 cout << "      R sprocket: " << s_pos_rel.x() << "  " << s_pos_rel.y() << "  " << s_pos_rel.z() << endl;
             }
@@ -327,8 +327,8 @@ int main(int argc, char* argv[]) {
         if (fix_chassis) {
             if (t > 4) {
                 std::cout << "Sprocket RPM at t=  " << t << "  ";
-                std::cout << m113.GetDriveline()->GetSprocketSpeed(LEFT) * (30 / CH_C_PI) << "  ";
-                std::cout << m113.GetDriveline()->GetSprocketSpeed(RIGHT) * (30 / CH_C_PI) << std::endl;
+                std::cout << m113.GetDriveline()->GetSprocketSpeed(LEFT) * (30 / CH_PI) << "  ";
+                std::cout << m113.GetDriveline()->GetSprocketSpeed(RIGHT) * (30 / CH_PI) << std::endl;
                 break;
             }
         } else {
@@ -358,8 +358,8 @@ int main(int argc, char* argv[]) {
             double R = 0.23;                                                          // m
             auto track_L = m113.GetVehicle().GetTrackAssembly(LEFT);                  //
             auto track_R = m113.GetVehicle().GetTrackAssembly(RIGHT);                 //
-            double omg_L = track_L->GetSprocket()->GetGearBody()->GetWvel_loc().y();  // rad/s
-            double omg_R = track_R->GetSprocket()->GetGearBody()->GetWvel_loc().y();  // rad/s
+            double omg_L = track_L->GetSprocket()->GetGearBody()->GetAngVelLocal().y();  // rad/s
+            double omg_R = track_R->GetSprocket()->GetGearBody()->GetAngVelLocal().y();  // rad/s
             double v_L = R * omg_L * 3.6;                                             // km/h
             double v_R = R * omg_R * 3.6;                                             // km/h
             double fr_L = 0.03 + 0.0009 * v_L;                                        //

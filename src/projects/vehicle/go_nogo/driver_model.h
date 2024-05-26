@@ -20,9 +20,10 @@
 #include <string>
 
 #include "chrono/core/ChMathematics.h"
-#include "chrono/assets/ChLineShape.h"
+#include "chrono/assets/ChVisualShapeLine.h"
 #include "chrono/geometry/ChLineBezier.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/ChDriver.h"
 #include "chrono_vehicle/ChVehicle.h"
@@ -39,7 +40,7 @@ class GONOGO_Driver : public chrono::vehicle::ChDriver {
     void SetGains(double Kp, double Ki, double Kd) { m_steeringPID.SetGains(Kp, Ki, Kd); }
     void SetLookAheadDistance(double dist) { m_steeringPID.SetLookAheadDistance(dist); }
 
-    void Reset() { m_steeringPID.Reset(m_vehicle); }
+    void Reset() { m_steeringPID.Reset(m_vehicle.GetRefFrame()); }
 
     virtual void Synchronize(double time) override;
 
@@ -58,14 +59,14 @@ inline GONOGO_Driver::GONOGO_Driver(chrono::vehicle::ChVehicle& vehicle,
                                     double time_start,
                                     double time_max)
     : chrono::vehicle::ChDriver(vehicle), m_steeringPID(path), m_start(time_start), m_end(time_max) {
-    m_steeringPID.Reset(m_vehicle);
+    m_steeringPID.Reset(m_vehicle.GetRefFrame());
 
-    auto road = std::shared_ptr<chrono::ChBody>(m_vehicle.GetSystem()->NewBody());
-    road->SetBodyFixed(true);
+    auto road = chrono_types::make_shared<ChBody>();
+    road->SetFixed(true);
     m_vehicle.GetSystem()->AddBody(road);
 
-    auto path_asset = chrono_types::make_shared<chrono::ChLineShape>();
-    path_asset->SetLineGeometry(chrono_types::make_shared<chrono::geometry::ChLineBezier>(m_steeringPID.GetPath()));
+    auto path_asset = chrono_types::make_shared<chrono::ChVisualShapeLine>();
+    path_asset->SetLineGeometry(chrono_types::make_shared<chrono::ChLineBezier>(m_steeringPID.GetPath()));
     path_asset->SetColor(chrono::ChColor(0.0f, 0.8f, 0.0f));
     path_asset->SetName("straight_path");
     road->AddVisualShape(path_asset);
@@ -83,14 +84,14 @@ inline void GONOGO_Driver::Synchronize(double time) {
 }
 
 inline void GONOGO_Driver::Advance(double step) {
-    double out_steering = m_steeringPID.Advance(m_vehicle, step);
-    chrono::ChClampValue(out_steering, -1.0, 1.0);
+    double out_steering = m_steeringPID.Advance(m_vehicle.GetRefFrame(), m_vehicle.GetChTime(), step);
+    ChClampValue(out_steering, -1.0, 1.0);
     m_steering = out_steering;
 }
 
 inline void GONOGO_Driver::ExportPathPovray(const std::string& out_dir) {
-    chrono::utils::WriteCurvePovray(*m_steeringPID.GetPath(), "straight_path", out_dir, 0.04,
-                                    chrono::ChColor(0.8f, 0.5f, 0.0f));
+    utils::WriteCurvePovray(*m_steeringPID.GetPath(), "straight_path", out_dir, 0.04,
+                            chrono::ChColor(0.8f, 0.5f, 0.0f));
 }
 
 #endif

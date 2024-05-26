@@ -50,7 +50,7 @@ using std::endl;
 // USER SETTINGS
 // =============================================================================
 // Initial vehicle position
-ChVector<> initLoc(0, 0, 0.9);
+ChVector3d initLoc(0, 0, 0.9);
 
 // Initial vehicle orientation
 ChQuaternion<> initRot(1, 0, 0, 0);
@@ -74,7 +74,7 @@ bool use_mkl = false;
 double render_step_size = 1.0 / 120;  // FPS = 120
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 2.0, 0.0);
+ChVector3d trackPoint(0.0, 2.0, 0.0);
 
 // Driver input files
 std::string path_file("paths/straightOrigin.txt");
@@ -96,18 +96,18 @@ bool dbg_output = false;
 
 // =============================================================================
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2021 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2021 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     const double MetersToInch = 1.0 / 0.0254;
     const double MetersPerSecToMph = 2.2369362921;
 
-    ChFunction_Recorder zeroLoad;
+    ChFunctionInterp zeroLoad;
     zeroLoad.AddPoint(0, 0);
     zeroLoad.AddPoint(5.0, 2.80372);
     zeroLoad.AddPoint(10.0, 3.8346);
     zeroLoad.AddPoint(15.0, 4.78549);
 
-    ChFunction_Recorder accTravel;
+    ChFunctionInterp accTravel;
     accTravel.AddPoint(1.0, 10.0);
     accTravel.AddPoint(5.0, 10.0);
     accTravel.AddPoint(10.0, 25.0);
@@ -116,14 +116,14 @@ int main(int argc, char* argv[]) {
 
     int iTerrain = 2;
     if (argc != 3) {
-        GetLog() << "usage: prog TerrainNumber Speed\n";
+        std::cout << "usage: prog TerrainNumber Speed\n";
         return 1;
     }
     iTerrain = atoi(argv[1]);
 
     double target_speed = atof(argv[2]);
     double xpos_max = 100.0;
-    initLoc.x() = -accTravel.Get_y(target_speed);
+    initLoc.x() = -accTravel.GetVal(target_speed);
     // --------------------------
     // Construct the M113 vehicle
     // --------------------------
@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
     ////DrivelineTypeTV driveline_type = DrivelineTypeTV::SIMPLE;
     BrakeType brake_type = BrakeType::SIMPLE;
     EngineModelType engine_type = EngineModelType::SIMPLE_MAP;
-    TransmissionModelType transmission_type = TransmissionModelType::SIMPLE_MAP;
+    TransmissionModelType transmission_type = TransmissionModelType::AUTOMATIC_SIMPLE_MAP;
 
     Marder marder;
     marder.SetContactMethod(contact_method);
@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
     ////marder.CreateTrack(false);
 
     // Disable gravity in this simulation
-    ////marder.GetSystem()->Set_G_acc(ChVector<>(0, 0, 0));
+    ////marder.GetSystem()->SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
     // Control steering type (enable crossdrive capability)
     ////marder.GetDriveline()->SetGyrationMode(true);
@@ -175,10 +175,10 @@ int main(int argc, char* argv[]) {
     // --------------------------------------------------
 
     // Enable contact on all tracked vehicle parts, except the left sprocket
-    ////marder.GetVehicle().SetCollide(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
+    ////marder.GetVehicle().EnableCollision(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
 
     // Disable contact for all tracked vehicle parts
-    ////marder.GetVehicle().SetCollide(TrackedCollisionFlag::NONE);
+    ////marder.GetVehicle().EnableCollision(TrackedCollisionFlag::NONE);
 
     // Disable all contacts for vehicle chassis (if chassis collision was defined)
     ////marder.GetVehicle().SetChassisCollide(false);
@@ -241,7 +241,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Create the driver
-    auto path = ChBezierCurve::read(vehicle::GetDataFile(path_file));
+    auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
     ChPathFollowerDriver driver(marder.GetVehicle(), vehicle::GetDataFile(steering_controller_file),
                                 vehicle::GetDataFile(speed_controller_file), path, "my_path", 0.0);
     driver.Initialize();
@@ -307,12 +307,10 @@ int main(int argc, char* argv[]) {
         marder.GetSystem()->SetTimestepperType(ChTimestepper::Type::HHT);
         auto integrator = std::static_pointer_cast<ChTimestepperHHT>(marder.GetSystem()->GetTimestepper());
         integrator->SetAlpha(-0.2);
-        integrator->SetMaxiters(50);
+        integrator->SetMaxIters(50);
         integrator->SetAbsTolerances(1e-4, 1e2);
-        integrator->SetMode(ChTimestepperHHT::ACCELERATION);
         integrator->SetStepControl(false);
         integrator->SetModifiedNewton(false);
-        integrator->SetScaling(true);
         integrator->SetVerbose(true);
 #endif
     } else {
@@ -323,7 +321,6 @@ int main(int argc, char* argv[]) {
         marder.GetSystem()->SetSolver(solver);
 
         marder.GetSystem()->SetMaxPenetrationRecoverySpeed(1.5);
-        marder.GetSystem()->SetMinBounceSpeed(2.0);
     }
 
     // ---------------
@@ -345,8 +342,8 @@ int main(int argc, char* argv[]) {
 
     std::ofstream kurs(out_dir + "/path.txt");
 
-    ChFunction_Recorder accLogger;
-    utils::ChButterworth_Lowpass lp(4, step_size, 30.0);
+    ChFunctionInterp accLogger;
+    utils::ChButterworthLowpass lp(4, step_size, 30.0);
     utils::ChRunningAverage avg(50);
 
     ChISO2631_Vibration_SeatCushionLogger seat_logger(step_size);
@@ -359,23 +356,23 @@ int main(int argc, char* argv[]) {
             auto track_L = marder.GetVehicle().GetTrackAssembly(LEFT);
             auto track_R = marder.GetVehicle().GetTrackAssembly(RIGHT);
             cout << "Time: " << marder.GetSystem()->GetChTime() << endl;
-            cout << "      Num. contacts: " << marder.GetSystem()->GetNcontacts() << endl;
-            const ChFrameMoving<>& c_ref = marder.GetChassisBody()->GetFrame_REF_to_abs();
-            const ChVector<>& c_pos = marder.GetVehicle().GetPos();
+            cout << "      Num. contacts: " << marder.GetSystem()->GetNumContacts() << endl;
+            const ChFrameMoving<>& c_ref = marder.GetChassisBody()->GetFrameRefToAbs();
+            const ChVector3d& c_pos = marder.GetVehicle().GetPos();
             cout << "      chassis:    " << c_pos.x() << "  " << c_pos.y() << "  " << c_pos.z() << endl;
             {
-                const ChVector<>& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
-                const ChVector<>& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
-                ChVector<> i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
-                ChVector<> s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
+                const ChVector3d& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
+                const ChVector3d& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
+                ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
+                ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                 cout << "      L idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  " << i_pos_rel.z() << endl;
                 cout << "      L sprocket: " << s_pos_rel.x() << "  " << s_pos_rel.y() << "  " << s_pos_rel.z() << endl;
             }
             {
-                const ChVector<>& i_pos_abs = track_R->GetIdler()->GetWheelBody()->GetPos();
-                const ChVector<>& s_pos_abs = track_R->GetSprocket()->GetGearBody()->GetPos();
-                ChVector<> i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
-                ChVector<> s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
+                const ChVector3d& i_pos_abs = track_R->GetIdler()->GetWheelBody()->GetPos();
+                const ChVector3d& s_pos_abs = track_R->GetSprocket()->GetGearBody()->GetPos();
+                ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
+                ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                 cout << "      R idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  " << i_pos_rel.z() << endl;
                 cout << "      R sprocket: " << s_pos_rel.x() << "  " << s_pos_rel.y() << "  " << s_pos_rel.z() << endl;
             }
@@ -416,13 +413,13 @@ int main(int argc, char* argv[]) {
         double yerr = marder.GetVehicle().GetPos().y();
         kurs << time << "\t" << xpos << "\t" << yerr << "\t" << speed << "\t" << std::endl;
         if (xpos >= 0.0) {
-            ChVector<double> acc =
+            ChVector3d acc =
                 marder.GetVehicle().GetPointAcceleration(marder.GetChassis()->GetLocalDriverCoordsys().pos);
             seat_logger.AddData(speed, acc);
         }
         if (xpos > xpos_max)
             break;
-        driver.SetDesiredSpeed(ChSineStep(time, 1.0, 0.0, 2.0, target_speed));
+        driver.SetDesiredSpeed(ChFunctionSineStep::Eval(time, 1.0, 0.0, 2.0, target_speed));
         // Collect output data from modules
         DriverInputs driver_inputs = driver.GetInputs();
         marder.GetVehicle().GetTrackShoeStates(LEFT, shoe_states_left);
@@ -463,16 +460,16 @@ int main(int argc, char* argv[]) {
     double tex = seat_logger.GetExposureTime();
     double rms = terrain.GetRMS();
     double wallclock_time = timer.GetTimeSeconds();
-    GetLog() << "Roughness       = " << rms << " m\n";
-    GetLog() << "Avg speed       = " << vel_avg << " m/s\n";
-    GetLog() << "Awv             = " << awv << " m/s\n";
-    GetLog() << "Absorbed Power  = " << ap << " W\n";
-    GetLog() << "Exposure Time   = " << tex << " s\n";
-    GetLog() << "Wall clock time = " << wallclock_time << " s\n";
-    GetLog() << "\nNRMM Formatted Results:\n";
-    GetLog() << "Roughness       = " << rms * MetersToInch << " in\n";
-    GetLog() << "Avg speed       = " << vel_avg * MetersPerSecToMph << " mph\n";
-    GetLog() << "Absorbed Power  = " << (ap - zeroLoad.Get_y(vel_avg)) << " W\n";
+    std::cout << "Roughness       = " << rms << " m\n";
+    std::cout << "Avg speed       = " << vel_avg << " m/s\n";
+    std::cout << "Awv             = " << awv << " m/s\n";
+    std::cout << "Absorbed Power  = " << ap << " W\n";
+    std::cout << "Exposure Time   = " << tex << " s\n";
+    std::cout << "Wall clock time = " << wallclock_time << " s\n";
+    std::cout << "\nNRMM Formatted Results:\n";
+    std::cout << "Roughness       = " << rms * MetersToInch << " in\n";
+    std::cout << "Avg speed       = " << vel_avg * MetersPerSecToMph << " mph\n";
+    std::cout << "Absorbed Power  = " << (ap - zeroLoad.GetVal(vel_avg)) << " W\n";
 
     return 0;
 }

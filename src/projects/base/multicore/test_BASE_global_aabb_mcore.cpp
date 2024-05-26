@@ -46,7 +46,6 @@
 ////#define EXEC_POLICY
 
 using namespace chrono;
-using namespace chrono::collision;
 
 // Original implementation in Chrono::Multicore (ChBroadphase.cpp)
 // --------------------------------------------------------------

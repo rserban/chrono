@@ -78,7 +78,7 @@ class DataWriter {
     void SetMBSOutput(bool val) { m_mbs_output = val; }
 
     /// Set the location (relative to tire bottom point) and dimension (x and y) of the soil sampling domain.
-    void SetSamplingVolume(const chrono::ChVector<>& offset, const chrono::ChVector2<>& size);
+    void SetSamplingVolume(const chrono::ChVector3d& offset, const chrono::ChVector2<>& size);
 
     /// Initialize the data writer, specifying the output directory and output frequency parameters.
     void Initialize(const std::string& dir, double major_FPS, double minor_FPS, int num_minor, double step_size);
@@ -111,8 +111,8 @@ class DataWriter {
     virtual chrono::ChFrame<> GetSampleBoxFrame(int box_id) const = 0;
 
     int m_num_sample_boxes;
-    chrono::ChVector<> m_box_size;
-    chrono::ChVector<> m_box_offset;
+    chrono::ChVector3d m_box_size;
+    chrono::ChVector3d m_box_offset;
     double m_box_x;
     double m_box_z;
 
@@ -201,7 +201,7 @@ class DataWriterObject : public DataWriter {
   public:
     DataWriterObject(chrono::fsi::ChSystemFsi& sysFSI,
                      std::shared_ptr<chrono::ChBody> body,
-                     const chrono::ChVector<>& body_size);
+                     const chrono::ChVector3d& body_size);
     ~DataWriterObject() {}
 
   private:
@@ -213,7 +213,7 @@ class DataWriterObject : public DataWriter {
     virtual chrono::ChFrame<> GetSampleBoxFrame(int box_id) const override;
 
     std::shared_ptr<chrono::ChBody> m_body;
-    chrono::ChVector<> m_body_size;
+    chrono::ChVector3d m_body_size;
 
     std::vector<int> m_vel_channels;
     std::vector<int> m_acc_channels;

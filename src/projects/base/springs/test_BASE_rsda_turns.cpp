@@ -12,9 +12,6 @@
 #ifdef CHRONO_PARDISO_MKL
     #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 #endif
-#ifdef CHRONO_PARDISOPROJECT
-    #include "chrono_pardisoproject/ChSolverPardisoProject.h"
-#endif
 #ifdef CHRONO_MUMPS
     #include "chrono_mumps/ChSolverMumps.h"
 #endif
@@ -32,13 +29,13 @@ int main(int argc, char* argv[]) {
     double g = 0;
 
     double length = 1;
-    double init_angle = 30 * CH_C_DEG_TO_RAD;
+    double init_angle = 30 * CH_DEG_TO_RAD;
 
-    double rest_angle = 0 * CH_C_DEG_TO_RAD;
+    double rest_angle = 0 * CH_DEG_TO_RAD;
     double num_init_revs = 0;
     double rsda_K = 10;
     double rsda_D = 2;
-    double rsda_T = rsda_K * (720 + 30) * CH_C_DEG_TO_RAD;
+    double rsda_T = rsda_K * (720 + 30) * CH_DEG_TO_RAD;
 
     ////ChSolver::Type solver_type = ChSolver::Type::BARZILAIBORWEIN;
     ////ChSolver::Type solver_type = ChSolver::Type::MINRES;
@@ -59,14 +56,10 @@ int main(int argc, char* argv[]) {
 
     // System, solver and integrator
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, g));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, g));
 
     if (solver_type == ChSolver::Type::PARDISO_MKL) {
 #ifndef CHRONO_PARDISO_MKL
-        solver_type = ChSolver::Type::SPARSE_QR;
-#endif
-    } else if (solver_type == ChSolver::Type::PARDISO_PROJECT) {
-#ifndef CHRONO_PARDISOPROJECT
         solver_type = ChSolver::Type::SPARSE_QR;
 #endif
     } else if (solver_type == ChSolver::Type::MUMPS) {
@@ -79,13 +72,6 @@ int main(int argc, char* argv[]) {
 #ifdef CHRONO_PARDISO_MKL
         std::cout << "Using Pardiso MKL solver" << std::endl;
         auto solver = chrono_types::make_shared<ChSolverPardisoMKL>();
-        solver->LockSparsityPattern(true);
-        sys.SetSolver(solver);
-#endif
-    } else if (solver_type == ChSolver::Type::PARDISO_PROJECT) {
-#ifdef CHRONO_PARDISOPROJECT
-        std::cout << "Using Pardiso PROJECT solver" << std::endl;
-        auto solver = chrono_types::make_shared<ChSolverPardisoProject>();
         solver->LockSparsityPattern(true);
         sys.SetSolver(solver);
 #endif
@@ -119,7 +105,6 @@ int main(int argc, char* argv[]) {
                 solver->SetSharpnessLambda(1.0);
 
                 ////sys.SetMaxPenetrationRecoverySpeed(1.5);
-                ////sys.SetMinBounceSpeed(2.0);
                 break;
             }
             case ChSolver::Type::BICGSTAB:
@@ -141,18 +126,16 @@ int main(int argc, char* argv[]) {
         case ChTimestepper::Type::HHT: {
             auto integrator = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
             integrator->SetAlpha(-0.2);
-            integrator->SetMaxiters(50);
+            integrator->SetMaxIters(50);
             integrator->SetAbsTolerances(1e-4, 1e2);
-            integrator->SetMode(ChTimestepperHHT::ACCELERATION);
             integrator->SetStepControl(false);
             integrator->SetModifiedNewton(false);
-            integrator->SetScaling(false);
             break;
         }
 
         case ChTimestepper::Type::EULER_IMPLICIT: {
             auto integrator = std::static_pointer_cast<ChTimestepperEulerImplicit>(sys.GetTimestepper());
-            integrator->SetMaxiters(50);
+            integrator->SetMaxIters(50);
             integrator->SetAbsTolerances(1e-4, 1e2);
             break;
         }
@@ -162,43 +145,43 @@ int main(int argc, char* argv[]) {
     // ------------------------------------------------
 
     auto ground = chrono_types::make_shared<ChBody>();
-    ground->SetBodyFixed(true);
-    ground->SetNameString("ground");
+    ground->SetFixed(true);
+    ground->SetName("ground");
     sys.AddBody(ground);
 
-    ChQuaternion<> rot = Q_from_AngY(-init_angle);
-    ChVector<> loc = rot.Rotate(ChVector<>(length / 2, 0, 0));
+    ChQuaternion<> rot = QuatFromAngleY(-init_angle);
+    ChVector3d loc = rot.Rotate(ChVector3d(length / 2, 0, 0));
 
     auto body = chrono_types::make_shared<ChBody>();
-    body->SetNameString("body");
+    body->SetName("body");
     body->SetPos(loc);
     body->SetRot(rot);
-    auto box = chrono_types::make_shared<ChBoxShape>(2 * length, length / 4, length / 4);
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(2 * length, length / 4, length / 4);
     box->SetColor(ChColor(0.0f, 0.0f, 1.0f));
     body->AddVisualShape(box);
     sys.AddBody(body);
 
-    ChQuaternion<> y2z = Q_from_AngX(CH_C_PI_2);
+    ChQuaternion<> y2z = QuatFromAngleX(CH_PI_2);
 
     auto rev = chrono_types::make_shared<ChLinkRevolute>();
-    rev->SetNameString("rev");
-    rev->Initialize(ground, body, ChFrame<>(ChVector<>(0, 0, 0), y2z));
+    rev->SetName("rev");
+    rev->Initialize(ground, body, ChFrame<>(ChVector3d(0, 0, 0), y2z));
     sys.AddLink(rev);
 
     auto rsda = chrono_types::make_shared<ChLinkRSDA>();
-    rsda->SetNameString("rsda");
+    rsda->SetName("rsda");
     rsda->SetSpringCoefficient(rsda_K);
     rsda->SetDampingCoefficient(rsda_D);
     rsda->SetActuatorTorque(rsda_T);
     rsda->SetRestAngle(rest_angle);
     rsda->SetNumInitRevolutions(num_init_revs);
-    rsda->Initialize(ground, body,                                       //
-                     true,                                               //
-                     ChCoordsys<>(ChVector<>(0, 0, 0), y2z),             //
-                     ChCoordsys<>(ChVector<>(-length / 2, 0, 0), y2z));  //
+    rsda->Initialize(ground, body,                                    //
+                     true,                                            //
+                     ChFrame<>(ChVector3d(0, 0, 0), y2z),             //
+                     ChFrame<>(ChVector3d(-length / 2, 0, 0), y2z));  //
     sys.AddLink(rsda);
 
-    rsda->AddVisualShape(chrono_types::make_shared<ChRotSpringShape>(length / 4, 100));
+    rsda->AddVisualShape(chrono_types::make_shared<ChVisualShapeRotSpring>(length / 4, 100));
 
     // Create the Irrlicht application
     auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
@@ -209,7 +192,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0, 2, 0));
+    vis->AddCamera(ChVector3d(0, 2, 0));
     vis->AttachSystem(&sys);
 
     // Simulation loop
@@ -221,7 +204,7 @@ int main(int argc, char* argv[]) {
         vis->EndScene();
 
         sys.DoStepDynamics(step_size);
-        std::cout << rsda->GetAngle() * CH_C_RAD_TO_DEG << "   " << rsda->GetVelocity() << "   " << rsda->GetTorque()
+        std::cout << rsda->GetAngle() * CH_RAD_TO_DEG << "   " << rsda->GetVelocity() << "   " << rsda->GetTorque()
                   << std::endl;
     }
 }

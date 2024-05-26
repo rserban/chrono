@@ -41,7 +41,7 @@ using namespace chrono::vehicle::feda;
 // =============================================================================
 
 // Initial vehicle location and orientation
-ChVector<> initLoc(0, 0, 0.5);
+ChVector3d initLoc(0, 0, 0.5);
 ChQuaternion<> initRot(1, 0, 0, 0);
 
 // Visualization type for vehicle parts (PRIMITIVES, MESH, or NONE)
@@ -58,7 +58,7 @@ TireModelType tire_model = TireModelType::PAC02;
 SteeringTypeWV steering_model = SteeringTypeWV::PITMAN_ARM;
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 0.0, 1.75);
+ChVector3d trackPoint(0.0, 0.0, 1.75);
 
 // Simulation step sizes
 double step_size = 2e-4;
@@ -80,24 +80,24 @@ int main(int argc, char* argv[]) {
     if (argc == 2) {
         mode = argv[1];
     } else {
-        GetLog() << "usage: test_LMTV_wall2wall left | right\n";
-        GetLog() << "using \"left\"...\n";
+        std::cout << "usage: test_LMTV_wall2wall left | right\n";
+        std::cout << "using \"left\"...\n";
         mode = "left";
     }
     bool left_turn = true;
     std::string driver_file;
     if (mode.compare("right") == 0) {
         left_turn = false;
-        GetLog() << "Right turn selected.\n";
+        std::cout << "Right turn selected.\n";
         driver_file = "feda/driver/right_slow_turn.txt";
     } else {
-        GetLog() << "Left turn selected.\n";
+        std::cout << "Left turn selected.\n";
         driver_file = "feda/driver/left_slow_turn.txt";
     }
 
     // corner locations on the chassis
-    ChVector<> FrontLeftCornerLoc(0.8, 1.144, 0.5);
-    ChVector<> FrontRightCornerLoc(0.8, -1.144, 0.5);
+    ChVector3d FrontLeftCornerLoc(0.8, 1.144, 0.5);
+    ChVector3d FrontRightCornerLoc(0.8, -1.144, 0.5);
 
     // Parameter for aerodynamic force
     double Cd = 0.6;
@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
     // Create the terrain
     // ------------------
 
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     patch_mat->SetFriction(0.8f);
     patch_mat->SetRestitution(0.01f);
     RigidTerrain terrain(feda.GetSystem());
@@ -199,7 +199,7 @@ int main(int argc, char* argv[]) {
         auto susp1 = std::static_pointer_cast<ChDoubleWishbone>(feda.GetVehicle().GetSuspension(1));
 
         ChCoordsys<> vehCoord = ChCoordsys<>(feda.GetVehicle().GetPos(), feda.GetVehicle().GetRot());
-        ChVector<> vehCOM = vehCoord.TransformPointParentToLocal(feda.GetVehicle().GetCOMFrame().GetPos());
+        ChVector3d vehCOM = vehCoord.TransformPointParentToLocal(feda.GetVehicle().GetCOMFrame().GetPos());
 
         if (left_turn) {
             // left turn + right corner
@@ -210,7 +210,7 @@ int main(int argc, char* argv[]) {
             turn_x.push_back(feda.GetVehicle().GetPointLocation(FrontLeftCornerLoc).x());
             turn_y.push_back(feda.GetVehicle().GetPointLocation(FrontLeftCornerLoc).y());
         }
-        // GetLog() << "y = " << turn_y.back() << "\n";
+        // std::cout << "y = " << turn_y.back() << "\n";
         // Increment frame number
         step_number++;
         if (time > 140.0)
@@ -234,15 +234,15 @@ int main(int argc, char* argv[]) {
     } else {
         test_error = 100.0 * (real_radius_right - turn_radius) / real_radius_right;
     }
-    // GetLog() << "Xmin = " << xmin << "    Xmax = " << xmax << "\n";
+    // std::cout << "Xmin = " << xmin << "    Xmax = " << xmax << "\n";
     if (left_turn) {
-        GetLog() << "Left Turn circle radius (simulation) = " << turn_radius << " m\n";
-        GetLog() << "Left Turn circle radius (measured) = " << real_radius_left << " m\n";
-        GetLog() << "Left Turn circle radius (error) = " << test_error << " %\n";
+        std::cout << "Left Turn circle radius (simulation) = " << turn_radius << " m\n";
+        std::cout << "Left Turn circle radius (measured) = " << real_radius_left << " m\n";
+        std::cout << "Left Turn circle radius (error) = " << test_error << " %\n";
     } else {
-        GetLog() << "Right Turn circle radius (simulation) = " << turn_radius << " m\n";
-        GetLog() << "Right Turn circle radius (measured) = " << real_radius_right << " m\n";
-        GetLog() << "Right Turn circle radius (error) = " << test_error << " %\n";
+        std::cout << "Right Turn circle radius (simulation) = " << turn_radius << " m\n";
+        std::cout << "Right Turn circle radius (measured) = " << real_radius_right << " m\n";
+        std::cout << "Right Turn circle radius (error) = " << test_error << " %\n";
     }
     return 0;
 }

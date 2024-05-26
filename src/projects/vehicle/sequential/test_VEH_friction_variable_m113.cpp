@@ -51,7 +51,7 @@ const std::string out_dir = "../M113_FRICTION_VARIABLE";
 class MyFrictionFunctor : public ChTerrain::FrictionFunctor {
   public:
     MyFrictionFunctor() : m_friction_left(0.1f), m_friction_right(0.9f) {}
-    virtual float operator()(const ChVector<>& loc) override { return loc.y() > 0 ? m_friction_left : m_friction_right; }
+    virtual float operator()(const ChVector3d& loc) override { return loc.y() > 0 ? m_friction_left : m_friction_right; }
     float m_friction_left;
     float m_friction_right;
 };
@@ -61,15 +61,15 @@ class MyFrictionFunctor : public ChTerrain::FrictionFunctor {
 int main(int argc, char* argv[]) {
     // Chrono system
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
-    sys.SetSolverMaxIterations(150);
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
+    sys.GetSolver()->AsIterative()->SetMaxIterations(150);
     sys.SetMaxPenetrationRecoverySpeed(4.0);
     sys.SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
     // Create and initialize the vehicle
     M113_Vehicle_SinglePin vehicle(false, DrivelineTypeTV::SIMPLE, BrakeType::SIMPLE, false, false, false, &sys,
                                    CollisionType::NONE);
-    vehicle.Initialize(ChCoordsys<>(ChVector<>(-90.0, 0.0, 1.0), QUNIT));
+    vehicle.Initialize(ChCoordsys<>(ChVector3d(-90.0, 0.0, 1.0), QUNIT));
     vehicle.SetChassisVisualizationType(VisualizationType::NONE);
     vehicle.SetSprocketVisualizationType(VisualizationType::PRIMITIVES);
     vehicle.SetIdlerVisualizationType(VisualizationType::PRIMITIVES);
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
     // Create the terrain
     RigidTerrain terrain(&sys);
 
-    auto mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto mat = chrono_types::make_shared<ChContactMaterialSMC>();
     mat->SetFriction(0.9f);
     mat->SetRestitution(0.01f);
     mat->SetYoungModulus(2e7f);
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht interface
     auto vis = chrono_types::make_shared<ChTrackedVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("M113 friction test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 0.0), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 0.0), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -121,9 +121,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     // ---------------
     // Simulation loop
@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (output) {
-        csv.write_to_file(out_dir + "/m113.out");
+        csv.WriteToFile(out_dir + "/m113.out");
     }
 
     return 0;

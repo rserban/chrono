@@ -81,8 +81,8 @@ class TestBeam{
     void ExecuteStep() { m_system->DoStepDynamics(1e-4); }
     void SimulateVis();
     void NonlinearStatics() { m_system->DoStaticNonlinear(50, true); }
-    ChVector<> GetBeamMidPointPos() { return m_nodeMidPoint->GetPos(); }
-    ChVector<> GetBeamEndPointPos() { return m_nodeEndPoint->GetPos(); }
+    ChVector3d GetBeamMidPointPos() { return m_nodeMidPoint->GetPos(); }
+    ChVector3d GetBeamEndPointPos() { return m_nodeEndPoint->GetPos(); }
 
   protected:
     ChSystemSMC* m_system;
@@ -93,7 +93,7 @@ class TestBeam{
 
 TestBeam::TestBeam(int num_elements, double beam_angle_rad, double vert_tip_load_N, bool flip_beam_width_height) {
     m_system = new ChSystemSMC();
-    m_system->Set_G_acc(ChVector<>(0, 0, -9.80665));
+    m_system->SetGravitationalAcceleration(ChVector3d(0, 0, -9.80665));
 
     // Set solver parameters
     auto solver_type = ChSolver::Type::MUMPS;
@@ -130,10 +130,8 @@ TestBeam::TestBeam(int num_elements, double beam_angle_rad, double vert_tip_load
     m_system->SetTimestepperType(ChTimestepper::Type::HHT);
     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(m_system->GetTimestepper());
     integrator->SetAlpha(-0.2);
-    integrator->SetMaxiters(100);
+    integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
-    integrator->SetMode(ChTimestepperHHT::ACCELERATION);
-    integrator->SetScaling(true);
     integrator->SetVerbose(false);
 
 
@@ -187,16 +185,16 @@ TestBeam::TestBeam(int num_elements, double beam_angle_rad, double vert_tip_load
     double dx = length / (num_nodes - 1);
 
     //Rotate the cross section gradients to match the sign convention in the experiment
-    ChVector<> dir1(0, cos(-beam_angle_rad), sin(-beam_angle_rad));
-    ChVector<> dir2(0, -sin(-beam_angle_rad), cos(-beam_angle_rad));
+    ChVector3d dir1(0, cos(-beam_angle_rad), sin(-beam_angle_rad));
+    ChVector3d dir2(0, -sin(-beam_angle_rad), cos(-beam_angle_rad));
 
-    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(0, 0, 0.0), dir1, dir2);
+    auto nodeA = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector3d(0, 0, 0.0), dir1, dir2);
     nodeA->SetFixed(true);
     mesh->AddNode(nodeA);
 
     for (int i = 1; i <= num_elements; i++) {
-        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(dx*(2 * i), 0, 0), dir1, dir2);
-        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector<>(dx*(2 * i - 1), 0, 0), dir1, dir2);
+        auto nodeB = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector3d(dx*(2 * i), 0, 0), dir1, dir2);
+        auto nodeC = chrono_types::make_shared<ChNodeFEAxyzDD>(ChVector3d(dx*(2 * i - 1), 0, 0), dir1, dir2);
         mesh->AddNode(nodeB);
         mesh->AddNode(nodeC);
 
@@ -222,7 +220,7 @@ TestBeam::TestBeam(int num_elements, double beam_angle_rad, double vert_tip_load
 
     mesh->SetAutomaticGravity(false); //Turn off the default method for applying gravity to the mesh since it is less efficient for ANCF elements
 
-    m_nodeEndPoint->SetForce(ChVector<>(0, 0, -vert_tip_load_N));
+    m_nodeEndPoint->SetForce(ChVector3d(0, 0, -vert_tip_load_N));
 }
 
 void TestBeam::SimulateVis() {
@@ -234,15 +232,15 @@ void TestBeam::SimulateVis() {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(-0.2, 0.2, 0.2), ChVector<>(0.0, 0.0, 0.0));
+    vis->AddCamera(ChVector3d(-0.2, 0.2, 0.2), ChVector3d(0.0, 0.0, 0.0));
     vis->AttachSystem(m_system);
 
     while (vis->Run()) {
         vis->BeginScene();
         vis->Render();
-        irrlicht::tools::drawSegment(vis.get(), ChVector<>(0), ChVector<>(1, 0, 0), ChColor(1, 0, 0));
-        irrlicht::tools::drawSegment(vis.get(), ChVector<>(0), ChVector<>(0, 1, 0), ChColor(0, 1, 0));
-        irrlicht::tools::drawSegment(vis.get(), ChVector<>(0), ChVector<>(0, 0, 1), ChColor(0, 0, 1));
+        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(1, 0, 0), ChColor(1, 0, 0));
+        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 1, 0), ChColor(0, 1, 0));
+        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 0, 1), ChColor(0, 0, 1));
         ExecuteStep();
         vis->EndScene();
     }
@@ -260,11 +258,11 @@ int main(int argc, char* argv[]) {
     
 #if true
     //test case 1 (beam rotated 90 degrees by rotating the position vector gradients)
-    double beam_angle_rad = 90.0 * CH_C_DEG_TO_RAD; //Experiment beam angles are given in deg
+    double beam_angle_rad = 90.0 * CH_DEG_TO_RAD; //Experiment beam angles are given in deg
     bool flip_beam_width_height = false;
 #else
     //test case 2 (beam rotated 90 degrees by flipping the width and height)
-    double beam_angle_rad = 0.0 * CH_C_DEG_TO_RAD; //Experiment beam angles are given in deg
+    double beam_angle_rad = 0.0 * CH_DEG_TO_RAD; //Experiment beam angles are given in deg
     bool flip_beam_width_height = true;
 #endif
 

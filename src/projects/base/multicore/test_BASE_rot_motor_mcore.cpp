@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "chrono/ChConfig.h"
-#include "chrono/assets/ChBoxShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/physics/ChLinkMotorRotationAngle.h"
 #include "chrono/physics/ChLinkMotorRotationSpeed.h"
 #include "chrono/physics/ChSystemNSC.h"
@@ -17,7 +17,6 @@
 #include "chrono_opengl/ChVisualSystemOpenGL.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 
 #define MULTICORE_SYS
 //#define MOTOR_SPEED
@@ -28,7 +27,7 @@ int main(int argc, char* argv[]) {
 #ifdef MULTICORE_SYS
     // Create multicore system
     ChSystemMulticoreNSC my_sys;
-    my_sys.Set_G_acc(ChVector<double>(0, 0, -9.8));
+    my_sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.8));
 
     my_sys.GetSettings()->solver.tolerance = 1e-5;
     my_sys.GetSettings()->solver.solver_mode = SolverMode::SLIDING;
@@ -52,40 +51,40 @@ int main(int argc, char* argv[]) {
     // Create sequential system
     ChSystemNSC my_sys;
 
-    my_sys.SetSolverMaxIterations(200);
+    my_sys.GetSolver()->AsIterative()->SetMaxIterations(200);
     my_sys.SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
-    my_sys.Set_G_acc(ChVector<double>(0, 0, -9.8));
+    my_sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.8));
 
 #endif
 
     // Create ground body
-    auto ground = std::shared_ptr<ChBody>(my_sys.NewBody());
-    ground->SetBodyFixed(true);
-    ground->SetCollide(false);
+    auto ground = chrono_types::make_shared<ChBody>();
+    ground->SetFixed(true);
+    ground->EnableCollision(false);
     my_sys.AddBody(ground);
 
     // Create rotating body
-    auto body = std::shared_ptr<ChBody>(my_sys.NewBody());
-    body->SetBodyFixed(false);
-    body->SetCollide(false);
+    auto body = chrono_types::make_shared<ChBody>();
+    body->SetFixed(false);
+    body->EnableCollision(false);
     body->SetMass(1);
-    body->SetPos(ChVector<>(0, 0, 0));
+    body->SetPos(ChVector3d(0, 0, 0));
     my_sys.AddBody(body);
 
-    auto box_shape = chrono_types::make_shared<ChBoxShape>(2, 2, 0.4);
+    auto box_shape = chrono_types::make_shared<ChVisualShapeBox>(2, 2, 0.4);
     body->AddVisualShape(box_shape);
 
     // Create rotational motor
 #ifdef MOTOR_SPEED
-    auto motor_fun = chrono_types::make_shared<ChFunction_Setpoint>();
+    auto motor_fun = chrono_types::make_shared<ChFunctionSetpoint>();
     auto joint = chrono_types::make_shared<ChLinkMotorRotationSpeed>();
-    joint->Initialize(ground, body, ChFrame<>(ChVector<>(0, 0, 0), QUNIT));
+    joint->Initialize(ground, body, ChFrame<>(ChVector3d(0, 0, 0), QUNIT));
     joint->SetSpeedFunction(motor_fun);
 #else
-    auto motor_fun = chrono_types::make_shared<ChFunction_Setpoint>();
+    auto motor_fun = chrono_types::make_shared<ChFunctionSetpoint>();
     auto joint = chrono_types::make_shared<ChLinkMotorRotationAngle>();
-    joint->Initialize(ground, body, ChFrame<>(ChVector<>(0, 0, 0), QUNIT));
+    joint->Initialize(ground, body, ChFrame<>(ChVector3d(0, 0, 0), QUNIT));
     joint->SetAngleFunction(motor_fun);
 #endif
     my_sys.AddLink(joint);
@@ -97,7 +96,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(0, -4, 1), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(0, -4, 1), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     // Run simulation

@@ -39,9 +39,9 @@ int main(int argc, char* argv[]) {
     }
 
     // Create a Bezier curve from given points
-    std::vector<ChVector<>> pts = {ChVector<>(0, 0, 0),    ChVector<>(50, 0, 0),    ChVector<>(100, 0, 0),
-                                   ChVector<>(100, 50, 0), ChVector<>(100, 100, 0), ChVector<>(50, 100, 0),
-                                   ChVector<>(0, 100, 0),  ChVector<>(0, 50, 0),    ChVector<>(0, 0, 0)};
+    std::vector<ChVector3d> pts = {ChVector3d(0, 0, 0),    ChVector3d(50, 0, 0),    ChVector3d(100, 0, 0),
+                                   ChVector3d(100, 50, 0), ChVector3d(100, 100, 0), ChVector3d(50, 100, 0),
+                                   ChVector3d(0, 100, 0),  ChVector3d(0, 50, 0),    ChVector3d(0, 0, 0)};
 
     {
         // Save points to file
@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
         int n = 100;
         double delta = 1.0 / n;
         for (int i = 0; i < n; i++) {
-            ChVector<> p = path->eval(delta * i);
+            ChVector3d p = path->eval(delta * i);
             out << p.x() << " " << p.y() << " " << p.z() << std::endl;
         }
     }
@@ -68,16 +68,16 @@ int main(int argc, char* argv[]) {
     std::ofstream out(out_dir + "/" + "track.dat", std::ios::out);
     for (int i = 0; i < 50; i++) {
         ChBezierCurveTracker tracker(path);        
-        ChVector<> s = ChVector<>(110.0 * (i / 50.0), 0, 0);
-        ChVector<> t;
+        ChVector3d s = ChVector3d(110.0 * (i / 50.0), 0, 0);
+        ChVector3d t;
         tracker.calcClosestPoint(s, t);
         out << s.x() << " " << s.y() << " " << s.z() << " ";
         out << t.x() << " " << t.y() << " " << t.z() << std::endl;
     }
     for (int i = 0; i < 50; i++) {
         ChBezierCurveTracker tracker(path);
-        ChVector<> s = ChVector<>(110, 110.0 * (i / 50.0), 0);
-        ChVector<> t;
+        ChVector3d s = ChVector3d(110, 110.0 * (i / 50.0), 0);
+        ChVector3d t;
         tracker.calcClosestPoint(s, t);
         out << s.x() << " " << s.y() << " " << s.z() << " ";
         out << t.x() << " " << t.y() << " " << t.z() << std::endl;

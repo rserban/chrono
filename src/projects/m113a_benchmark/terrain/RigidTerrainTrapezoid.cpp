@@ -19,10 +19,10 @@
 #include <cmath>
 #include <cstdlib>
 
-#include "chrono/assets/ChBoxShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/assets/ChTexture.h"
-#include "chrono/physics/ChMaterialSurfaceNSC.h"
-#include "chrono/physics/ChMaterialSurfaceSMC.h"
+#include "chrono/physics/ChContactMaterialNSC.h"
+#include "chrono/physics/ChContactMaterialSMC.h"
 
 #include "RigidTerrainTrapezoid.h"
 
@@ -34,12 +34,11 @@ namespace vehicle {
 // -----------------------------------------------------------------------------
 RigidTerrainTrapezoid::RigidTerrainTrapezoid(ChSystem* system) : m_widebase(false), m_friction(0.8f) {
     // Create the ground body and add it to the system.
-    m_ground = std::shared_ptr<ChBody>(system->NewBody());
-    m_ground->SetIdentifier(-1);
+    m_ground = chrono_types::make_shared<ChBody>();
     m_ground->SetName("ground");
-    m_ground->SetPos(ChVector<>(0, 0, 0));
-    m_ground->SetBodyFixed(true);
-    m_ground->SetCollide(true);
+    m_ground->SetPos(ChVector3d(0, 0, 0));
+    m_ground->SetFixed(true);
+    m_ground->EnableCollision(true);
     system->AddBody(m_ground);
 }
 
@@ -53,7 +52,7 @@ void RigidTerrainTrapezoid::SetTexture(const std::string tex_file, float tex_sca
 // -----------------------------------------------------------------------------
 // Initialize the terrain
 // -----------------------------------------------------------------------------
-void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  // [in] contact material
+void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  // [in] contact material
                                        double height1,                          // [in] terrain height (before slope)
                                        double height2,                          // [in] terrain height (after 1st slope)
                                        double height3,                          // [in] terrain height (after 2nd slope)
@@ -85,14 +84,14 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
     // Limit the angles to positive angles less than or equal to 90 degrees
     m_angle1 = std::abs(m_angle1);
     m_angle2 = std::abs(m_angle2);
-    m_angle1 = (m_angle1 > CH_C_PI_2) ? CH_C_PI_2 : m_angle1;
-    m_angle2 = (m_angle2 > CH_C_PI_2) ? CH_C_PI_2 : m_angle2;
+    m_angle1 = (m_angle1 > CH_PI_2) ? CH_PI_2 : m_angle1;
+    m_angle2 = (m_angle2 > CH_PI_2) ? CH_PI_2 : m_angle2;
 
     // Force the heights to be continuous if the provided angle between them is zero
     // Otherwise ensure the angle is > 0.01 to prevent rounding errors
     if (m_angle1 == 0)
         m_height2 = m_height1;
-    else if (m_angle1 == CH_C_PI_2) {
+    else if (m_angle1 == CH_PI_2) {
         m_rise1 = std::abs(m_height2 - m_height1);
     } else {
         m_rise1 = std::abs(m_height2 - m_height1);
@@ -101,7 +100,7 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
 
     if (m_angle2 == 0)
         m_height3 = m_height2;
-    else if (m_angle2 == CH_C_PI_2) {
+    else if (m_angle2 == CH_PI_2) {
         m_rise2 = std::abs(m_height3 - m_height2);
     } else {
         m_rise2 = std::abs(m_height3 - m_height2);
@@ -122,13 +121,11 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
                        ? 10 + std::abs(height2 - height1)
                        : 10 + std::abs(height3 - height2);  // thickness of each contact box
 
-    m_ground->GetCollisionModel()->ClearModel();
-
     {
         m_ground->GetCollisionModel()->AddBox(mat, sizeX1, sizeY, depth,
-                                              ChVector<>(m_offsetX - sizeX1 / 2, 0, height1 - depth / 2));
-        auto box = chrono_types::make_shared<ChBoxShape>(sizeX1, sizeY, depth);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(m_offsetX - sizeX1 / 2, 0, height1 - depth / 2)));
+                                              ChVector3d(m_offsetX - sizeX1 / 2, 0, height1 - depth / 2));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX1, sizeY, depth);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(m_offsetX - sizeX1 / 2, 0, height1 - depth / 2)));
     }
 
     if (m_run1 > 0)  // There is not a step change in height, so an angled section is needed
@@ -141,19 +138,19 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
         double y = 0;
         double z = (m_height1 + m_height2 - sizeX2 * std::cos(m_angle1)) / 2;
 
-        ChMatrix33<> rot(-m_angle1, ChVector<>(0, 1, 0));
+        ChMatrix33<> rot(-m_angle1, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector<>(x, y, z), rot);
+        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
 
-        auto box = chrono_types::make_shared<ChBoxShape>(dim_x, dim_y, dim_z);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(x, y, z), rot));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
     }
 
     {
         m_ground->GetCollisionModel()->AddBox(mat, sizeX2, sizeY, depth,
-                                              ChVector<>(m_offsetX + m_run1 + sizeX2 / 2, 0, height2 - depth / 2));
-        auto box = chrono_types::make_shared<ChBoxShape>(sizeX2, sizeY, depth);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(m_offsetX + m_run1 + sizeX2 / 2, 0, height2 - depth / 2)));
+                                              ChVector3d(m_offsetX + m_run1 + sizeX2 / 2, 0, height2 - depth / 2));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX2, sizeY, depth);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(m_offsetX + m_run1 + sizeX2 / 2, 0, height2 - depth / 2)));
     }
 
     if (m_run2 > 0)  // There is not a step change in height, so an angled section is needed
@@ -166,27 +163,25 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
         double y = 0;
         double z = (m_height2 + m_height3 - sizeX2 * std::cos(m_angle2)) / 2;
 
-        ChMatrix33<> rot(-m_angle2, ChVector<>(0, 1, 0));
+        ChMatrix33<> rot(-m_angle2, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector<>(x, y, z), rot);
+        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
 
-        auto box = chrono_types::make_shared<ChBoxShape>(dim_x, dim_y, dim_z);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(x, y, z), rot));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
     }
 
     {
         m_ground->GetCollisionModel()->AddBox(
             mat, sizeX3, sizeY, depth,
-            ChVector<>(m_offsetX + m_run1 + sizeX2 + m_run2 + sizeX3 / 2, 0, height3 - depth / 2));
-        auto box = chrono_types::make_shared<ChBoxShape>(sizeX3, sizeY, depth);
+            ChVector3d(m_offsetX + m_run1 + sizeX2 + m_run2 + sizeX3 / 2, 0, height3 - depth / 2));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX3, sizeY, depth);
         m_ground->AddVisualShape(
-            box, ChFrame<>(ChVector<>(m_offsetX + m_run1 + sizeX2 + m_run2 + sizeX3 / 2, 0, height3 - depth / 2)));
+            box, ChFrame<>(ChVector3d(m_offsetX + m_run1 + sizeX2 + m_run2 + sizeX3 / 2, 0, height3 - depth / 2)));
     }
-
-    m_ground->GetCollisionModel()->BuildModel();
 }
 
-void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  // [in] contact material
+void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  // [in] contact material
                                        double heightT,                          // [in] terrain height
                                        ChVector2<> sizeT,                       // [in] total terrain length x width
                                        double heightB,                          // [in] berm height
@@ -213,8 +208,6 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
     m_rise2 = -m_rise1;
     m_run2 = m_run1;
 
-    m_ground->GetCollisionModel()->ClearModel();
-
     // Up slope
     {
         double dim_x = std::sqrt(m_rise1 * m_rise1 + m_run1 * m_run1);
@@ -225,12 +218,12 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
         double y = 0;
         double z = (heightT + heightB - sizeB.x() * std::cos(angle)) / 2;
 
-        ChMatrix33<> rot(-angle, ChVector<>(0, 1, 0));
+        ChMatrix33<> rot(-angle, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector<>(x, y, z), rot);
+        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
 
-        auto box = chrono_types::make_shared<ChBoxShape>(dim_x, dim_y, dim_z);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(x, y, z), rot));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
     }
 
     // Terrain & berm
@@ -239,15 +232,15 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
 
         double depthT = 10 + heightT;
         m_ground->GetCollisionModel()->AddBox(mat, sizeT.x(), sizeT.y(), depthT,
-                                              ChVector<>(x_center, 0, heightT - depthT / 2));
-        auto boxT = chrono_types::make_shared<ChBoxShape>(sizeT.x(), sizeT.y(), depthT);
-        m_ground->AddVisualShape(boxT, ChFrame<>(ChVector<>(x_center, 0, heightT - depthT / 2)));
+                                              ChVector3d(x_center, 0, heightT - depthT / 2));
+        auto boxT = chrono_types::make_shared<ChVisualShapeBox>(sizeT.x(), sizeT.y(), depthT);
+        m_ground->AddVisualShape(boxT, ChFrame<>(ChVector3d(x_center, 0, heightT - depthT / 2)));
 
         double depthB = 10 + heightB;
         m_ground->GetCollisionModel()->AddBox(mat, sizeB.x(), sizeB.y(), depthB,
-                                              ChVector<>(x_center, 0, heightB - depthB / 2));
-        auto boxB = chrono_types::make_shared<ChBoxShape>(sizeB.x(), sizeB.y(), depthB);
-        m_ground->AddVisualShape(boxB, ChFrame<>(ChVector<>(x_center, 0, heightB - depthB / 2)));
+                                              ChVector3d(x_center, 0, heightB - depthB / 2));
+        auto boxB = chrono_types::make_shared<ChVisualShapeBox>(sizeB.x(), sizeB.y(), depthB);
+        m_ground->AddVisualShape(boxB, ChFrame<>(ChVector3d(x_center, 0, heightB - depthB / 2)));
     }
 
     // Down slope
@@ -260,21 +253,19 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChMaterialSurface> mat,  
         double y = 0;
         double z = (heightB + heightT - sizeB.x() * std::cos(angle)) / 2;
 
-        ChMatrix33<> rot(angle, ChVector<>(0, 1, 0));
+        ChMatrix33<> rot(angle, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector<>(x, y, z), rot);
+        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
 
-        auto box = chrono_types::make_shared<ChBoxShape>(dim_x, dim_y, dim_z);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(x, y, z), rot));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
     }
-
-    m_ground->GetCollisionModel()->BuildModel();
 }
 
 // -----------------------------------------------------------------------------
 // Return the terrain height at the specified location
 // -----------------------------------------------------------------------------
-double RigidTerrainTrapezoid::GetHeight(const ChVector<>& loc) const {
+double RigidTerrainTrapezoid::GetHeight(const ChVector3d& loc) const {
     if (m_widebase) {
         //// TODO
         return m_height1;
@@ -304,31 +295,31 @@ double RigidTerrainTrapezoid::GetHeight(const ChVector<>& loc) const {
 // -----------------------------------------------------------------------------
 // Return the terrain normal at the specified location
 // -----------------------------------------------------------------------------
-ChVector<> RigidTerrainTrapezoid::GetNormal(const ChVector<>& loc) const {
+ChVector3d RigidTerrainTrapezoid::GetNormal(const ChVector3d& loc) const {
     if (m_widebase) {
         //// TODO
-        return ChVector<>(0, 0, 1);
+        return ChVector3d(0, 0, 1);
     }
 
     double x = loc.x();
     double y = loc.y();
 
     if ((y > m_sizeY / 2) || (y < -m_sizeY / 2))
-        return ChVector<>(0, 0, 1);
+        return ChVector3d(0, 0, 1);
 
     if (x <= m_offsetX)
-        return ChVector<>(0, 0, 1);
+        return ChVector3d(0, 0, 1);
 
     if (x <= m_offsetX + m_run1)
-        return ChVector<>(-std::sin(m_angle1), 0, std::cos(m_angle1));
+        return ChVector3d(-std::sin(m_angle1), 0, std::cos(m_angle1));
 
     if (x <= m_offsetX + m_run1 + m_sizeX2)
-        return ChVector<>(0, 0, 1);
+        return ChVector3d(0, 0, 1);
 
     if (x <= m_offsetX + m_run1 + m_sizeX2 + m_run2)
-        return ChVector<>(-std::sin(m_angle2), 0, std::cos(m_angle2));
+        return ChVector3d(-std::sin(m_angle2), 0, std::cos(m_angle2));
 
-    return ChVector<>(0, 0, 1);
+    return ChVector3d(0, 0, 1);
 }
 
 }  // end namespace vehicle

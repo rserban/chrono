@@ -50,9 +50,9 @@ int main(int argc, char **argv) {
     cout << "            file name: " << out_file << endl;
     cout << "         path of file: " << path(out_file) << endl;
     cout << "    abs. path of file: " << path(out_file).make_absolute() << endl;
-    utils::CSV_writer csv(",");
-    csv << ChVector<>(1, 2, 3) << ChQuaternion<>(1, 0, 0, 0) << endl;
-    csv.write_to_file(out_file);
+    utils::ChWriterCSV csv(",");
+    csv << ChVector3d(1, 2, 3) << ChQuaternion<>(1, 0, 0, 0) << endl;
+    csv.WriteToFile(out_file);
     cout << "Output file exists = " << path(out_file).exists() << endl;
     cout << "Output file is file = " << path(out_file).is_file() << endl;
     cout << endl;

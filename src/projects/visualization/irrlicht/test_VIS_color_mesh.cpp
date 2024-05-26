@@ -34,8 +34,8 @@ int main(int argc, char* argv[]) {
 
     // Create a ground body
     auto ground = chrono_types::make_shared<ChBody>();
-    ground->SetBodyFixed(true);
-    ground->SetCollide(false);
+    ground->SetFixed(true);
+    ground->EnableCollision(false);
     sys.AddBody(ground);
 
     // Visualization
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(2, 0, 0));
+    vis->AddCamera(ChVector3d(2, 0, 0));
     vis->AttachSystem(&sys);
 
     // Simulation loop

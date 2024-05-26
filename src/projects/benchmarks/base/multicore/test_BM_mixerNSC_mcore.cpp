@@ -25,7 +25,6 @@
 #include "chrono_opengl/ChVisualSystemOpenGL.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 
 // =============================================================================
 
@@ -47,7 +46,7 @@ class MixerTestNSC : public utils::ChBenchmarkTest {
 
 template <int N>
 MixerTestNSC<N>::MixerTestNSC() : m_system(new ChSystemMulticoreNSC()), m_step(1e-3) {
-    m_system->Set_G_acc(ChVector<>(0, 0, -9.81));
+    m_system->SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
     // Set number of threads.
     m_system->SetNumThreads(omp_get_num_procs());
@@ -71,50 +70,46 @@ MixerTestNSC<N>::MixerTestNSC() : m_system(new ChSystemMulticoreNSC()), m_step(1
     int num_layers = (N + 24) / 25;
 
     // Create a common material
-    auto mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto mat = chrono_types::make_shared<ChContactMaterialNSC>();
     mat->SetFriction(0.4f);
 
     // Create container bin
-    auto bin = utils::CreateBoxContainer(m_system, -100, mat, ChVector<>(1, 1, 0.1 + 0.4 * num_layers * radius), 0.1);
+    auto bin = utils::CreateBoxContainer(m_system, -100, mat, ChVector3d(1, 1, 0.1 + 0.4 * num_layers * radius), 0.1);
 
     // The rotating mixer body (1.6 x 0.2 x 0.4)
-    auto mixer = std::shared_ptr<ChBody>(m_system->NewBody());
-    mixer->SetIdentifier(-200);
+    auto mixer = chrono_types::make_shared<ChBody>();
+    mixer->SetTag(-200);
     mixer->SetMass(10.0);
-    mixer->SetInertiaXX(ChVector<>(50, 50, 50));
-    mixer->SetPos(ChVector<>(0, 0, 0.205));
-    mixer->SetBodyFixed(false);
-    mixer->SetCollide(true);
-    mixer->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(mixer.get(), mat, ChVector<>(0.8, 0.1, 0.2));
-    mixer->GetCollisionModel()->BuildModel();
+    mixer->SetInertiaXX(ChVector3d(50, 50, 50));
+    mixer->SetPos(ChVector3d(0, 0, 0.205));
+    mixer->SetFixed(false);
+    mixer->EnableCollision(true);
+    utils::AddBoxGeometry(mixer.get(), mat, ChVector3d(0.8, 0.1, 0.2));
     m_system->AddBody(mixer);
 
     // Create a motor between the two bodies, constrained to rotate at 90 deg/s
     auto motor = chrono_types::make_shared<ChLinkMotorRotationAngle>();
-    motor->Initialize(mixer, bin, ChFrame<>(ChVector<>(0, 0, 0), ChQuaternion<>(1, 0, 0, 0)));
-    motor->SetAngleFunction(chrono_types::make_shared<ChFunction_Ramp>(0, CH_C_PI / 2));
+    motor->Initialize(mixer, bin, ChFrame<>(ChVector3d(0, 0, 0), ChQuaternion<>(1, 0, 0, 0)));
+    motor->SetAngleFunction(chrono_types::make_shared<ChFunctionRamp>(0, CH_PI / 2));
     m_system->AddLink(motor);
 
     // Create the balls
     double mass = 1;
-    ChVector<> inertia = (2.0 / 5.0) * mass * radius * radius * ChVector<>(1, 1, 1);
+    ChVector3d inertia = (2.0 / 5.0) * mass * radius * radius * ChVector3d(1, 1, 1);
     int num_balls = 0;
     for (int il = 0; il < num_layers; il++) {
         double height = 1 + 2.01 * radius * il;
         for (int ix = -2; ix < 3; ix++) {
             for (int iy = -2; iy < 3; iy++) {
-                auto ball = std::shared_ptr<ChBody>(m_system->NewBody());
-                ball->SetIdentifier(num_balls);
+                auto ball = chrono_types::make_shared<ChBody>();
+                ball->SetTag(num_balls);
                 ball->SetMass(mass);
                 ball->SetInertiaXX(inertia);
-                ball->SetPos(ChVector<>(0.4 * ix + 0.01 * (il % 2), 0.4 * iy + 0.01 * (il % 2), height));
+                ball->SetPos(ChVector3d(0.4 * ix + 0.01 * (il % 2), 0.4 * iy + 0.01 * (il % 2), height));
                 ball->SetRot(ChQuaternion<>(1, 0, 0, 0));
-                ball->SetBodyFixed(false);
-                ball->SetCollide(true);
-                ball->GetCollisionModel()->ClearModel();
+                ball->SetFixed(false);
+                ball->EnableCollision(true);
                 utils::AddSphereGeometry(ball.get(), mat, radius);
-                ball->GetCollisionModel()->BuildModel();
                 m_system->AddBody(ball);
                 num_balls++;
                 if (num_balls == N)
@@ -132,7 +127,7 @@ void MixerTestNSC<N>::SimulateVis() {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(0, -2, 3), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(0, -2, 3), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     while (vis.Run()) {

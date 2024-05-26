@@ -6,7 +6,7 @@
 
 #include "chrono/ChConfig.h"
 
-#include <chrono/motion_functions/ChFunction_Setpoint.h>
+#include <chrono/motion_functions/ChFunctionSetpoint.h>
 #include <chrono/physics/ChBody.h>
 #include <chrono/physics/ChLinkLock.h>
 #include <chrono/physics/ChLinkMotorLinearPosition.h>
@@ -28,7 +28,6 @@ using std::endl;
 using std::string;
 
 using namespace chrono;
-using namespace chrono::collision;
 
 string file_name;
 string file_name_prefix("shear_results");
@@ -49,8 +48,8 @@ double grav = 9.81;  // Magnitude of gravity in the -z direction
 double sphere_inflation = 20;                     // Multiplier on particle radius
 double sphere_radius = sphere_inflation * 50e-6;  // Particle radius 50um = 50e-6m
 double sphere_density = 400;                      // Particle density 0.4 g/cm^3 = 400 kg/m^3
-double sphere_mass = 4 * CH_C_PI * sphere_radius * sphere_radius * sphere_radius * sphere_density / 3;
-ChVector<> sphere_inertia = 2 * sphere_mass * sphere_radius * sphere_radius / 3 * ChVector<>(1, 1, 1);
+double sphere_mass = 4 * CH_PI * sphere_radius * sphere_radius * sphere_radius * sphere_density / 3;
+ChVector3d sphere_inertia = 2 * sphere_mass * sphere_radius * sphere_radius / 3 * ChVector3d(1, 1, 1);
 
 // Particle material: Parameters to tune
 float sphere_mu;         // Coefficient of friction
@@ -106,7 +105,7 @@ double shear_time = shear_displacement / shear_velocity;
 double box_thick = 1.5 * shear_displacement;  // Thickness of walls so that no material spills during shearing
 
 void AddBox(ChSystemMulticore& m_sys, std::shared_ptr<ChBody>& top) {
-    auto box_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto box_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     box_mat->SetFriction(box_mu);
     box_mat->SetRestitution(box_cr);
 
@@ -118,45 +117,41 @@ void AddBox(ChSystemMulticore& m_sys, std::shared_ptr<ChBody>& top) {
 
     // Top half of shear box
     bool top_vis = false;
-    ChVector<> pos(0, 0, 0);
-    top = std::shared_ptr<ChBody>(m_sys.NewBody());
+    ChVector3d pos(0, 0, 0);
+    top = chrono_types::make_shared<ChBody>();
     top->SetPos(pos);
     top->SetMass(box_mass / 2);
-    top->SetBodyFixed(true);
-    top->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(top.get(), box_mat, ChVector<>(hthick, hy, hz / 2), ChVector<>(-(hx + hthick), 0, hz / 2),
+    top->SetFixed(true);
+    utils::AddBoxGeometry(top.get(), box_mat, ChVector3d(hthick, hy, hz / 2), ChVector3d(-(hx + hthick), 0, hz / 2),
                           QUNIT, top_vis);  // Low X
-    utils::AddBoxGeometry(top.get(), box_mat, ChVector<>(hthick, hy, hz / 2), ChVector<>(hx + hthick, 0, hz / 2), QUNIT,
+    utils::AddBoxGeometry(top.get(), box_mat, ChVector3d(hthick, hy, hz / 2), ChVector3d(hx + hthick, 0, hz / 2), QUNIT,
                           top_vis);  // High X
-    utils::AddBoxGeometry(top.get(), box_mat, ChVector<>(hx, hthick, hz / 2), ChVector<>(0, -(hy + hthick), hz / 2),
+    utils::AddBoxGeometry(top.get(), box_mat, ChVector3d(hx, hthick, hz / 2), ChVector3d(0, -(hy + hthick), hz / 2),
                           QUNIT, top_vis);  // Low Y
-    utils::AddBoxGeometry(top.get(), box_mat, ChVector<>(hx, hthick, hz / 2), ChVector<>(0, hy + hthick, hz / 2), QUNIT,
+    utils::AddBoxGeometry(top.get(), box_mat, ChVector3d(hx, hthick, hz / 2), ChVector3d(0, hy + hthick, hz / 2), QUNIT,
                           top_vis);  // High Y
-    top->GetCollisionModel()->BuildModel();
-    top->SetCollide(true);
+    top->EnableCollision(true);
     top->GetCollisionModel()->SetFamily(1);
-    top->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(1);
+    top->GetCollisionModel()->DisallowCollisionsWith(1);
     m_sys.AddBody(top);
 
     // Bottom half of shear box
-    auto bot = std::shared_ptr<ChBody>(m_sys.NewBody());
+    auto bot = chrono_types::make_shared<ChBody>();
     bot->SetPos(pos);
     bot->SetMass(box_mass / 2);
-    bot->SetBodyFixed(true);
-    bot->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(bot.get(), box_mat, ChVector<>(hx, hy, hthick), ChVector<>(0, 0, -(hz + hthick)));  // Bottom
-    utils::AddBoxGeometry(bot.get(), box_mat, ChVector<>(hthick, hy, hz / 2),
-                          ChVector<>(-(hx + hthick), 0, -hz / 2));  // Low X
-    utils::AddBoxGeometry(bot.get(), box_mat, ChVector<>(hthick, hy, hz / 2),
-                          ChVector<>(hx + hthick, 0, -hz / 2));  // High X
-    utils::AddBoxGeometry(bot.get(), box_mat, ChVector<>(hx, hthick, hz / 2),
-                          ChVector<>(0, -(hy + hthick), -hz / 2));  // Low Y
-    utils::AddBoxGeometry(bot.get(), box_mat, ChVector<>(hx, hthick, hz / 2),
-                          ChVector<>(0, hy + hthick, -hz / 2));  // High Y
-    bot->GetCollisionModel()->BuildModel();
-    bot->SetCollide(true);
+    bot->SetFixed(true);
+    utils::AddBoxGeometry(bot.get(), box_mat, ChVector3d(hx, hy, hthick), ChVector3d(0, 0, -(hz + hthick)));  // Bottom
+    utils::AddBoxGeometry(bot.get(), box_mat, ChVector3d(hthick, hy, hz / 2),
+                          ChVector3d(-(hx + hthick), 0, -hz / 2));  // Low X
+    utils::AddBoxGeometry(bot.get(), box_mat, ChVector3d(hthick, hy, hz / 2),
+                          ChVector3d(hx + hthick, 0, -hz / 2));  // High X
+    utils::AddBoxGeometry(bot.get(), box_mat, ChVector3d(hx, hthick, hz / 2),
+                          ChVector3d(0, -(hy + hthick), -hz / 2));  // Low Y
+    utils::AddBoxGeometry(bot.get(), box_mat, ChVector3d(hx, hthick, hz / 2),
+                          ChVector3d(0, hy + hthick, -hz / 2));  // High Y
+    bot->EnableCollision(true);
     bot->GetCollisionModel()->SetFamily(1);
-    bot->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(1);
+    bot->GetCollisionModel()->DisallowCollisionsWith(1);
     m_sys.AddBody(bot);
 }
 
@@ -164,7 +159,7 @@ void AddPlate(ChSystemMulticoreNSC& m_sys,
               std::shared_ptr<ChBody>& plate,
               std::shared_ptr<ChBody>& top,
               double plate_bottom) {
-    auto box_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto box_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     box_mat->SetFriction(box_mu);
     box_mat->SetRestitution(box_cr);
 
@@ -175,20 +170,18 @@ void AddPlate(ChSystemMulticoreNSC& m_sys,
     double hthick = box_thick / 2;
 
     // Plate for applying confining pressure
-    plate = std::shared_ptr<ChBody>(m_sys.NewBody());
-    plate->SetPos(ChVector<>(0, 0, plate_bottom + hthick));
+    plate = chrono_types::make_shared<ChBody>();
+    plate->SetPos(ChVector3d(0, 0, plate_bottom + hthick));
     plate->SetMass(plate_mass);
-    plate->SetBodyFixed(false);
-    plate->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(plate.get(), box_mat, ChVector<>(hx, hy, hthick));
-    plate->GetCollisionModel()->BuildModel();
-    plate->SetCollide(true);
+    plate->SetFixed(false);
+    utils::AddBoxGeometry(plate.get(), box_mat, ChVector3d(hx, hy, hthick));
+    plate->EnableCollision(true);
     plate->GetCollisionModel()->SetFamily(1);
-    plate->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(1);
+    plate->GetCollisionModel()->DisallowCollisionsWith(1);
     m_sys.AddBody(plate);
 
     auto prismatic_plate_box = chrono_types::make_shared<ChLinkLockPrismatic>();
-    prismatic_plate_box->Initialize(plate, top, ChCoordsys<>(ChVector<>(0, 0, 0), QUNIT));
+    prismatic_plate_box->Initialize(plate, top, ChCoordsys<>(ChVector3d(0, 0, 0), QUNIT));
     m_sys.AddLink(prismatic_plate_box);
 }
 
@@ -197,48 +190,46 @@ void AddMotor(ChSystemMulticoreNSC& m_sys,
               std::shared_ptr<ChLinkMotorLinearPosition>& motor) {
     double hz = box_dim_Z / 2;
 
-    auto ground = std::shared_ptr<ChBody>(m_sys.NewBody());
-    ground->SetBodyFixed(true);
-    ground->SetPos(ChVector<>(0, 0, 0));
+    auto ground = chrono_types::make_shared<ChBody>();
+    ground->SetFixed(true);
+    ground->SetPos(ChVector3d(0, 0, 0));
     m_sys.AddBody(ground);
 
-    auto pos_func = chrono_types::make_shared<ChFunction_Setpoint>();
+    auto pos_func = chrono_types::make_shared<ChFunctionSetpoint>();
 
     motor = chrono_types::make_shared<ChLinkMotorLinearPosition>();
-    motor->Initialize(top, ground, ChFrame<>(ChVector<>(0, 0, hz / 2), QUNIT));
+    motor->Initialize(top, ground, ChFrame<>(ChVector3d(0, 0, hz / 2), QUNIT));
     motor->SetMotionFunction(pos_func);
     m_sys.AddLink(motor);
 }
 
 void FixPlate(ChSystemMulticoreNSC& m_sys, std::shared_ptr<ChBody>& plate, std::shared_ptr<ChBody>& top) {
     ChQuaternion<> z2y;
-    z2y.Q_from_AngAxis(-CH_C_PI / 2, ChVector<>(1, 0, 0));
+    z2y.QuatFromAngleAxis(-CH_PI / 2, ChVector3d(1, 0, 0));
 
     auto pin = chrono_types::make_shared<ChLinkLockPrismatic>();
-    pin->Initialize(plate, top, ChCoordsys<>(ChVector<>(0, 0, 0), z2y));
+    pin->Initialize(plate, top, ChCoordsys<>(ChVector3d(0, 0, 0), z2y));
     m_sys.AddLink(pin);
 }
 
-size_t AddParticles(ChSystemMulticoreNSC& m_sys, ChVector<> box_center, ChVector<> hdims) {
-    auto sphere_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+size_t AddParticles(ChSystemMulticoreNSC& m_sys, ChVector3d box_center, ChVector3d hdims) {
+    auto sphere_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     sphere_mat->SetFriction(sphere_mu);
     sphere_mat->SetRestitution(sphere_cr);
 
-    utils::PDSampler<> sampler(2.01 * sphere_radius);
-    auto points = sampler.SampleBox(box_center, ChVector<>(hdims.x(), hdims.y(), hdims.z()));
+    utils::ChPDSampler<> sampler(2.01 * sphere_radius);
+    auto points = sampler.SampleBox(box_center, ChVector3d(hdims.x(), hdims.y(), hdims.z()));
     for (unsigned int i = 0; i < points.size(); i++) {
-        auto sphere = std::shared_ptr<ChBody>(m_sys.NewBody());
+        auto sphere = chrono_types::make_shared<ChBody>();
 
         sphere->SetMass(sphere_mass);
         sphere->SetInertiaXX(sphere_inertia);
         sphere->SetPos(points[i]);
         sphere->SetRot(ChQuaternion<>(1, 0, 0, 0));
-        sphere->SetBodyFixed(false);
-        sphere->SetCollide(true);
+        sphere->SetFixed(false);
+        sphere->EnableCollision(true);
 
-        sphere->GetCollisionModel()->ClearModel();
         utils::AddSphereGeometry(sphere.get(), sphere_mat, sphere_radius);
-        sphere->GetCollisionModel()->BuildModel();
 
         m_sys.AddBody(sphere);
     }
@@ -250,9 +241,9 @@ void WriteParticles(ChSystemMulticoreNSC& m_sys, string file_name) {
     std::ofstream ostream;
     ostream.open(file_name);
     ostream << "x,y,z,U" << endl;
-    for (auto body : m_sys.Get_bodylist()) {
-        ChVector<> pos = body->GetPos();
-        ostream << pos.x() << "," << pos.y() << "," << pos.z() << "," << body->GetPos_dt().Length() << endl;
+    for (auto body : m_sys.GetBodies()) {
+        ChVector3d pos = body->GetPos();
+        ostream << pos.x() << "," << pos.y() << "," << pos.z() << "," << body->GetPosDt().Length() << endl;
     }
 
     ostream.close();
@@ -296,7 +287,7 @@ int main(int argc, char* argv[]) {
 
     ChSystemMulticoreNSC m_sys;
 
-    m_sys.Set_G_acc(ChVector<>(0, 0, -grav));
+    m_sys.SetGravitationalAcceleration(ChVector3d(0, 0, -grav));
     m_sys.SetNumThreads(omp_get_num_procs());
 
     m_sys.GetSettings()->solver.use_full_inertia_tensor = false;
@@ -336,8 +327,8 @@ int main(int argc, char* argv[]) {
 
     // Add spherical particles
     auto num_particles = AddParticles(
-        m_sys, ChVector<>(0, 0, -box_dim_Z / 2 + sampling_dim_Z / 2),
-        ChVector<>(box_dim_X / 2 - sphere_radius, box_dim_Y / 2 - sphere_radius, sampling_dim_Z / 2 - sphere_radius));
+        m_sys, ChVector3d(0, 0, -box_dim_Z / 2 + sampling_dim_Z / 2),
+        ChVector3d(box_dim_X / 2 - sphere_radius, box_dim_Y / 2 - sphere_radius, sampling_dim_Z / 2 - sphere_radius));
 
     settings_stream << "Actual number of particles: " << num_particles << endl;
     settings_stream.close();
@@ -350,7 +341,7 @@ int main(int argc, char* argv[]) {
         vis.SetWindowSize(1280, 720);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.AddCamera(ChVector<>(3 * box_dim_Y, 0, 0), ChVector<>(0, 0, 0));
+        vis.AddCamera(ChVector3d(3 * box_dim_Y, 0, 0), ChVector3d(0, 0, 0));
         vis.SetCameraVertical(CameraVerticalDir::Z);
     }
 #endif
@@ -379,8 +370,8 @@ int main(int argc, char* argv[]) {
 
     // Add a weighted top plate
     double highest = -10e30;
-    for (unsigned int i = 2; i < m_sys.Get_bodylist().size(); i++) {
-        highest = std::max(highest, m_sys.Get_bodylist()[i]->GetPos().z());
+    for (unsigned int i = 2; i < m_sys.GetBodies().size(); i++) {
+        highest = std::max(highest, m_sys.GetBodies()[i]->GetPos().z());
     }
 
     highest += 2 * sphere_radius;
@@ -412,7 +403,7 @@ int main(int argc, char* argv[]) {
 
     // Create a motor to slide the top of the box in the +x direction
     std::shared_ptr<ChLinkMotorLinearPosition> motor;
-    top->SetBodyFixed(false);
+    top->SetFixed(false);
     AddMotor(m_sys, top, motor);
 
     // Fix the plate to the top of the box
@@ -426,14 +417,14 @@ int main(int argc, char* argv[]) {
     ostream << csv_header << endl;
 
     // 5 Hz low pass filter
-    utils::ChButterworth_Lowpass fm_lowpass5(1, dt, 5.0);
+    utils::ChButterworthLowpass fm_lowpass5(1, dt, 5.0);
     double shear_force_motor_filtered;
     double shear_area;
 
     step = 0;
     m_time = 0;
     while (m_time < shear_time) {
-        auto pos_func = std::static_pointer_cast<ChFunction_Setpoint>(motor->GetMotorFunction());
+        auto pos_func = std::static_pointer_cast<ChFunctionSetpoint>(motor->GetMotorFunction());
         double pos = step * dt * shear_velocity;
         double pos_dt = shear_velocity;
         pos_func->SetSetpointAndDerivatives(pos, pos_dt, 0);

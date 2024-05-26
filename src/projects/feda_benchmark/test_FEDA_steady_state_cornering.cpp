@@ -46,7 +46,7 @@ using namespace chrono::vehicle::feda;
 // =============================================================================
 
 // Initial vehicle location and orientation
-ChVector<> initLoc(0, 0, 0.5);
+ChVector3d initLoc(0, 0, 0.5);
 ChQuaternion<> initRot(1, 0, 0, 0);
 
 // Visualization type for vehicle parts (PRIMITIVES, MESH, or NONE)
@@ -63,7 +63,7 @@ TireModelType tire_model = TireModelType::PAC02;
 SteeringTypeWV steering_model = SteeringTypeWV::PITMAN_ARM;
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(1.0, 0.0, 1.75);
+ChVector3d trackPoint(1.0, 0.0, 1.75);
 
 // output directory
 const std::string out_dir = "../FEDA_CONST_TURN";
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
     // Create the terrain
     // ------------------
 
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     patch_mat->SetFriction(0.8f);
     patch_mat->SetRestitution(0.01f);
     RigidTerrain terrain(feda.GetSystem());
@@ -156,8 +156,8 @@ int main(int argc, char* argv[]) {
     // Create the driver system
     // -------------------------------------
 
-    // auto path = StraightLinePath(ChVector<>(-42 / 2, 0, 0.5), ChVector<>(42 / 2, 0, 0.5), 1);
-    auto path = CirclePath(ChVector<>(0.0, 0, 0.5), turn_radius, 30.0, turn_left, 15);
+    // auto path = StraightLinePath(ChVector3d(-42 / 2, 0, 0.5), ChVector3d(42 / 2, 0, 0.5), 1);
+    auto path = CirclePath(ChVector3d(0.0, 0, 0.5), turn_radius, 30.0, turn_left, 15);
 
     // Create the driver system
     ChPathFollowerDriver driver(feda.GetVehicle(), path, "circle", target_speed);
@@ -201,9 +201,9 @@ int main(int argc, char* argv[]) {
     }
 
 #ifdef CHRONO_POSTPROCESS
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
     csv << "time"
         << "steering"
         << "speed"
@@ -226,7 +226,7 @@ int main(int argc, char* argv[]) {
     while (vis->Run()) {
         double time = feda.GetSystem()->GetChTime();
 
-        target_speed = ChSineStep(time, T1, 5, T2, target_speed_max);
+        target_speed = ChFunctionSineStep::Eval(time, T1, 5, T2, target_speed_max);
         driver.SetDesiredSpeed(target_speed);
 
         // Render scene
@@ -251,8 +251,8 @@ int main(int argc, char* argv[]) {
             double speed = feda.GetVehicle().GetSpeed();
             double ay = pow(feda.GetVehicle().GetSpeed(), 2.0) / turn_radius / 9.81;
             ChQuaternion<> q = feda.GetVehicle().GetRot();
-            double roll = q.Q_to_Euler123().x() * CH_C_RAD_TO_DEG;
-            double yawrate = feda.GetChassisBody()->GetWvel_loc().z() * CH_C_RAD_TO_DEG;
+            double roll = q.Q_to_Euler123().x() * CH_RAD_TO_DEG;
+            double yawrate = feda.GetChassisBody()->GetAngVelLocal().z() * CH_RAD_TO_DEG;
             if (!turn_left)
                 ay *= -1.0;
             csv << time << steering_wheel_input << speed << ay << roll << yawrate << std::endl;
@@ -261,8 +261,8 @@ int main(int argc, char* argv[]) {
 
         // Update sentinel and target location markers for the path-follower controller.
         // Note that we do this whether or not we are currently using the path-follower driver.
-        const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 
@@ -274,9 +274,9 @@ int main(int argc, char* argv[]) {
         // ChQuaternion<> qW1= feda.GetVehicle().GetWheelRot(1);
         // ChQuaternion<> qW0= feda.GetVehicle().GetWheelRot(0);
         // ChQuaternion<> qV= feda.GetVehicle().GetRot();
-        // std::cout<<"Wheel0|"<<(qW0.Q_to_NasaAngles().z()*180/CH_C_PI) - (qV.Q_to_NasaAngles().z()*180/CH_C_PI)
-        //     <<"\t|Wheel1|"<<(qW1.Q_to_NasaAngles().z()*180/CH_C_PI) -
-        //     (qV.Q_to_NasaAngles().z()*180/CH_C_PI)<<std::endl;
+        // std::cout<<"Wheel0|"<<(qW0.Q_to_NasaAngles().z()*180/CH_PI) - (qV.Q_to_NasaAngles().z()*180/CH_PI)
+        //     <<"\t|Wheel1|"<<(qW1.Q_to_NasaAngles().z()*180/CH_PI) -
+        //     (qV.Q_to_NasaAngles().z()*180/CH_PI)<<std::endl;
 
         auto susp0 = std::static_pointer_cast<ChDoubleWishbone>(feda.GetVehicle().GetSuspension(0));
         auto susp1 = std::static_pointer_cast<ChDoubleWishbone>(feda.GetVehicle().GetSuspension(1));
@@ -286,7 +286,7 @@ int main(int argc, char* argv[]) {
         ////std::cout << time << "   " << states(0) << "  " << states(1) << std::endl;
 
         ChCoordsys<> vehCoord = ChCoordsys<>(feda.GetVehicle().GetPos(), feda.GetVehicle().GetRot());
-        ChVector<> vehCOM = vehCoord.TransformPointParentToLocal(feda.GetVehicle().GetCOMFrame().GetPos());
+        ChVector3d vehCOM = vehCoord.TransformPointParentToLocal(feda.GetVehicle().GetCOMFrame().GetPos());
         // std::cout << "Vehicle COM: " << vehCOM.x() << "|" << vehCOM.y() << "|" << vehCOM.z() << std::endl;
         /* std::cout<<"Vehicle
         COM|"<<feda.GetVehicle().GetCOMFrame().GetPos().x()-feda.GetVehicle().GetPos().x()<<"|"
@@ -301,24 +301,24 @@ int main(int argc, char* argv[]) {
         step_number++;
     }
 
-    GetLog() << "CoG of the FED alpha above ground = " << feda.GetVehicle().GetCOMFrame().GetPos().z() << " m\n";
+    std::cout << "CoG of the FED alpha above ground = " << feda.GetVehicle().GetCOMFrame().GetPos().z() << " m\n";
     // Ride height test, originally the tests where made with body reference points, we don't have it
     // Ride height OnRoad is reached when the drive shafts are straight lines
     double refHeightFront =
         (feda.GetVehicle().GetWheel(0, LEFT)->GetPos().z() + feda.GetVehicle().GetWheel(0, RIGHT)->GetPos().z()) / 2.0;
     double refHeightRear =
         (feda.GetVehicle().GetWheel(1, LEFT)->GetPos().z() + feda.GetVehicle().GetWheel(1, RIGHT)->GetPos().z()) / 2.0;
-    double bodyHeightFront = feda.GetVehicle().GetPointLocation(ChVector<>(0, 0, 0)).z();
-    double bodyHeightRear = feda.GetVehicle().GetPointLocation(ChVector<>(-3.302, 0, 0)).z();
+    double bodyHeightFront = feda.GetVehicle().GetPointLocation(ChVector3d(0, 0, 0)).z();
+    double bodyHeightRear = feda.GetVehicle().GetPointLocation(ChVector3d(-3.302, 0, 0)).z();
     double rideHeightFront = bodyHeightFront - refHeightFront;
     double rideHeightRear = bodyHeightRear - refHeightRear;
-    GetLog() << "Ride Height Front = " << rideHeightFront << " m, Rear = " << rideHeightRear << " m\n";
+    std::cout << "Ride Height Front = " << rideHeightFront << " m, Rear = " << rideHeightRear << " m\n";
 
 #ifdef CHRONO_POSTPROCESS
     if (turn_left)
-        csv.write_to_file(out_dir + "/feda_steady_state_cornering_left.txt");
+        csv.WriteToFile(out_dir + "/feda_steady_state_cornering_left.txt");
     else
-        csv.write_to_file(out_dir + "/feda_steady_state_cornering_right.txt");
+        csv.WriteToFile(out_dir + "/feda_steady_state_cornering_right.txt");
 #endif
 
     return 0;

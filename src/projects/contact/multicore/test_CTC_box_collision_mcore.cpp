@@ -43,13 +43,13 @@ class ContactManager : public ChContactContainer::ReportContactCallback {
     ContactManager(std::shared_ptr<ChBody> box) : m_box(box) {}
 
   private:
-    virtual bool OnReportContact(const ChVector<>& pA,
-                                 const ChVector<>& pB,
+    virtual bool OnReportContact(const ChVector3d& pA,
+                                 const ChVector3d& pB,
                                  const ChMatrix33<>& plane_coord,
                                  const double& distance,
                                  const double& eff_radius,
-                                 const ChVector<>& cforce,
-                                 const ChVector<>& ctorque,
+                                 const ChVector3d& cforce,
+                                 const ChVector3d& ctorque,
                                  ChContactable* modA,
                                  ChContactable* modB) override {
         printf("  ------------\n");
@@ -60,7 +60,7 @@ class ContactManager : public ChContactContainer::ReportContactCallback {
             printf("  other:  %6.3f  %6.3f  %6.3f\n", pA.x(), pA.y(), pA.z());
             printf("  box:    %6.3f  %6.3f  %6.3f\n", pB.x(), pB.y(), pB.z());
         }
-        ChVector<> nrm = plane_coord.Get_A_Xaxis();
+        ChVector3d nrm = plane_coord.GetAxisX();
         printf("  dist:   %6.4f\n", distance);
         printf("  normal: %6.3f  %6.3f  %6.3f\n", nrm.x(), nrm.y(), nrm.z());
 
@@ -75,7 +75,7 @@ class ContactManager : public ChContactContainer::ReportContactCallback {
 // -------------------------------------------------------
 void ReportContacts(ChSystemMulticore& system, unsigned int id) {
     printf("  ------------\n");
-    printf("  Total number contacts: %d\n", system.GetNcontacts());
+    printf("  Total number contacts: %d\n", system.GetNumContacts());
 
     auto& bb = system.data_manager->cd_data->bids_rigid_rigid;
     auto& p1 = system.data_manager->cd_data->cpta_rigid_rigid;
@@ -121,14 +121,12 @@ void ReportShapeAABB(ChSystemMulticore& system) {
 // -------------------------------------------------------
 void ReportBodyAABB(ChSystemMulticore& system) {
     printf("  ------------\n");
-    printf("  Number rigid bodies: %d\n", system.GetNbodies());
+    printf("  Number rigid bodies: %d\n", system.GetNumBodies());
 
-    ChVector<> min;
-    ChVector<> max;
-    for (auto b : system.Get_bodylist()) {
-        b->GetCollisionModel()->GetAABB(min, max);
+    for (auto b : system.GetBodies()) {
+        auto aabb = b->GetCollisionModel()->GetBoundingBox();
         printf("  body %d   AABB (%6.3f %6.3f %6.3f) - (%6.3f %6.3f %6.3f)\n",  //
-               b->GetId(), min.x(), min.y(), min.z(), max.x(), max.y(), max.z());
+               b->GetIdentifier(), aabb.min.x(), aabb.min.y(), aabb.min.z(), aabb.max.x(), aabb.max.y(), aabb.max.z());
     }
 }
 
@@ -156,7 +154,7 @@ int main(int argc, char** argv) {
     // ---------------------------
 
     ChSystemMulticore* sys = nullptr;
-    std::shared_ptr<ChMaterialSurface> contact_mat;
+    std::shared_ptr<ChContactMaterial> contact_mat;
 
     switch (method) {
         case chrono::ChContactMethod::NSC: {
@@ -170,7 +168,7 @@ int main(int argc, char** argv) {
             sysNSC->GetSettings()->solver.alpha = 0;
             sysNSC->GetSettings()->solver.contact_recovery_speed = contact_recovery_speed;
             sys = sysNSC;
-            auto materialNSC = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+            auto materialNSC = chrono_types::make_shared<ChContactMaterialNSC>();
             materialNSC->SetFriction(0.4f);
             contact_mat = materialNSC;
             time_step = 1e-3;
@@ -182,7 +180,7 @@ int main(int argc, char** argv) {
             sysSMC->GetSettings()->solver.contact_force_model = ChSystemSMC::ContactForceModel::Hertz;
             sysSMC->GetSettings()->solver.tangential_displ_mode = ChSystemSMC::TangentialDisplacementModel::OneStep;
             sys = sysSMC;
-            auto materialSMC = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+            auto materialSMC = chrono_types::make_shared<ChContactMaterialSMC>();
             materialSMC->SetFriction(0.4f);
             materialSMC->SetYoungModulus(1e7f);
             materialSMC->SetRestitution(0.1f);
@@ -193,26 +191,24 @@ int main(int argc, char** argv) {
         }
     }
 
-    sys->Set_G_acc(ChVector<>(0, 0, -10));
+    sys->SetGravitationalAcceleration(ChVector3d(0, 0, -10));
     sys->SetNumThreads(1);
     sys->GetSettings()->collision.collision_envelope = collision_envelope;
-    sys->GetSettings()->collision.narrowphase_algorithm = collision::ChNarrowphase::Algorithm::HYBRID;
+    sys->GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::HYBRID;
     sys->GetSettings()->collision.bins_per_axis = vec3(1, 1, 1);
     sys->GetSettings()->solver.use_full_inertia_tensor = false;
     sys->GetSettings()->solver.tolerance = tolerance;
 
     // Add plate
-    auto plate = std::shared_ptr<ChBody>(sys->NewBody());
+    auto plate = chrono_types::make_shared<ChBody>();
     sys->Add(plate);
-    plate->SetPos(ChVector<>(0, 0, 0));
-    plate->SetBodyFixed(true);
-    plate->SetIdentifier(-1);
+    plate->SetPos(ChVector3d(0, 0, 0));
+    plate->SetFixed(true);
+    plate->SetTag(-1);
 
-    plate->SetCollide(true);
+    plate->EnableCollision(true);
     plate->GetCollisionModel()->SetEnvelope(collision_envelope);
-    plate->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(plate.get(), contact_mat, ChVector<>(10, 10, 1), ChVector<>(0, 0, -5));
-    plate->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(plate.get(), contact_mat, ChVector3d(10, 10, 1), ChVector3d(0, 0, -5));
 
     plate->GetVisualShape(0)->SetColor(ChColor(0.4f, 0.4f, 0.2f));
 
@@ -222,51 +218,47 @@ int main(int argc, char** argv) {
 
     // Corner on face
 
-    ChVector<> hdims1(1.0, 1.0, 1.0);
-    ChVector<> pos1(0.0, 0.0, 0.0);
+    ChVector3d hdims1(1.0, 1.0, 1.0);
+    ChVector3d pos1(0.0, 0.0, 0.0);
     ChQuaternion<> rot1(1, 0, 0, 0);
 
-    ChVector<> hdims2(1.0, 1.0, 1.0);
-    ChVector<> pos2(0, 0, 1.0 + sqrt(3.0));
-    ChQuaternion<> rot2 = Q_from_AngAxis(atan(sqrt(2.0)), ChVector<>(1, 1, 0).GetNormalized());
+    ChVector3d hdims2(1.0, 1.0, 1.0);
+    ChVector3d pos2(0, 0, 1.0 + sqrt(3.0));
+    ChQuaternion<> rot2 = QuatFromAngleAxis(atan(sqrt(2.0)), ChVector3d(1, 1, 0).GetNormalized());
 
     // Corner on corner
 
-    ////ChVector<> hdims1(1.0, 1.0, 1.0);
-    ////ChVector<> pos1(0.0, 0.0, 0.0);
-    ////ChQuaternion<> rot1 = Q_from_AngAxis(atan(sqrt(2.0)), ChVector<>(1, 1, 0).GetNormalized());
+    ////ChVector3d hdims1(1.0, 1.0, 1.0);
+    ////ChVector3d pos1(0.0, 0.0, 0.0);
+    ////ChQuaternion<> rot1 = QuatFromAngleAxis(atan(sqrt(2.0)), ChVector3d(1, 1, 0).GetNormalized());
 
-    ////ChVector<> hdims2(1.0, 1.0, 1.0);
-    ////ChVector<> pos2(0, 0, sqrt(3.0) + sqrt(3.0));
-    ////ChQuaternion<> rot2 = Q_from_AngAxis(atan(sqrt(2.0)), ChVector<>(1, 1, 0).GetNormalized());
+    ////ChVector3d hdims2(1.0, 1.0, 1.0);
+    ////ChVector3d pos2(0, 0, sqrt(3.0) + sqrt(3.0));
+    ////ChQuaternion<> rot2 = QuatFromAngleAxis(atan(sqrt(2.0)), ChVector3d(1, 1, 0).GetNormalized());
 
 
 
-    auto box1 = std::shared_ptr<ChBody>(sys->NewBody());
+    auto box1 = chrono_types::make_shared<ChBody>();
     box1->SetMass(10);
     box1->SetPos(pos1);
     box1->SetRot(rot1);
-    box1->SetInertiaXX(ChVector<>(1, 1, 1));
-    box1->SetBodyFixed(true);
-    box1->SetCollide(true);
+    box1->SetInertiaXX(ChVector3d(1, 1, 1));
+    box1->SetFixed(true);
+    box1->EnableCollision(true);
     box1->GetCollisionModel()->SetEnvelope(collision_envelope);
-    box1->GetCollisionModel()->ClearModel();
     utils::AddBoxGeometry(box1.get(), contact_mat, hdims1);
-    box1->GetCollisionModel()->BuildModel();
     box1->GetVisualShape(0)->SetColor(ChColor(0.2f, 0.3f, 0.4f));
     sys->AddBody(box1);
 
-    auto box2 = std::shared_ptr<ChBody>(sys->NewBody());
+    auto box2 = chrono_types::make_shared<ChBody>();
     box2->SetMass(10);
     box2->SetPos(pos2);
     box2->SetRot(rot2);
-    box2->SetInertiaXX(ChVector<>(1, 1, 1));
-    box2->SetBodyFixed(false);
-    box2->SetCollide(true);
+    box2->SetInertiaXX(ChVector3d(1, 1, 1));
+    box2->SetFixed(false);
+    box2->EnableCollision(true);
     box2->GetCollisionModel()->SetEnvelope(collision_envelope);
-    box2->GetCollisionModel()->ClearModel();
     utils::AddBoxGeometry(box2.get(), contact_mat, hdims2);
-    box2->GetCollisionModel()->BuildModel();
     box2->GetVisualShape(0)->SetColor(ChColor(0.2f, 0.3f, 0.4f));
     sys->AddBody(box2);
 
@@ -281,7 +273,7 @@ int main(int argc, char** argv) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(6, 6, 1), ChVector<>(0, 0, 1));
+    vis.AddCamera(ChVector3d(6, 6, 1), ChVector3d(0, 0, 1));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
 #endif
@@ -299,15 +291,14 @@ int main(int argc, char** argv) {
         std::cout << "\nTime: " << sys->GetChTime() << std::endl;
 
         // Process contacts
-        if (report_contacts && sys->GetNcontacts() > 0) {
-            ReportContacts(*sys, box2->GetId());
+        if (report_contacts && sys->GetNumContacts() > 0) {
+            ReportContacts(*sys, box2->GetIdentifier());
             sys->GetContactContainer()->ReportAllContacts(cmanager);
         }
 
         // Display AABB information
         if (report_aabb) {
             ReportShapeAABB(*sys);
-            sys->CalculateBodyAABB();
             ReportBodyAABB(*sys);
         }
 

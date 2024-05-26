@@ -65,7 +65,7 @@ class RigidTerrainTrapezoid : public ChTerrain {
     /// Initialize the terrain system.
     /// This version creates a berm across the entire width (Y direction) and
     /// allows different terrain heights before and after the berm.
-    void Initialize(std::shared_ptr<ChMaterialSurface> mat,  ///< [in] contact material
+    void Initialize(std::shared_ptr<ChContactMaterial> mat,  ///< [in] contact material
                     double height1,                          ///< [in] terrain height (before slope)
                     double height2,                          ///< [in] terrain height (after 1st slope)
                     double height3,                          ///< [in] terrain height (after 2nd slope)
@@ -83,7 +83,7 @@ class RigidTerrainTrapezoid : public ChTerrain {
     /// underlying flat terrain (in this case, the terrain height before the berm
     /// is equal to that after the berm). The terrain height must be lower than the
     /// berm height.
-    void Initialize(std::shared_ptr<ChMaterialSurface> mat,  ///< [in] contact material
+    void Initialize(std::shared_ptr<ChContactMaterial> mat,  ///< [in] contact material
                     double heightT,                          ///< [in] terrain height
                     ChVector2<> sizeT,                       ///< [in] total terrain length x width
                     double heightB,                          ///< [in] berm height
@@ -93,13 +93,13 @@ class RigidTerrainTrapezoid : public ChTerrain {
     );
 
     /// Get the terrain height at the specified (x,y) location.
-    virtual double GetHeight(const ChVector<>& loc) const override;
+    virtual double GetHeight(const ChVector3d& loc) const override;
 
     /// Get the terrain normal at the specified (x,y) location.
-    virtual chrono::ChVector<> GetNormal(const ChVector<>& loc) const override;
+    virtual chrono::ChVector3d GetNormal(const ChVector3d& loc) const override;
 
     /// Return the coefficient of friction at the specified (x,y) location.
-    virtual float GetCoefficientFriction(const ChVector<>& loc) const override { return m_friction; }
+    virtual float GetCoefficientFriction(const ChVector3d& loc) const override { return m_friction; }
 
   private:
     std::shared_ptr<ChBody> m_ground;

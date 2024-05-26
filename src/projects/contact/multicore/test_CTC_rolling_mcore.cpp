@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     // ----------------
     double radius = 0.5;
     double density = 1000;
-    double mass = density * (4.0 / 3.0) * CH_C_PI * pow(radius, 3);
+    double mass = density * (4.0 / 3.0) * CH_PI * pow(radius, 3);
     double inertia = (2.0 / 5.0) * mass * pow(radius, 2);
     double initial_angspeed = 10;
     double initial_linspeed = initial_angspeed * radius;
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
     // ---------------------------
 
     ChSystemMulticoreNSC system;
-    system.Set_G_acc(ChVector<>(0, -10, 0));
+    system.SetGravitationalAcceleration(ChVector3d(0, -10, 0));
 
     // Set number of threads
     system.SetNumThreads(1);
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
     system.GetSettings()->solver.tolerance = tolerance;
 
     system.GetSettings()->collision.collision_envelope = collision_envelope;
-    system.GetSettings()->collision.narrowphase_algorithm = collision::ChNarrowphase::Algorithm::PRIMS;
+    system.GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::PRIMS;
     system.GetSettings()->collision.bins_per_axis = vec3(10, 10, 10);
 
     // ----------
@@ -90,41 +90,37 @@ int main(int argc, char** argv) {
     // ----------
 
     // Shared contact material
-    auto material = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto material = chrono_types::make_shared<ChContactMaterialNSC>();
     material->SetFriction(sliding_friction);
     material->SetRollingFriction(rolling_friction);
 
-	auto container = std::shared_ptr<ChBody>(system.NewBody());
-	system.Add(container);
-	container->SetPos(ChVector<>(0, 0, 0));
-	container->SetBodyFixed(true);
-	container->SetIdentifier(-1);
+    auto container = chrono_types::make_shared<ChBody>();
+    system.Add(container);
+    container->SetPos(ChVector3d(0, 0, 0));
+    container->SetFixed(true);
+    container->SetTag(-1);
 
-	container->SetCollide(true);
-	container->GetCollisionModel()->ClearModel();
-	utils::AddBoxGeometry(container.get(), material, ChVector<>(20, .5, 20), ChVector<>(0, -.5, 0));
-	container->GetCollisionModel()->BuildModel();
+    container->EnableCollision(true);
+    utils::AddBoxGeometry(container.get(), material, ChVector3d(20, .5, 20), ChVector3d(0, -.5, 0));
 
     container->GetVisualShape(0)->SetColor(ChColor(0.4f, 0.4f, 0.2f));
 
-    auto ball = std::shared_ptr<ChBody>(system.NewBody());
-	ChVector<> pos = ChVector<>(0, radius, 0);
-	ChVector<> vel = ChVector<>(initial_linspeed, 0, 0);
-	ChVector<> wvel = ChVector<>(0, 0, -initial_angspeed);
-	ball->SetMass(mass);
-	ball->SetPos(pos);
-	ball->SetPos_dt(vel);
-	ball->SetWvel_par(wvel);
-	ball->SetInertiaXX(ChVector<>(inertia));
+    auto ball = chrono_types::make_shared<ChBody>();
+    ChVector3d pos = ChVector3d(0, radius, 0);
+    ChVector3d vel = ChVector3d(initial_linspeed, 0, 0);
+    ChVector3d wvel = ChVector3d(0, 0, -initial_angspeed);
+    ball->SetMass(mass);
+    ball->SetPos(pos);
+    ball->SetPosDt(vel);
+    ball->SetAngVelParent(wvel);
+    ball->SetInertiaXX(ChVector3d(inertia));
 
-    ball->SetCollide(true);
-    ball->GetCollisionModel()->ClearModel();
-	utils::AddSphereGeometry(ball.get(), material, radius);
-	ball->GetCollisionModel()->BuildModel();
+    ball->EnableCollision(true);
+    utils::AddSphereGeometry(ball.get(), material, radius);
 
     ball->GetVisualShape(0)->SetColor(ChColor(0.2f, 0.3f, 0.4f));
 
-	system.AddBody(ball);
+    system.AddBody(ball);
 
 #ifdef CHRONO_OPENGL
     // -------------------------------
@@ -137,7 +133,7 @@ int main(int argc, char** argv) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(10, 10, 20), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(10, 10, 20), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
 #endif
@@ -158,7 +154,7 @@ int main(int argc, char** argv) {
 
         //if (!output && system.GetChTime() >= time_out) {
         //    for (int i = 1; i <= 10; i++) {
-        //        auto pos = system.Get_bodylist()->at(i)->GetPos();
+        //        auto pos = system.GetBodies()->at(i)->GetPos();
         //        std::cout << pos.x() << std::endl;
         //    }
         //    output = true;

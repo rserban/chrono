@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
     HMMWV_Full my_hmmwv;
     my_hmmwv.SetContactMethod(ChContactMethod::SMC);
     my_hmmwv.SetChassisFixed(false);
-    my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector<>(-75, 0, 0.5), QUNIT));
+    my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(-75, 0, 0.5), QUNIT));
     my_hmmwv.SetEngineType(EngineModelType::SHAFTS);
     my_hmmwv.SetTransmissionType(TransmissionModelType::SHAFTS);
     my_hmmwv.SetDriveType(DrivelineTypeWV::RWD);
@@ -75,11 +75,11 @@ int main(int argc, char* argv[]) {
     terrain.Initialize();
 
     // Left circle path
-    auto path = CirclePath(ChVector<>(-75, 0, 0.6), 20, 40, true, 10);
-    auto npoints = (unsigned int)path->getNumPoints();
+    auto path = CirclePath(ChVector3d(-75, 0, 0.6), 20, 40, true, 10);
+    auto npoints = (unsigned int)path->GetNumPoints();
 
-    auto path_asset = chrono_types::make_shared<ChLineShape>();
-    path_asset->SetLineGeometry(chrono_types::make_shared<geometry::ChLineBezier>(path));
+    auto path_asset = chrono_types::make_shared<ChVisualShapeLine>();
+    path_asset->SetLineGeometry(chrono_types::make_shared<ChLineBezier>(path));
     path_asset->SetName("test path");
     path_asset->SetNumRenderPoints(std::max<unsigned int>(2 * npoints, 400));
     patch->GetGroundBody()->AddVisualShape(path_asset);
@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht application
     auto vis = chrono_types::make_shared<ChVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Constant radius test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->SetHUDLocation(500, 20);
     vis->Initialize();
     vis->AddTypicalLights();
@@ -123,8 +123,8 @@ int main(int argc, char* argv[]) {
         driver_inputs.m_braking = 0.0;
 
         // Update sentinel and target location markers for the path-follower controller.
-        const ChVector<>& pS = steeringPID.GetSentinelLocation();
-        const ChVector<>& pT = steeringPID.GetTargetLocation();
+        const ChVector3d& pS = steeringPID.GetSentinelLocation();
+        const ChVector3d& pT = steeringPID.GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 

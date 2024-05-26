@@ -44,9 +44,9 @@ Framework::Framework(const Scene& scene, bool render_coll)
       m_verbose(false),
       m_initialized(false) {
     m_system = new ChSystemNSC();
-    m_system->Set_G_acc(ChVector<>(0, 0, -9.81));
+    m_system->SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
-    m_system->SetSolverMaxIterations(150);
+    m_system->GetSolver()->AsIterative()->SetMaxIterations(150);
     m_system->SetMaxPenetrationRecoverySpeed(4.0);
     m_system->SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
@@ -58,10 +58,10 @@ Framework::~Framework() {
     delete m_system;
 }
 
-ChVector<> Framework::GetLocation(const GPScoord& gps) const {
+ChVector3d Framework::GetLocation(const GPScoord& gps) const {
     auto loc = m_scene.FromGPS(gps);
-    auto h = m_terrain->GetHeight(ChVector<>(loc.x(), loc.y(), 0));
-    return ChVector<>(loc.x(), loc.y(), h);
+    auto h = m_terrain->GetHeight(ChVector3d(loc.x(), loc.y(), 0));
+    return ChVector3d(loc.x(), loc.y(), h);
 }
 
 // Note: cannot use chrono_types::make_shared because the various constructors are not public.
@@ -84,7 +84,7 @@ unsigned int Framework::AddPath(const std::vector<GPScoord>& gps_points, bool cl
     return id;
 }
 
-unsigned int Framework::AddPath(const std::vector<chrono::ChVector<>>& points, bool closed) {
+unsigned int Framework::AddPath(const std::vector<chrono::ChVector3d>& points, bool closed) {
     auto id = Agent::GenerateID();
     auto path = std::shared_ptr<Path>(new Path(this, points, m_vertical_offset, closed));
     path->m_id = id;
@@ -96,27 +96,27 @@ unsigned int Framework::AddPath(const std::vector<chrono::ChVector<>>& points, b
 // Create a vehicle associated with given path
 unsigned int Framework::AddVehicle(Vehicle::Type type,
                                    unsigned int path_id,
-                                   const chrono::ChVector<>& loc,
+                                   const chrono::ChVector3d& loc,
                                    double target_speed) {
     auto path = Path::Find(path_id);
 
     // Find closest path node to provided location
-    auto np = path->m_curve->getNumPoints();
+    auto np = path->m_curve->GetNumPoints();
     size_t i1 = 0;
-    auto min_d2 = (path->m_curve->getPoint(i1) - loc).Length2();
+    auto min_d2 = (path->m_curve->GetPoint(i1) - loc).Length2();
     for (size_t i = 1; i < np; i++) {
-        auto crt_d2 = (path->m_curve->getPoint(i) - loc).Length2();
+        auto crt_d2 = (path->m_curve->GetPoint(i) - loc).Length2();
         if (crt_d2 < min_d2) {
             i1 = i;
             min_d2 = crt_d2;
         }
     }
-    auto point = path->m_curve->getPoint(i1);
+    auto point = path->m_curve->GetPoint(i1);
 
     // Find orientation from path chord
-    auto u = (i1 < np - 1) ? (path->m_curve->getPoint(i1 + 1) - point).GetNormalized()
-                           : (point - path->m_curve->getPoint(i1 - 1)).GetNormalized();
-    auto v = Vcross(ChVector<>(0, 0, 1), u);
+    auto u = (i1 < np - 1) ? (path->m_curve->GetPoint(i1 + 1) - point).GetNormalized()
+                           : (point - path->m_curve->GetPoint(i1 - 1)).GetNormalized();
+    auto v = Vcross(ChVector3d(0, 0, 1), u);
     auto w = Vcross(u, v);
     ChMatrix33<> A;
     A.Set_A_axis(u, v, w);
@@ -126,7 +126,7 @@ unsigned int Framework::AddVehicle(Vehicle::Type type,
         std::cout << "Add vehicle" << std::endl;
         std::cout << "  " << point.x() << "  " << point.y() << "  " << point.z() << std::endl;
     }
-    auto vehicle = AddVehicle(type, ChCoordsys<>(point + ChVector<>(0, 0, 0.5), A.Get_A_quaternion()));
+    auto vehicle = AddVehicle(type, ChCoordsys<>(point + ChVector3d(0, 0, 0.5), A.Get_A_quaternion()));
     if (!vehicle)
         return -1;
 
@@ -174,7 +174,7 @@ std::shared_ptr<Vehicle> Framework::AddVehicle(Vehicle::Type type, const ChCoord
     return vehicle;
 }
 
-unsigned int Framework::AddTrafficLight(const chrono::ChVector<>& center, double radius, const ChCoordsys<>& pos) {
+unsigned int Framework::AddTrafficLight(const chrono::ChVector3d& center, double radius, const ChCoordsys<>& pos) {
     auto id = Agent::GenerateID();
     auto light = std::shared_ptr<TrafficLight>(new TrafficLight(this, id, center, radius, pos));
     TrafficLight::m_traffic_lights.push_back(light);
@@ -249,10 +249,10 @@ void Framework::CreateTerrain() {
     minfo.Y = 2e7f;
     auto patch_mat = minfo.CreateMaterial(m_system->GetContactMethod());
 
-    auto patch = m_terrain->AddPatch(patch_mat, ChCoordsys<>(ChVector<>(0, 0, 0), QUNIT), GetChronoDataFile(m_scene.m_coll_file),
+    auto patch = m_terrain->AddPatch(patch_mat, ChCoordsys<>(ChVector3d(0, 0, 0), QUNIT), GetChronoDataFile(m_scene.m_coll_file),
                                      0.01, m_render_coll);
 
-    ChVector<> bbmin, bbmax;
+    ChVector3d bbmin, bbmax;
     patch->GetGroundBody()->GetCollisionModel()->GetAABB(bbmin, bbmax);
     std::cout << "Scene Bounding Box" << std::endl;
     std::cout << "  " << bbmin.x() << "  " << bbmin.y() << "  " << bbmin.z() << std::endl;
@@ -270,13 +270,13 @@ void Framework::Initialize() {
         return;
 
     // Create visualization assets for all paths
-    auto road = std::shared_ptr<ChBody>(m_system->NewBody());
-    road->SetBodyFixed(true);
+    auto road = chrono_types::make_shared<ChBody>();
+    road->SetFixed(true);
     m_system->AddBody(road);
     for (auto p : Path::GetList()) {
-        auto n = static_cast<unsigned int>(p.second->m_curve->getNumPoints());
-        auto path_asset = chrono_types::make_shared<ChLineShape>();
-        path_asset->SetLineGeometry(chrono_types::make_shared<geometry::ChLineBezier>(p.second->m_curve));
+        auto n = static_cast<unsigned int>(p.second->m_curve->GetNumPoints());
+        auto path_asset = chrono_types::make_shared<ChVisualShapeLine>();
+        path_asset->SetLineGeometry(chrono_types::make_shared<ChLineBezier>(p.second->m_curve));
         path_asset->SetColor(p.second->m_color);
         path_asset->SetName("path_" + std::to_string(p.first));
         path_asset->SetNumRenderPoints(std::max<unsigned int>(2 * n, 400));
@@ -285,9 +285,9 @@ void Framework::Initialize() {
 
     // Create visualization assets for all traffic lights
     for (auto t : TrafficLight::GetList()) {
-        auto origin = ChCoordsys<>(t->GetCenter() + ChVector<>(0, 0, 2 * m_vertical_offset), QUNIT);
-        auto circle_line = chrono_types::make_shared<geometry::ChLineArc>(origin, t->GetRadius());
-        auto circle_asset = chrono_types::make_shared<ChLineShape>();
+        auto origin = ChCoordsys<>(t->GetCenter() + ChVector3d(0, 0, 2 * m_vertical_offset), QUNIT);
+        auto circle_line = chrono_types::make_shared<ChLineArc>(origin, t->GetRadius());
+        auto circle_asset = chrono_types::make_shared<ChVisualShapeLine>();
         circle_asset->SetColor(ChColor(1.0f, 0.0f, 0.0f));
         circle_asset->SetName("circle_" + std::to_string(t->GetId()));
         circle_asset->SetLineGeometry(circle_line);
@@ -300,11 +300,11 @@ void Framework::Initialize() {
 
     if (m_render) {
         auto pos = m_ego_vehicle->GetPosition().pos;
-        auto pos1 = pos + ChVector<>(30, -30, 100);
-        auto pos2 = pos + ChVector<>(30, +30, 100);
+        auto pos1 = pos + ChVector3d(30, -30, 100);
+        auto pos2 = pos + ChVector3d(30, +30, 100);
 
         m_vis = chrono_types::make_shared<IrrApp>(this);
-        m_vis->SetChaseCamera(ChVector<>(0.0, 0.0, .75), 6.0, 0.5);
+        m_vis->SetChaseCamera(ChVector3d(0.0, 0.0, .75), 6.0, 0.5);
         m_vis->Initialize();
         m_vis->AddLogo();
         m_vis->AddTypicalLights();

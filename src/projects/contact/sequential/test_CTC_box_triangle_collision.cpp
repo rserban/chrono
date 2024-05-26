@@ -23,8 +23,8 @@
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/multicore_math/utility.h"
-#include "chrono/collision/chrono/ChCollisionUtils.h"
-#include "chrono/collision/chrono/ChNarrowphase.h"
+#include "chrono/collision/multicore/ChCollisionUtils.h"
+#include "chrono/collision/multicore/ChNarrowphase.h"
 
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
@@ -43,46 +43,46 @@ class EvRec : public irr::IEventReceiver {
         auto q = m_box->GetRot();
 
         double dp = 0.01;
-        double da = 1 * CH_C_DEG_TO_RAD;
+        double da = 1 * CH_DEG_TO_RAD;
 
         if (event.KeyInput.PressedDown) {
             bool translate = !event.KeyInput.Shift;
             switch (event.KeyInput.Key) {
                 case irr::KEY_KEY_A:
                     if (translate)
-                        m_box->SetPos(p + ChVector<>(-dp, 0, 0));
+                        m_box->SetPos(p + ChVector3d(-dp, 0, 0));
                     else
-                        m_box->SetRot(q * Q_from_AngX(-da));
+                        m_box->SetRot(q * QuatFromAngleX(-da));
                     return true;
                 case irr::KEY_KEY_D:
                     if (translate)
-                        m_box->SetPos(p + ChVector<>(dp, 0, 0));
+                        m_box->SetPos(p + ChVector3d(dp, 0, 0));
                     else
-                        m_box->SetRot(q * Q_from_AngX(da));
+                        m_box->SetRot(q * QuatFromAngleX(da));
                     return true;
                 case irr::KEY_KEY_Q:
                     if (translate)
-                        m_box->SetPos(p + ChVector<>(0, -dp, 0));
+                        m_box->SetPos(p + ChVector3d(0, -dp, 0));
                     else
-                        m_box->SetRot(q * Q_from_AngY(-da));
+                        m_box->SetRot(q * QuatFromAngleY(-da));
                     return true;
                 case irr::KEY_KEY_E:
                     if (translate)
-                        m_box->SetPos(p + ChVector<>(0, dp, 0));
+                        m_box->SetPos(p + ChVector3d(0, dp, 0));
                     else
-                        m_box->SetRot(q * Q_from_AngY(da));
+                        m_box->SetRot(q * QuatFromAngleY(da));
                     return true;
                 case irr::KEY_KEY_W:
                     if (translate)
-                        m_box->SetPos(p + ChVector<>(0, 0, dp));
+                        m_box->SetPos(p + ChVector3d(0, 0, dp));
                     else
-                        m_box->SetRot(q * Q_from_AngZ(da));
+                        m_box->SetRot(q * QuatFromAngleZ(da));
                     return true;
                 case irr::KEY_KEY_S:
                     if (translate)
-                        m_box->SetPos(p + ChVector<>(0, 0, -dp));
+                        m_box->SetPos(p + ChVector3d(0, 0, -dp));
                     else
-                        m_box->SetRot(q * Q_from_AngZ(-da));
+                        m_box->SetRot(q * QuatFromAngleZ(-da));
                     return true;
                 default:
                     break;
@@ -97,30 +97,30 @@ class EvRec : public irr::IEventReceiver {
 
 // --------------------------------------------------------------------------
 
-std::shared_ptr<geometry::ChTriangleMeshConnected> TriangleMesh(std::vector<ChVector<>> vertices) {
-    auto trimesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
-    std::vector<ChVector<>>& n = trimesh->getCoordsNormals();
-    std::vector<ChVector2<>>& uv = trimesh->getCoordsUV();
-    std::vector<ChVector<int>>& iv = trimesh->getIndicesVertexes();
-    std::vector<ChVector<int>>& in = trimesh->getIndicesNormals();
+std::shared_ptr<ChTriangleMeshConnected> TriangleMesh(std::vector<ChVector3d> vertices) {
+    auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
+    std::vector<ChVector3d>& n = trimesh->GetCoordsNormals();
+    std::vector<ChVector2<>>& uv = trimesh->GetCoordsUV();
+    std::vector<ChVector3<int>>& iv = trimesh->GetIndicesVertexes();
+    std::vector<ChVector3<int>>& in = trimesh->GetIndicesNormals();
 
-    trimesh->getCoordsVertices() = vertices;
+    trimesh->GetCoordsVertices() = vertices;
     n.resize(3);
     uv.resize(3);
 
     iv.resize(1);
     in.resize(1);
 
-    n[0] = ChVector<>(0, 0, 1);
-    n[1] = ChVector<>(0, 0, 1);
-    n[2] = ChVector<>(0, 0, 1);
+    n[0] = ChVector3d(0, 0, 1);
+    n[1] = ChVector3d(0, 0, 1);
+    n[2] = ChVector3d(0, 0, 1);
 
     uv[0] = ChVector2<>(0, 0);
     uv[1] = ChVector2<>(1, 0);
     uv[2] = ChVector2<>(0, 1);
 
-    iv[0] = ChVector<int>(0, 1, 2);
-    in[0] = ChVector<int>(0, 1, 2);
+    iv[0] = ChVector3<int>(0, 1, 2);
+    in[0] = ChVector3<int>(0, 1, 2);
 
     return trimesh;
 }
@@ -133,8 +133,8 @@ int main(int argc, char* argv[]) {
     // ----------------
 
     double collision_envelope = .001;
-    ChVector<> hdims(0.25, 0.25, 0.25);
-    std::vector<ChVector<>> vertices = {ChVector<>(0, 0, 0), ChVector<>(1.5, 0, 0), ChVector<>(0, 1.5, 0)};
+    ChVector3d hdims(0.25, 0.25, 0.25);
+    std::vector<ChVector3d> vertices = {ChVector3d(0, 0, 0), ChVector3d(1.5, 0, 0), ChVector3d(0, 1.5, 0)};
     double separation = 0.0;
 
     // -----------------
@@ -142,39 +142,35 @@ int main(int argc, char* argv[]) {
     // -----------------
 
     ChSystemNSC system;
-    system.Set_G_acc(ChVector<>(0, 0, 0));
-    system.SetCollisionSystemType(collision::ChCollisionSystemType::CHRONO);
+    system.SetGravitationalAcceleration(ChVector3d(0, 0, 0));
+    system.SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
 
     // ----------
     // Add bodies
     // ----------
-    auto contact_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto contact_mat = chrono_types::make_shared<ChContactMaterialNSC>();
 
-    auto triangle = std::shared_ptr<ChBody>(system.NewBody());
+    auto triangle = chrono_types::make_shared<ChBody>();
     system.Add(triangle);
-    triangle->SetPos(ChVector<>(0, 0, 0));
-    triangle->SetBodyFixed(true);
+    triangle->SetPos(ChVector3d(0, 0, 0));
+    triangle->SetFixed(true);
 
     auto trimesh = TriangleMesh(vertices);
 
-    triangle->SetCollide(true);
+    triangle->EnableCollision(true);
     triangle->GetCollisionModel()->SetEnvelope(collision_envelope);
-    triangle->GetCollisionModel()->ClearModel();
-    triangle->GetCollisionModel()->AddTriangleMesh(contact_mat, trimesh, false, false, ChVector<>(0), ChMatrix33<>(1));
-    triangle->GetCollisionModel()->BuildModel();
+    triangle->GetCollisionModel()->AddTriangleMesh(contact_mat, trimesh, false, false, ChVector3d(0), ChMatrix33<>(1));
 
-    auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+    auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     trimesh_shape->SetMesh(trimesh);
     trimesh_shape->SetColor(ChColor(0.6f, 0.6f, 0.6f));
     triangle->AddVisualShape(trimesh_shape);
 
-    auto box = std::shared_ptr<ChBody>(system.NewBody());
-    box->SetPos(ChVector<>(0, 0, 0.5));
-    box->SetCollide(false);
+    auto box = chrono_types::make_shared<ChBody>();
+    box->SetPos(ChVector3d(0, 0, 0.5));
+    box->EnableCollision(false);
     box->GetCollisionModel()->SetEnvelope(collision_envelope);
-    box->GetCollisionModel()->ClearModel();
     utils::AddBoxGeometry(box.get(), contact_mat, hdims);
-    box->GetCollisionModel()->BuildModel();
 
     box->GetVisualShape(0)->SetColor(ChColor(0.2f, 0.3f, 0.4f));
 
@@ -192,7 +188,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(2, 2, 1));
+    vis->AddCamera(ChVector3d(2, 2, 1));
     vis->AttachSystem(&system);
 
     EvRec er(box);
@@ -204,13 +200,13 @@ int main(int argc, char* argv[]) {
 
     auto hdims_r = FromChVector(hdims);
 
-    collision::ConvexShapeCustom shape_box;
-    shape_box.type = collision::ChCollisionShape::Type::BOX;
+    ConvexShapeCustom shape_box;
+    shape_box.type = ChCollisionShape::Type::BOX;
     shape_box.dimensions = hdims_r;
     auto A = FromChVector(vertices[0]);
     auto B = FromChVector(vertices[1]);
     auto C = FromChVector(vertices[2]);
-    collision::ConvexShapeTriangle shape_tri(A, B, C);
+    ConvexShapeTriangle shape_tri(A, B, C);
 
     while (vis->Run()) {
         system.DoStepDynamics(1e-3);
@@ -229,7 +225,7 @@ int main(int argc, char* argv[]) {
         real depth[6];
         real eff_rad[6];
         int nC = 0;
-        collision::ChNarrowphase::PRIMSCollision(&shape_box, &shape_tri, (real)separation, norm, pt1, pt2, depth,
+        ChNarrowphase::PRIMSCollision(&shape_box, &shape_tri, (real)separation, norm, pt1, pt2, depth,
                                                  eff_rad, nC);
 
         vis->BeginScene();

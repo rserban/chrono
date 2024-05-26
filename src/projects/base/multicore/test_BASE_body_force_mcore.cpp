@@ -10,8 +10,6 @@
 #include "chrono_opengl/ChVisualSystemOpenGL.h"
 
 using namespace chrono;
-using namespace chrono::collision;
-
 
 int main(int argc, char* argv[]) {
     // BASIC SETUP
@@ -36,9 +34,9 @@ int main(int argc, char* argv[]) {
     ChSystemMulticoreNSC my_sys;
 
     if (floating)
-        my_sys.Set_G_acc(ChVector<double>(0, 0, 0));
+        my_sys.SetGravitationalAcceleration(ChVector3d(0, 0, 0));
     else
-        my_sys.Set_G_acc(ChVector<double>(0, 0, -9.8));
+        my_sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.8));
 
     int num_threads = 1;
     my_sys.SetNumThreads(num_threads);
@@ -54,47 +52,43 @@ int main(int argc, char* argv[]) {
     my_sys.GetSettings()->solver.adhesion_force_model = ChSystemSMC::AdhesionForceModel::Constant;
 
     // Create the plate
-    auto plate = std::shared_ptr<ChBody>(my_sys.NewBody());
+    auto plate = chrono_types::make_shared<ChBody>();
 
-    plate->SetIdentifier(0);
-    plate->SetPos(ChVector<>(0, 0, 0));
-    plate->SetBodyFixed(true);
-    plate->SetCollide(true);
+    plate->SetTag(0);
+    plate->SetPos(ChVector3d(0, 0, 0));
+    plate->SetFixed(true);
+    plate->EnableCollision(true);
 
-    plate->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(plate.get(), ChMaterialSurface::DefaultMaterial(my_sys.GetContactMethod()),
-                          ChVector<>(4, 0.5, 0.1));
-    plate->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(plate.get(), ChContactMaterial::DefaultMaterial(my_sys.GetContactMethod()),
+                          ChVector3d(4, 0.5, 0.1));
 
     my_sys.AddBody(plate);
 
     // Create the ball
     double mass = 1;
     double radius = 0.15;
-    ChVector<> inertia = (2.0 / 5.0) * mass * radius * radius * ChVector<>(1, 1, 1);
+    ChVector3d inertia = (2.0 / 5.0) * mass * radius * radius * ChVector3d(1, 1, 1);
 
-    auto ball = std::shared_ptr<ChBody>(my_sys.NewBody());
-    ball->SetIdentifier(2);
+    auto ball = chrono_types::make_shared<ChBody>();
+    ball->SetTag(2);
     ball->SetMass(mass);
     ball->SetInertiaXX(inertia);
-    ball->SetPos(ChVector<>(-3, 0, 1));
+    ball->SetPos(ChVector3d(-3, 0, 1));
     ball->SetRot(ChQuaternion<>(1, 0, 0, 0));
-    ball->SetBodyFixed(false);
-    ball->SetCollide(true);
+    ball->SetFixed(false);
+    ball->EnableCollision(true);
   
-    auto ball_mat = ChMaterialSurface::DefaultMaterial(my_sys.GetContactMethod());
+    auto ball_mat = ChContactMaterial::DefaultMaterial(my_sys.GetContactMethod());
     ball_mat->SetFriction(friction);
     ball_mat->SetRestitution(0);
 
-    ball->GetCollisionModel()->ClearModel();
     utils::AddSphereGeometry(ball.get(), ball_mat, radius);
-    ball->GetCollisionModel()->BuildModel();
 
     my_sys.AddBody(ball);
 
     // Force (ramp to maximum and then back to 0)
     double fullForce = 1;
-    ChFunction_Recorder forceFunct;
+    ChFunctionInterp forceFunct;
     forceFunct.AddPoint(0, 0);
     forceFunct.AddPoint(time_start, 0);
     forceFunct.AddPoint(time_start + 1, fullForce);
@@ -108,10 +102,10 @@ int main(int argc, char* argv[]) {
         drawForce->SetMode(ChForce::ForceType::FORCE); // force or torque
         drawForce->SetFrame(ChForce::ReferenceFrame::BODY);
         drawForce->SetAlign(ChForce::AlignmentFrame::WORLD_DIR);
-        drawForce->SetVrelpoint(ChVector<>(0, 0, 0));
-        drawForce->SetF_x(chrono_types::make_shared<ChFunction_Recorder>(forceFunct));
-        drawForce->SetF_y(chrono_types::make_shared<ChFunction_Const>(0));
-        drawForce->SetF_z(chrono_types::make_shared<ChFunction_Const>(0));
+        drawForce->SetVrelpoint(ChVector3d(0, 0, 0));
+        drawForce->SetF_x(chrono_types::make_shared<ChFunctionInterp>(forceFunct));
+        drawForce->SetF_y(chrono_types::make_shared<ChFunctionConst>(0));
+        drawForce->SetF_z(chrono_types::make_shared<ChFunctionConst>(0));
     }
 
     // Create the visualization window
@@ -121,7 +115,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(0, -4, 0), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(0, -4, 0), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     // Run simulation for specified time
@@ -130,14 +124,14 @@ int main(int argc, char* argv[]) {
 
     while (my_sys.GetChTime() < time_end) {
         if (force_type == ACCUMULATOR_FORCE) {
-            double Fx = forceFunct.Get_y(my_sys.GetChTime());
-            ball->Empty_forces_accumulators();
-            ball->Accumulate_force(ChVector<>(Fx, 0, 0), ball->GetPos(), false);
+            double Fx = forceFunct.GetVal(my_sys.GetChTime());
+            ball->EmptyAccumulators();
+            ball->AccumulateForce(ChVector3d(Fx, 0, 0), ball->GetPos(), false);
         }
         my_sys.DoStepDynamics(time_step);
         sim_frame++;
 
-        std::cout << "Vx: " << ball->GetPos_dt().x() << std::endl;
+        std::cout << "Vx: " << ball->GetPosDt().x() << std::endl;
 
         if (vis.Run()) {
             vis.Render();

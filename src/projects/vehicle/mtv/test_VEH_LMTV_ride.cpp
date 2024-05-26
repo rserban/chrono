@@ -48,7 +48,7 @@ using namespace chrono::vehicle::fmtv;
 // =============================================================================
 
 // Initial vehicle location and orientation
-ChVector<> initLoc(0, 0, 1.0);
+ChVector3d initLoc(0, 0, 1.0);
 ChQuaternion<> initRot(1, 0, 0, 0);
 
 // Visualization type for vehicle parts (PRIMITIVES, MESH, or NONE)
@@ -63,9 +63,9 @@ VisualizationType tire_vis_type = VisualizationType::MESH;
 TireModelType tire_model = TireModelType::TMEASY;
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 0.0, 1.75);
+ChVector3d trackPoint(0.0, 0.0, 1.75);
 
-ChVector<> vehCOM(-1.933, 0.014, 0.495);
+ChVector3d vehCOM(-1.933, 0.014, 0.495);
 
 // Simulation step sizes
 double step_size = 1e-3;
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
     // ------------------
     double swept_radius = 0.01;
 
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     patch_mat->SetFriction(0.9f);
     patch_mat->SetRestitution(0.01f);
     RigidTerrain terrain(lmtv.GetSystem());
@@ -178,7 +178,7 @@ int main(int argc, char* argv[]) {
     terrain.Initialize();
 
     // create the driver
-    auto path = ChBezierCurve::read(vehicle::GetDataFile(path_file));
+    auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
     ChPathFollowerDriver driver(lmtv.GetVehicle(), vehicle::GetDataFile(steering_controller_file),
                                 vehicle::GetDataFile(speed_controller_file), path, "my_path", target_speed);
     driver.Initialize();
@@ -223,9 +223,9 @@ int main(int argc, char* argv[]) {
         driver.ExportPathPovray(out_dir);
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     // Number of simulation steps between two 3D view render frames
     int render_steps = (int)std::ceil(render_step_size / step_size);
@@ -302,8 +302,8 @@ int main(int argc, char* argv[]) {
 
 #ifdef USE_IRRLICHT
         // path visualization
-        const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 
@@ -386,7 +386,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (data_output) {
-        csv.write_to_file(out_dir + "/" + output_file_name + ".dat");
+        csv.WriteToFile(out_dir + "/" + output_file_name + ".dat");
     }
 
     return 0;

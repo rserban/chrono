@@ -10,7 +10,6 @@
 #include "chrono_opengl/ChVisualSystemOpenGL.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 
 int main(int argc, char* argv[]) {
     // BASIC SETUP
@@ -28,7 +27,8 @@ int main(int argc, char* argv[]) {
     int num_threads = 1;
     my_sys.SetNumThreads(num_threads);
 
-    my_sys.Set_G_acc(ChVector<double>(0, 0, -9.8));
+    my_sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.8));
+    my_sys.SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
 
     // Set solver parameters
     my_sys.GetSettings()->solver.max_iteration_bilateral = max_iteration;
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
     float Y = 2e6f;
     float mu = 0.4f;
     float cr = 0.4f;
-    auto contact_mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto contact_mat = chrono_types::make_shared<ChContactMaterialSMC>();
     contact_mat->SetYoungModulus(Y);
     contact_mat->SetFriction(mu);
     contact_mat->SetRestitution(cr);
@@ -53,53 +53,47 @@ int main(int argc, char* argv[]) {
     // Create the falling balls
     double mass = 1;
     double radius = 0.15;
-    ChVector<> inertia = (2.0 / 5.0) * mass * radius * radius * ChVector<>(1, 1, 1);
+    ChVector3d inertia = (2.0 / 5.0) * mass * radius * radius * ChVector3d(1, 1, 1);
 
     // Lower ball
-    auto ball_lower = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
+    auto ball_lower = chrono_types::make_shared<ChBody>();
 
-    ball_lower->SetIdentifier(1);
+    ball_lower->SetTag(1);
     ball_lower->SetMass(mass);
     ball_lower->SetInertiaXX(inertia);
-    ball_lower->SetPos(ChVector<>(0, 0, 10));
+    ball_lower->SetPos(ChVector3d(0, 0, 10));
     ball_lower->SetRot(ChQuaternion<>(1, 0, 0, 0));
-    ball_lower->SetBodyFixed(false);
-    ball_lower->SetCollide(true);
+    ball_lower->SetFixed(false);
+    ball_lower->EnableCollision(true);
 
-    ball_lower->GetCollisionModel()->ClearModel();
     utils::AddSphereGeometry(ball_lower.get(), contact_mat, radius);
-    ball_lower->GetCollisionModel()->BuildModel();
 
     my_sys.AddBody(ball_lower);
 
     // Upper ball
-    auto ball_upper = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
+    auto ball_upper = chrono_types::make_shared<ChBody>();
 
-    ball_upper->SetIdentifier(2);
+    ball_upper->SetTag(2);
     ball_upper->SetMass(mass);
     ball_upper->SetInertiaXX(inertia);
-    ball_upper->SetPos(ChVector<>(0, 0, 11));
+    ball_upper->SetPos(ChVector3d(0, 0, 11));
     ball_upper->SetRot(ChQuaternion<>(1, 0, 0, 0));
-    ball_upper->SetBodyFixed(false);
-    ball_upper->SetCollide(true);
+    ball_upper->SetFixed(false);
+    ball_upper->EnableCollision(true);
 
-    ball_upper->GetCollisionModel()->ClearModel();
     utils::AddSphereGeometry(ball_upper.get(), contact_mat, radius);
-    ball_upper->GetCollisionModel()->BuildModel();
 
     my_sys.AddBody(ball_upper);
 
     // Plate
-    auto plate = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
+    auto plate = chrono_types::make_shared<ChBody>();
 
-    plate->SetIdentifier(0);
-    plate->SetPos(ChVector<>(0, 0, 8));
-    plate->SetBodyFixed(true);
-    plate->SetCollide(true);
+    plate->SetTag(0);
+    plate->SetPos(ChVector3d(0, 0, 8));
+    plate->SetFixed(true);
+    plate->EnableCollision(true);
 
-    plate->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(plate.get(), contact_mat, ChVector<>(4 * radius, 4 * radius, radius));
-    plate->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(plate.get(), contact_mat, ChVector3d(4 * radius, 4 * radius, radius));
 
     my_sys.AddBody(plate);
 
@@ -110,7 +104,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(0, -4, 10), ChVector<>(0, 0, 10));
+    vis.AddCamera(ChVector3d(0, -4, 10), ChVector3d(0, 0, 10));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     // Run simulation for specified time
@@ -120,7 +114,7 @@ int main(int argc, char* argv[]) {
     while (my_sys.GetChTime() < time_end) {
         double z_lower = ball_lower->GetPos().z();
         double z_upper = ball_upper->GetPos().z();
-        double vz_upper = ball_upper->GetPos_dt().z();
+        double vz_upper = ball_upper->GetPosDt().z();
 
         if (sim_frame % out_steps == 0) {
             std::cout << "t: " << my_sys.GetChTime() << "  z_lower: " << z_lower << "  z_upper: " << z_upper
@@ -133,13 +127,13 @@ int main(int argc, char* argv[]) {
         // Fix lower ball to ground
         if (sim_frame == 200) {
             std::cout << "------- Setting lower body to fixed" << std::endl;
-            ball_lower->SetBodyFixed(true);
+            ball_lower->SetFixed(true);
         }
 
         // After first interaction, disable contact on lower ball
-        if (ball_lower->GetCollide() && vz_upper > 0 && z_upper > z_lower + 2 * radius) {
+        if (ball_lower->IsCollisionEnabled() && vz_upper > 0 && z_upper > z_lower + 2 * radius) {
             std::cout << "------- Setting lower body to not collide" << std::endl;
-            ball_lower->SetCollide(false);
+            ball_lower->EnableCollision(false);
         }
 
         if (vis.Run()) {

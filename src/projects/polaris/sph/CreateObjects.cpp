@@ -21,9 +21,9 @@
 #include <iostream>
 #include <sstream>
 
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChSphereShape.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/utils/ChUtilsJSON.h"
@@ -51,13 +51,13 @@ chrono::ChCoordsys<> CreateTerrain(ChSystem& sys,
 
     // Create SPH markers with initial locations from file
     int num_particles = 0;
-    ChVector<> aabb_min(std::numeric_limits<double>::max());
-    ChVector<> aabb_max(-std::numeric_limits<double>::max());
+    ChVector3d aabb_min(std::numeric_limits<double>::max());
+    ChVector3d aabb_max(-std::numeric_limits<double>::max());
 
     ifile.open(vehicle::GetDataFile(terrain_dir + "/particles_20mm.txt"));
     getline(ifile, line);  // Comment line
 
-    ChVector<> marker;
+    ChVector3d marker;
     while (getline(ifile, line)) {
         std::stringstream ls(line);
         for (int i = 0; i < 3; i++) {
@@ -66,15 +66,15 @@ chrono::ChCoordsys<> CreateTerrain(ChSystem& sys,
             aabb_min[i] = std::min(aabb_min[i], marker[i]);
             aabb_max[i] = std::max(aabb_max[i], marker[i]);
         }
-        ////ChVector<> tau(-sysFSI.GetSensity() * std::abs(gravity.z) * (-marker.z() + fzDim));
-        ChVector<> tau(0);
+        ////ChVector3d tau(-sysFSI.GetSensity() * std::abs(gravity.z) * (-marker.z() + fzDim));
+        ChVector3d tau(0);
         sysFSI.AddSPHParticle(marker, sysFSI.GetDensity(), 0.0, sysFSI.GetViscosity(), VNULL, tau, VNULL);
         num_particles++;
     }
     ifile.close();
 
     // Set computational domain
-    ChVector<> aabb_dim = aabb_max - aabb_min;
+    ChVector3d aabb_dim = aabb_max - aabb_min;
     aabb_dim.z() *= 50;
 
     //// RADU TODO:  FIX THIS SOMEHOW ELSE!!!
@@ -84,17 +84,17 @@ chrono::ChCoordsys<> CreateTerrain(ChSystem& sys,
     sysFSI.SetBoundaries(aabb_min - 0.1 * aabb_dim, aabb_max + 0.1 * aabb_dim);
 
     // Create ground body
-    auto body = std::shared_ptr<ChBody>(sys.NewBody());
-    body->SetBodyFixed(true);
+    auto body = chrono_types::make_shared<ChBody>();
+    body->SetFixed(true);
     sys.AddBody(body);
 
     // Attach BCE markers (Note: BCE markers must be created after SPH markers!)
-    std::vector<ChVector<>> bces;
+    std::vector<ChVector3d> bces;
 
     ifile.open(vehicle::GetDataFile(terrain_dir + "/bce_20mm.txt"));
     getline(ifile, line);  // Comment line
 
-    ChVector<> bce;
+    ChVector3d bce;
     while (getline(ifile, line)) {
         std::stringstream ls(line);
         for (int i = 0; i < 3; i++) {
@@ -117,20 +117,20 @@ chrono::ChCoordsys<> CreateTerrain(ChSystem& sys,
     // Ramp dimensions and orientation
     double width = 4;
     double height = 1;
-    auto ramp_rot = Q_from_AngX(banking) * Q_from_AngY(-slope);
-    auto ramp_loc = ramp_rot.Rotate(ChVector<>(-ramp_length / 2, 0, -height / 2));
+    auto ramp_rot = QuatFromAngleX(banking) * QuatFromAngleY(-slope);
+    auto ramp_loc = ramp_rot.Rotate(ChVector3d(-ramp_length / 2, 0, -height / 2));
 
     // Create visual and collision shapes
-    auto trimesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
+    auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
     trimesh->LoadWavefrontMesh(vehicle::GetDataFile(terrain_dir + "/mesh.obj"), true, false);
 
     if (create_ramp) {
-        auto box = chrono_types::make_shared<ChBoxShape>(ramp_length, width, height);
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(ramp_length, width, height);
         body->AddVisualShape(box, ChFrame<>(ramp_loc, ramp_rot));
     }
 
     if (terrain_mesh_vis) {
-        auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+        auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh);
         trimesh_shape->SetMutable(false);
         body->AddVisualShape(trimesh_shape);
@@ -140,19 +140,17 @@ chrono::ChCoordsys<> CreateTerrain(ChSystem& sys,
     mat_info.mu = 0.9f;
     auto mat = mat_info.CreateMaterial(sys.GetContactMethod());
 
-    body->GetCollisionModel()->ClearModel();
     if (create_ramp) {
         body->GetCollisionModel()->AddBox(mat, ramp_length, width, height, ramp_loc, ramp_rot);
     }
     if (terrain_mesh_contact) {
         body->GetCollisionModel()->AddTriangleMesh(mat, trimesh, true, false, VNULL, ChMatrix33<>(1), 0.01);
     }
-    body->GetCollisionModel()->BuildModel();
-    body->SetCollide(true);
+    body->EnableCollision(true);
 
     // Set and return vehicle initial location
     double init_x = create_ramp ? -ramp_length + 4 : 4;
-    ChVector<> init_loc = ramp_rot.Rotate(ChVector<>(init_x, 0, 0.25));
+    ChVector3d init_loc = ramp_rot.Rotate(ChVector3d(init_x, 0, 0.25));
 
     return ChCoordsys<>(init_loc, ramp_rot);
 }
@@ -176,14 +174,14 @@ std::shared_ptr<ChBezierCurve> CreatePath(const std::string& terrain_dir, double
     assert(numCols == 3);
 
     // Read path points
-    std::vector<ChVector<>> points;
+    std::vector<ChVector3d> points;
 
     if (create_ramp) {
         // Include additional point if creating a ramp
         auto np = std::ceil(ramp_length / 10);
         auto dx = (ramp_length - 4) / np;
         for (int i = 0; i < (int)np; i++)
-            points.push_back(ChVector<>(i * dx - (ramp_length - 4), 0, 0));
+            points.push_back(ChVector3d(i * dx - (ramp_length - 4), 0, 0));
     }
 
     for (size_t i = 0; i < numPoints; i++) {
@@ -191,7 +189,7 @@ std::shared_ptr<ChBezierCurve> CreatePath(const std::string& terrain_dir, double
         std::getline(ifile, line);
         std::istringstream jss(line);
         jss >> x >> y >> z;
-        points.push_back(ChVector<>(x, y, z));
+        points.push_back(ChVector3d(x, y, z));
     }
 
     // Include point beyond SPH patch
@@ -210,12 +208,12 @@ std::shared_ptr<ChBezierCurve> CreatePath(const std::string& terrain_dir, double
 }
 
 std::shared_ptr<ChBody> CreateSentinel(ChSystem& sys, const ChCoordsys<>& init_pos) {
-    auto body = std::shared_ptr<ChBody>(sys.NewBody());
-    body->SetBodyFixed(true);
+    auto body = chrono_types::make_shared<ChBody>();
+    body->SetFixed(true);
     body->SetPos(init_pos.pos);
     sys.AddBody(body);
 
-    auto box = chrono_types::make_shared<ChSphereShape>(0.1);
+    auto box = chrono_types::make_shared<ChVisualShapeSphere>(0.1);
     body->AddVisualShape(box, ChFrame<>());
 
     return body;
@@ -257,9 +255,9 @@ void CreateWheelBCEMarkers(std::shared_ptr<WheeledVehicle> vehicle, ChSystemFsi&
     // Create BCE markers for a tire
     std::string tire_coll_obj = "Polaris/meshes/Polaris_tire_collision.obj";
 
-    geometry::ChTriangleMeshConnected trimesh;
+    ChTriangleMeshConnected trimesh;
     trimesh.LoadWavefrontMesh(vehicle::GetDataFile(tire_coll_obj));
-    std::vector<ChVector<>> point_cloud;
+    std::vector<ChVector3d> point_cloud;
     sysFSI.CreateMeshPoints(trimesh, sysFSI.GetInitialSpacing(), point_cloud);
 
     // Create and initialize the tires

@@ -54,7 +54,7 @@ const std::string out_dir = "../HMMWV_FRICTION_VARIABLE";
 class MyFrictionFunctor : public ChTerrain::FrictionFunctor {
   public:
     MyFrictionFunctor() : m_friction_left(0.2f), m_friction_right(0.9f) {}
-    virtual float operator()(const ChVector<>& loc) override { return loc.y() > 0 ? m_friction_left : m_friction_right; }
+    virtual float operator()(const ChVector3d& loc) override { return loc.y() > 0 ? m_friction_left : m_friction_right; }
     float m_friction_left;
     float m_friction_right;
 };
@@ -65,14 +65,14 @@ int main(int argc, char* argv[]) {
     // Chrono system
     ////ChSystemNSC sys;
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
-    sys.SetSolverMaxIterations(150);
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
+    sys.GetSolver()->AsIterative()->SetMaxIterations(150);
     sys.SetMaxPenetrationRecoverySpeed(4.0);
     sys.SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
     // Create and initialize the vehicle
     HMMWV_Full hmmwv(&sys);
-    hmmwv.SetInitPosition(ChCoordsys<>(ChVector<>(-90, 0, 0.7), QUNIT));
+    hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(-90, 0, 0.7), QUNIT));
     hmmwv.SetEngineType(EngineModelType::SHAFTS);
     hmmwv.SetTransmissionType(TransmissionModelType::SHAFTS);
     hmmwv.SetDriveType(DrivelineTypeWV::RWD);
@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht interface
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Terrain friction test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, .75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, .75), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -138,9 +138,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     // ---------------
     // Simulation loop
@@ -207,7 +207,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (output) {
-        csv.write_to_file(out_dir + "/" + modelname + ".out");
+        csv.WriteToFile(out_dir + "/" + modelname + ".out");
     }
 
     return 0;

@@ -27,22 +27,22 @@ TrafficLightList TrafficLight::m_traffic_lights;
 
 TrafficLight::TrafficLight(Framework* framework,
                            unsigned int id,
-                           const chrono::ChVector<>& center,
+                           const chrono::ChVector3d& center,
                            double radius,
                            const chrono::ChCoordsys<>& pos)
     : Agent(framework, id), m_center(center), m_radius(radius), m_pos(pos) {
-    m_body = std::shared_ptr<ChBody>(framework->m_system->NewBody());
+    m_body = chrono_types::make_shared<ChBody>();
     m_body->SetPos(pos.pos);
     m_body->SetRot(pos.rot);
-    m_body->SetBodyFixed(true);
-    m_body->SetCollide(false);
+    m_body->SetFixed(true);
+    m_body->EnableCollision(false);
 
-    auto cyl = chrono_types::make_shared<ChCylinderShape>(0.2, 3);
-    m_body->AddVisualShape(cyl, ChFrame<>(ChVector<>(0,0,1.5)));
+    auto cyl = chrono_types::make_shared<ChVisualShapeCylinder>(0.2, 3);
+    m_body->AddVisualShape(cyl, ChFrame<>(ChVector3d(0,0,1.5)));
 
-    auto sphere = chrono_types::make_shared<ChSphereShape>(0.4);
+    auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(0.4);
     sphere->SetColor(ChColor(0.6f, 0, 0));
-    m_body->AddVisualShape(sphere, ChFrame<>(ChVector<>(0, 0, 3)));
+    m_body->AddVisualShape(sphere, ChFrame<>(ChVector3d(0, 0, 3)));
 
     framework->m_system->AddBody(m_body);
 

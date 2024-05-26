@@ -34,9 +34,9 @@ int main(int argc, char* argv[]) {
 
     const double ft2m = 1200.0 / 3937.0;
 
-    ////geometry::ChTriangleMeshConnected trimesh;
-    ////std::vector<ChVector<> >& vertices = trimesh.getCoordsVertices();
-    ////std::vector<ChVector<int> >& idx_vertices = trimesh.getIndicesVertexes();
+    ////ChTriangleMeshConnected trimesh;
+    ////std::vector<ChVector3d >& vertices = trimesh.GetCoordsVertices();
+    ////std::vector<ChVector3<int> >& idx_vertices = trimesh.GetIndicesVertexes();
 
     FILE* fp = std::fopen(obj_filename.c_str(), "w");
 
@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        ////vertices.push_back(ChVector<>(x, y, z) * ft2m);
+        ////vertices.push_back(ChVector3d(x, y, z) * ft2m);
         fprintf(fp, "v %.12lf %.12lf %.12lf\n", x * ft2m, y * ft2m, z * ft2m);
         num_vert++;
 
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        ////idx_vertices.push_back(ChVector<int>(x - 1, y - 1, z - 1));
+        ////idx_vertices.push_back(ChVector3<int>(x - 1, y - 1, z - 1));
         fprintf(fp, "f %d %d %d\n", x, y, z);
         num_tri++;
 
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Num vert: " << num_vert << std::endl;
     std::cout << "Num tri:  " << num_tri << std::endl;
 
-    ////std::vector<geometry::ChTriangleMeshConnected> meshes = {trimesh};
+    ////std::vector<ChTriangleMeshConnected> meshes = {trimesh};
     ////std::cout << "Exporting to " << obj_filename << std::endl;
     ////trimesh.WriteWavefront(obj_filename, meshes);
 

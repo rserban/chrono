@@ -43,15 +43,15 @@ int main(int argc, char* argv[]) {
     bool use_HHT = false;
 
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(-1.0, 0.0, 0.0));
-    ////sys.Set_G_acc(ChVector<>(0.0, -1.0, 0.0));
-    ////sys.Set_G_acc(ChVector<>(0.0, 0.0, -1.0));
-    ////sys.Set_G_acc(ChVector<>(0.0, 0.0, 0.0));
+    sys.SetGravitationalAcceleration(ChVector3d(-1.0, 0.0, 0.0));
+    ////sys.SetGravitationalAcceleration(ChVector3d(0.0, -1.0, 0.0));
+    ////sys.SetGravitationalAcceleration(ChVector3d(0.0, 0.0, -1.0));
+    ////sys.SetGravitationalAcceleration(ChVector3d(0.0, 0.0, 0.0));
 
     // Ground body
     auto ground = chrono_types::make_shared<ChBody>();
-    ground->SetIdentifier(-1);
-    ground->SetBodyFixed(true);
+    ground->SetTag(-1);
+    ground->SetFixed(true);
     sys.Add(ground);
 
     auto mesh = chrono_types::make_shared<fea::ChMesh>();
@@ -70,11 +70,11 @@ int main(int argc, char* argv[]) {
         builder.BuildBeam(mesh,                            //
                           section,                         //
                           4,                               //
-                          ChVector<>(0.0, 0.0, -0.1 * j),  // base location
-                          ChVector<>(0.0, 0.1, -0.1 * j)   // tip location
+                          ChVector3d(0.0, 0.0, -0.1 * j),  // base location
+                          ChVector3d(0.0, 0.1, -0.1 * j)   // tip location
         );
 
-        ////builder.GetLastBeamNodes().back()->SetForce(ChVector<>(-0.1, 0, 0));
+        ////builder.GetLastBeamNodes().back()->SetForce(ChVector3d(-0.1, 0, 0));
 
         base_nodes.push_back(builder.GetLastBeamNodes().front());
         tip_nodes.push_back(builder.GetLastBeamNodes().back());
@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0.0, 0.05, 0.2), ChVector<>(0.0, 0.0, 0.0));
+    vis->AddCamera(ChVector3d(0.0, 0.05, 0.2), ChVector3d(0.0, 0.0, 0.0));
     vis->AttachSystem(&sys);
 
     // Solver settings
@@ -170,10 +170,8 @@ int main(int argc, char* argv[]) {
         sys.SetTimestepperType(ChTimestepper::Type::HHT);
         auto stepper = std::dynamic_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
         stepper->SetAlpha(-0.1);
-        stepper->SetMaxiters(100);
+        stepper->SetMaxIters(100);
         stepper->SetAbsTolerances(1e-10, 1e-10);
-        stepper->SetMode(ChTimestepperHHT::ACCELERATION);
-        stepper->SetScaling(true);
         stepper->SetVerbose(false);
     } else {
         sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);

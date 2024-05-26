@@ -34,10 +34,10 @@ using namespace chrono;
 // -----------------------------------------------------------------------------
 class ContactMaterial : public ChContactContainer::AddContactCallback {
   public:
-    virtual void OnAddContact(const collision::ChCollisionInfo& contactinfo,
-                              ChMaterialComposite* const material) override {
+    virtual void OnAddContact(const ChCollisionInfo& contactinfo,
+                              ChContactMaterialComposite* const material) override {
         // Downcast to appropriate composite material type
-        auto mat = static_cast<ChMaterialCompositeNSC* const>(material);
+        auto mat = static_cast<ChContactMaterialCompositeNSC* const>(material);
 
         // Set different friction for left/right halfs
         float friction = (contactinfo.vpA.z() > 0) ? 0.3f : 0.8f;
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
     // -----------------
 
     ChSystemMulticoreNSC system;
-    system.Set_G_acc(ChVector<>(0, -10, 0));
+    system.SetGravitationalAcceleration(ChVector3d(0, -10, 0));
 
     // Set number of threads
     system.SetNumThreads(1);
@@ -86,58 +86,52 @@ int main(int argc, char* argv[]) {
     system.GetSettings()->solver.tolerance = tolerance;
 
     system.GetSettings()->collision.collision_envelope = collision_envelope;
-    system.GetSettings()->collision.narrowphase_algorithm = collision::ChNarrowphase::Algorithm::HYBRID;
+    system.GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::HYBRID;
     system.GetSettings()->collision.bins_per_axis = vec3(10, 10, 10);
 
     // Shared contact material
-    auto contact_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto contact_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     contact_mat->SetFriction(friction);
 
     // ----------
     // Add bodies
     // ----------
 
-    auto container = std::shared_ptr<ChBody>(system.NewBody());
+    auto container = chrono_types::make_shared<ChBody>();
     system.Add(container);
-    container->SetPos(ChVector<>(0, 0, 0));
-    container->SetBodyFixed(true);
-    container->SetIdentifier(-1);
+    container->SetPos(ChVector3d(0, 0, 0));
+    container->SetFixed(true);
+    container->SetTag(-1);
 
-    container->SetCollide(true);
+    container->EnableCollision(true);
     container->GetCollisionModel()->SetEnvelope(collision_envelope);
-    container->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(container.get(), contact_mat, ChVector<>(4, 0.5, 4), ChVector<>(0, -0.5, 0));
-    container->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(container.get(), contact_mat, ChVector3d(4, 0.5, 4), ChVector3d(0, -0.5, 0));
 
     container->GetVisualShape(0)->SetColor(ChColor(0.4f, 0.4f, 0.4f));
 
-    auto box1 = std::shared_ptr<ChBody>(system.NewBody());
+    auto box1 = chrono_types::make_shared<ChBody>();
     box1->SetMass(10);
-    box1->SetInertiaXX(ChVector<>(1, 1, 1));
-    box1->SetPos(ChVector<>(-1, 0.21, -1));
-    box1->SetPos_dt(ChVector<>(5, 0, 0));
+    box1->SetInertiaXX(ChVector3d(1, 1, 1));
+    box1->SetPos(ChVector3d(-1, 0.21, -1));
+    box1->SetPosDt(ChVector3d(5, 0, 0));
 
-    box1->SetCollide(true);
+    box1->EnableCollision(true);
     box1->GetCollisionModel()->SetEnvelope(collision_envelope);
-    box1->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(box1.get(), contact_mat, ChVector<>(0.4, 0.2, 0.1));
-    box1->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(box1.get(), contact_mat, ChVector3d(0.4, 0.2, 0.1));
 
     box1->GetVisualShape(0)->SetColor(ChColor(0.1f, 0.1f, 0.4f));
 
     system.AddBody(box1);
 
-    auto box2 = std::shared_ptr<ChBody>(system.NewBody());
+    auto box2 = chrono_types::make_shared<ChBody>();
     box2->SetMass(10);
-    box2->SetInertiaXX(ChVector<>(1, 1, 1));
-    box2->SetPos(ChVector<>(-1, 0.21, +1));
-    box2->SetPos_dt(ChVector<>(5, 0, 0));
+    box2->SetInertiaXX(ChVector3d(1, 1, 1));
+    box2->SetPos(ChVector3d(-1, 0.21, +1));
+    box2->SetPosDt(ChVector3d(5, 0, 0));
 
-    box2->SetCollide(true);
+    box2->EnableCollision(true);
     box2->GetCollisionModel()->SetEnvelope(collision_envelope);
-    box2->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(box2.get(), contact_mat, ChVector<>(0.4, 0.2, 0.1));
-    box2->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(box2.get(), contact_mat, ChVector3d(0.4, 0.2, 0.1));
 
     box2->GetVisualShape(0)->SetColor(ChColor(0.4f, 0.1f, 0.1f));
 
@@ -153,7 +147,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(6, 6, 10), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(6, 6, 10), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     // ---------------

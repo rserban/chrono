@@ -12,9 +12,6 @@
 #ifdef CHRONO_PARDISO_MKL
     #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 #endif
-#ifdef CHRONO_PARDISOPROJECT
-    #include "chrono_pardisoproject/ChSolverPardisoProject.h"
-#endif
 #ifdef CHRONO_MUMPS
     #include "chrono_mumps/ChSolverMumps.h"
 #endif
@@ -102,10 +99,10 @@ class Assembly : public ChTrackAssemblySegmented {
     virtual size_t GetNumTrackShoes() const override { return m_nshoes; }
     virtual std::shared_ptr<ChSprocket> GetSprocket() const override { return nullptr; }
     virtual std::shared_ptr<ChTrackShoe> GetTrackShoe(size_t id) const override { return m_shoes[id]; }
-    virtual const ChVector<> GetSprocketLocation() const override { return ChVector<>(0); }
-    virtual const ChVector<> GetIdlerLocation() const override { return ChVector<>(0); }
-    virtual const ChVector<> GetRoadWhelAssemblyLocation(int which) const override { return ChVector<>(0); }
-    virtual const ChVector<> GetRollerLocation(int which) const override { return ChVector<>(0); }
+    virtual const ChVector3d GetSprocketLocation() const override { return ChVector3d(0); }
+    virtual const ChVector3d GetIdlerLocation() const override { return ChVector3d(0); }
+    virtual const ChVector3d GetRoadWhelAssemblyLocation(int which) const override { return ChVector3d(0); }
+    virtual const ChVector3d GetRollerLocation(int which) const override { return ChVector3d(0); }
     virtual bool Assemble(std::shared_ptr<ChBodyAuxRef> chassis) override { return true; }
     virtual void RemoveTrackShoes() override {}
 };
@@ -115,18 +112,18 @@ void Assembly::Initialize(std::shared_ptr<ChChassis> chassis) {
     CreateShoes();
 
     // Place track shoes in a closed circle
-    double del_angle = CH_C_2PI / m_nshoes;
+    double del_angle = CH_2PI / m_nshoes;
     double length = m_shoes[0]->GetPitch();
     m_radius = (length / 2) / std::tan(del_angle / 2);
 
-    ChVector<> loc;
+    ChVector3d loc;
     ChQuaternion<> rot;
     double angle = 0;
 
     for (int i = 0; i < m_nshoes; i++) {
         loc.x() = m_radius * std::sin(angle);
         loc.z() = m_radius * std::cos(angle);
-        rot = Q_from_AngY(angle);
+        rot = QuatFromAngleY(angle);
 
         m_shoes[i]->SetIndex(i);
         m_shoes[i]->Initialize(chassis->GetBody(), loc, rot);
@@ -141,7 +138,7 @@ void Assembly::Initialize(std::shared_ptr<ChChassis> chassis) {
     }
 
     if (m_fixed >= 0)
-        m_shoes[m_fixed]->GetShoeBody()->SetBodyFixed(true);
+        m_shoes[m_fixed]->GetShoeBody()->SetFixed(true);
 }
 
 class AssemblySP : public Assembly {
@@ -172,14 +169,10 @@ class AssemblyDP : public Assembly {
 int main(int argc, char* argv[]) {
     // System, solver and integrator
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, g));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, g));
 
     if (solver_type == ChSolver::Type::PARDISO_MKL) {
 #ifndef CHRONO_PARDISO_MKL
-        solver_type = ChSolver::Type::SPARSE_QR;
-#endif
-    } else if (solver_type == ChSolver::Type::PARDISO_PROJECT) {
-#ifndef CHRONO_PARDISOPROJECT
         solver_type = ChSolver::Type::SPARSE_QR;
 #endif
     } else if (solver_type == ChSolver::Type::MUMPS) {
@@ -192,13 +185,6 @@ int main(int argc, char* argv[]) {
 #ifdef CHRONO_PARDISO_MKL
         std::cout << "Using Pardiso MKL solver" << std::endl;
         auto solver = chrono_types::make_shared<ChSolverPardisoMKL>();
-        solver->LockSparsityPattern(true);
-        sys.SetSolver(solver);
-#endif
-    } else if (solver_type == ChSolver::Type::PARDISO_PROJECT) {
-#ifdef CHRONO_PARDISOPROJECT
-        std::cout << "Using Pardiso PROJECT solver" << std::endl;
-        auto solver = chrono_types::make_shared<ChSolverPardisoProject>();
         solver->LockSparsityPattern(true);
         sys.SetSolver(solver);
 #endif
@@ -232,7 +218,6 @@ int main(int argc, char* argv[]) {
                 solver->SetSharpnessLambda(1.0);
 
                 ////sys.SetMaxPenetrationRecoverySpeed(1.5);
-                ////sys.SetMinBounceSpeed(2.0);
                 break;
             }
             case ChSolver::Type::BICGSTAB:
@@ -254,18 +239,16 @@ int main(int argc, char* argv[]) {
         case ChTimestepper::Type::HHT: {
             auto integrator = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
             integrator->SetAlpha(-0.2);
-            integrator->SetMaxiters(50);
+            integrator->SetMaxIters(50);
             integrator->SetAbsTolerances(1e-4, 1e2);
-            integrator->SetMode(ChTimestepperHHT::ACCELERATION);
             integrator->SetStepControl(false);
             integrator->SetModifiedNewton(false);
-            integrator->SetScaling(false);
             break;
         }
 
         case ChTimestepper::Type::EULER_IMPLICIT: {
             auto integrator = std::static_pointer_cast<ChTimestepperEulerImplicit>(sys.GetTimestepper());
-            integrator->SetMaxiters(50);
+            integrator->SetMaxIters(50);
             integrator->SetAbsTolerances(1e-4, 1e2);
             break;
         }
@@ -295,7 +278,7 @@ int main(int argc, char* argv[]) {
     vis->Initialize();
     vis->AddLogo();
     vis->AddSkyBox();
-    vis->AddCamera(ChVector<>(0, 1, radius), ChVector<>(0, 0, radius));
+    vis->AddCamera(ChVector3d(0, 1, radius), ChVector3d(0, 0, radius));
     vis->AddTypicalLights();
     vis->AttachSystem(&sys);
 

@@ -22,9 +22,9 @@ int main(int argc, char* argv[]) {
     std::ofstream ofs(out_filename);
 
     double dt = 1e-4;
-    chrono::utils::ChButterworth_Lowpass lowpass1(1, dt, 1.0);
-    chrono::utils::ChButterworth_Lowpass lowpass5(1, dt, 5.0);
-    chrono::utils::ChButterworth_Lowpass lowpass10(1, dt, 10.0);
+    chrono::utils::ChButterworthLowpass lowpass1(1, dt, 1.0);
+    chrono::utils::ChButterworthLowpass lowpass5(1, dt, 5.0);
+    chrono::utils::ChButterworthLowpass lowpass10(1, dt, 10.0);
 
     double time, data;
     for (auto i = 0; i < nlines; i++) {

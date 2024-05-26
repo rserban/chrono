@@ -17,8 +17,8 @@
 // =============================================================================
 
 #include "chrono/ChConfig.h"
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChSphereShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
 
 #include "chrono_multicore/physics/ChSystemMulticore.h"
 #include "chrono_multicore/solver/ChIterativeSolverMulticore.h"
@@ -85,9 +85,9 @@ int main(int argc, char* argv[]) {
     // Parameters for the falling object
     // ---------------------------------
 
-    ChVector<> pos(0.2, 0.55, 0.2);
-    ChVector<> init_vel(0, 0, 0);
-    ChVector<> init_omg(0, 0, 0);
+    ChVector3d pos(0.2, 0.55, 0.2);
+    ChVector3d init_vel(0, 0, 0);
+    ChVector3d init_omg(0, 0, 0);
 
     // ---------------------------------
     // Parameters for the containing bin
@@ -128,7 +128,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    system->Set_G_acc(ChVector<>(0, -gravity, 0));
+    system->SetGravitationalAcceleration(ChVector3d(0, -gravity, 0));
 
     int nthreads = 2;
     int max_threads = omp_get_num_procs();
@@ -140,30 +140,30 @@ int main(int argc, char* argv[]) {
     system->GetSettings()->solver.tolerance = tolerance;
 
     system->GetSettings()->collision.collision_envelope = collision_envelope;
-    system->GetSettings()->collision.narrowphase_algorithm = collision::ChNarrowphase::Algorithm::HYBRID;
+    system->GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::HYBRID;
     system->GetSettings()->collision.bins_per_axis = vec3(10, 10, 10);
 
     // Rotation Z->Y (because meshes used here assume Z up)
-    ChQuaternion<> z2y = Q_from_AngX(-CH_C_PI_2);
+    ChQuaternion<> z2y = QuatFromAngleX(-CH_PI_2);
 
     // Create the falling object
-    auto object = std::shared_ptr<ChBody>(system->NewBody());
+    auto object = chrono_types::make_shared<ChBody>();
     system->AddBody(object);
 
     object->SetMass(200);
-    object->SetInertiaXX(40.0 * ChVector<>(1, 1, 0.2));
+    object->SetInertiaXX(40.0 * ChVector3d(1, 1, 0.2));
     object->SetPos(pos);
     object->SetRot(z2y);
-    object->SetPos_dt(init_vel);
-    object->SetWvel_par(init_omg);
-    object->SetCollide(true);
-    object->SetBodyFixed(false);
+    object->SetPosDt(init_vel);
+    object->SetAngVelParent(init_omg);
+    object->EnableCollision(true);
+    object->SetFixed(false);
 
-    auto object_mat = ChMaterialSurface::DefaultMaterial(contact_method);
+    auto object_mat = ChContactMaterial::DefaultMaterial(contact_method);
     object_mat->SetFriction(object_friction);
     object_mat->SetRestitution(object_restitution);
     if (contact_method == ChContactMethod::SMC) {
-        auto matSMC = std::static_pointer_cast<ChMaterialSurfaceSMC>(object_mat);
+        auto matSMC = std::static_pointer_cast<ChContactMaterialSMC>(object_mat);
         matSMC->SetYoungModulus(object_young_modulus);
         matSMC->SetPoissonRatio(object_poisson_ratio);
         matSMC->SetKn(object_kn);
@@ -174,15 +174,13 @@ int main(int argc, char* argv[]) {
 
     switch (object_geometry) {
         case GeometryType::MESH: {
-            auto trimesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
+            auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
             trimesh->LoadWavefrontMesh(GetChronoDataFile("vehicle/hmmwv/hmmwv_tire_coarse.obj"), true, false);
 
-            object->GetCollisionModel()->ClearModel();
-            object->GetCollisionModel()->AddTriangleMesh(object_mat, trimesh, false, false, ChVector<>(0), ChMatrix33<>(1),
+            object->GetCollisionModel()->AddTriangleMesh(object_mat, trimesh, false, false, ChVector3d(0), ChMatrix33<>(1),
                                                          mesh_swept_sphere_radius);
-            object->GetCollisionModel()->BuildModel();
 
-            auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+            auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
             trimesh_shape->SetMesh(trimesh);
             trimesh_shape->SetName("tire");
             trimesh_shape->SetColor(ChColor(0.3f, 0.3f, 0.3f));
@@ -191,11 +189,9 @@ int main(int argc, char* argv[]) {
             break;
         }
         case GeometryType::PRIMITIVE: {
-            object->GetCollisionModel()->ClearModel();
-            object->GetCollisionModel()->AddSphere(object_mat, 0.2, ChVector<>(0, 0, 0));
-            object->GetCollisionModel()->BuildModel();
+            object->GetCollisionModel()->AddSphere(object_mat, 0.2, ChVector3d(0, 0, 0));
 
-            auto sphere = chrono_types::make_shared<ChSphereShape>(0.2);
+            auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(0.2);
             object->AddVisualShape(sphere);
 
             break;
@@ -203,20 +199,20 @@ int main(int argc, char* argv[]) {
     }
 
     // Create ground body
-    auto ground = std::shared_ptr<ChBody>(system->NewBody());
+    auto ground = chrono_types::make_shared<ChBody>();
     system->AddBody(ground);
 
     ground->SetMass(1);
-    ground->SetPos(ChVector<>(0, 0, 0));
+    ground->SetPos(ChVector3d(0, 0, 0));
     ground->SetRot(z2y);
-    ground->SetCollide(true);
-    ground->SetBodyFixed(true);
+    ground->EnableCollision(true);
+    ground->SetFixed(true);
 
-    auto ground_mat = ChMaterialSurface::DefaultMaterial(contact_method);
+    auto ground_mat = ChContactMaterial::DefaultMaterial(contact_method);
     ground_mat->SetFriction(ground_friction);
     ground_mat->SetRestitution(ground_restitution);
     if (contact_method == ChContactMethod::SMC) {
-        auto matSMC = std::static_pointer_cast<ChMaterialSurfaceSMC>(ground_mat);
+        auto matSMC = std::static_pointer_cast<ChContactMaterialSMC>(ground_mat);
         matSMC->SetYoungModulus(ground_young_modulus);
         matSMC->SetPoissonRatio(ground_poisson_ratio);
         matSMC->SetKn(ground_kn);
@@ -227,25 +223,21 @@ int main(int argc, char* argv[]) {
 
     switch (ground_geometry) {
         case GeometryType::PRIMITIVE: {
-            ground->GetCollisionModel()->ClearModel();
-            ground->GetCollisionModel()->AddBox(ground_mat, width, length, thickness, ChVector<>(0, 0, -thickness));
-            ground->GetCollisionModel()->BuildModel();
+            ground->GetCollisionModel()->AddBox(ground_mat, width, length, thickness, ChVector3d(0, 0, -thickness));
 
-            auto box = chrono_types::make_shared<ChBoxShape>(width, length, thickness);
-            ground->AddVisualShape(box, ChFrame<>(ChVector<>(0, 0, -thickness)));
+            auto box = chrono_types::make_shared<ChVisualShapeBox>(width, length, thickness);
+            ground->AddVisualShape(box, ChFrame<>(ChVector3d(0, 0, -thickness)));
 
             break;
         }
         case GeometryType::MESH: {
-            auto trimesh_ground = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
+            auto trimesh_ground = chrono_types::make_shared<ChTriangleMeshConnected>();
             trimesh_ground->LoadWavefrontMesh(GetChronoDataFile("vehicle/terrain/meshes/ramp_10x1.obj"), true, false);
 
-            ground->GetCollisionModel()->ClearModel();
-            ground->GetCollisionModel()->AddTriangleMesh(ground_mat, trimesh_ground, false, false, ChVector<>(0), ChMatrix33<>(1),
+            ground->GetCollisionModel()->AddTriangleMesh(ground_mat, trimesh_ground, false, false, ChVector3d(0), ChMatrix33<>(1),
                                                          mesh_swept_sphere_radius);
-            ground->GetCollisionModel()->BuildModel();
 
-            auto trimesh_ground_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+            auto trimesh_ground_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
             trimesh_ground_shape->SetMesh(trimesh_ground);
             trimesh_ground_shape->SetName("ground");
             ground->AddVisualShape(trimesh_ground_shape);
@@ -265,7 +257,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(2, 1, 2), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(2, 1, 2), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
 #endif

@@ -73,7 +73,7 @@ TerrainType terrain_type = TerrainType::RIGID;
 double terrainLength = 200.0;
 
 // Lane direction
-double yaw_angle = 0 * CH_C_DEG_TO_RAD;
+double yaw_angle = 0 * CH_DEG_TO_RAD;
 
 // Initial chassis velocity if driveline disconnected
 bool disconnect_driveline = true;
@@ -121,16 +121,16 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
     ContactReporter() {}
 
   private:
-    virtual bool OnReportContact(const ChVector<>& pA,
-                                 const ChVector<>& pB,
+    virtual bool OnReportContact(const ChVector3d& pA,
+                                 const ChVector3d& pB,
                                  const ChMatrix33<>& plane_coord,
                                  const double& distance,
                                  const double& eff_radius,
-                                 const ChVector<>& cforce,
-                                 const ChVector<>& ctorque,
+                                 const ChVector3d& cforce,
+                                 const ChVector3d& ctorque,
                                  ChContactable* modA,
                                  ChContactable* modB) override {
-        const ChVector<>& nrm = plane_coord.Get_A_Xaxis();
+        const ChVector3d& nrm = plane_coord.GetAxisX();
         std::cout << "   " << ((ChBody*)modA)->GetNameString() << "  -  " << ((ChBody*)modB)->GetNameString()
                   << std::endl;
         std::cout << "      pt A:  " << pA << std::endl;
@@ -152,7 +152,7 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     if (terrain_type == TerrainType::FLAT &&
         (tire_model == TireModelType::RIGID || tire_model == TireModelType::RIGID_MESH)) {
@@ -160,11 +160,11 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    ChQuaternion<> yaw_rot = Q_from_AngZ(yaw_angle);
+    ChQuaternion<> yaw_rot = QuatFromAngleZ(yaw_angle);
     ChCoordsys<> patch_sys(VNULL, yaw_rot);
-    ChVector<> init_loc = patch_sys.TransformPointLocalToParent(ChVector<>(-terrainLength / 2 + 5, 0, 0.7));
-    ChVector<> path_start = patch_sys.TransformPointLocalToParent(ChVector<>(-terrainLength / 2, 0, 0.5));
-    ChVector<> path_end = patch_sys.TransformPointLocalToParent(ChVector<>(+terrainLength / 2, 0, 0.5));
+    ChVector3d init_loc = patch_sys.TransformPointLocalToParent(ChVector3d(-terrainLength / 2 + 5, 0, 0.7));
+    ChVector3d path_start = patch_sys.TransformPointLocalToParent(ChVector3d(-terrainLength / 2, 0, 0.5));
+    ChVector3d path_end = patch_sys.TransformPointLocalToParent(ChVector3d(+terrainLength / 2, 0, 0.5));
 
     // Create the vehicle system
     WheeledVehicle vehicle(vehicle::GetDataFile(vehicle_json), contact_method);
@@ -210,7 +210,7 @@ int main(int argc, char* argv[]) {
             auto patch_mat = minfo.CreateMaterial(contact_method);
 
             auto rigid_terrain = chrono_types::make_shared<RigidTerrain>(system);
-            auto patch = rigid_terrain->AddPatch(patch_mat, ChCoordsys<>(ChVector<>(0), yaw_rot), terrainLength, 10);
+            auto patch = rigid_terrain->AddPatch(patch_mat, ChCoordsys<>(ChVector3d(0), yaw_rot), terrainLength, 10);
             patch->SetColor(ChColor(0.8f, 0.8f, 0.5f));
             patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 5);
 
@@ -236,7 +236,7 @@ int main(int argc, char* argv[]) {
     // Create Irrlicht visualization
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Vehicle acceleration - JSON specification");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -424,10 +424,6 @@ void SelectSolver(ChSystem& sys, ChSolver::Type& solver_type, ChTimestepper::Typ
 #ifndef CHRONO_PARDISO_MKL
         solver_type = ChSolver::Type::SPARSE_QR;
 #endif
-    } else if (solver_type == ChSolver::Type::PARDISO_PROJECT) {
-#ifndef CHRONO_PARDISOPROJECT
-        solver_type = ChSolver::Type::SPARSE_QR;
-#endif
     } else if (solver_type == ChSolver::Type::MUMPS) {
 #ifndef CHRONO_MUMPS
         solver_type = ChSolver::Type::SPARSE_QR;
@@ -439,12 +435,6 @@ void SelectSolver(ChSystem& sys, ChSolver::Type& solver_type, ChTimestepper::Typ
         auto solver = chrono_types::make_shared<ChSolverPardisoMKL>();
         solver->LockSparsityPattern(true);
         sys.SetSolver(solver);
-#endif
-    } else if (solver_type == ChSolver::Type::PARDISO_PROJECT) {
-#ifdef CHRONO_PARDISOPROJECT
-        auto solver = chrono_types::make_shared<ChSolverPardisoProject>();
-        solver->LockSparsityPattern(true);
-        sys->SetSolver(solver);
 #endif
     } else if (solver_type == ChSolver::Type::MUMPS) {
 #ifdef CHRONO_MUMPS
@@ -473,7 +463,6 @@ void SelectSolver(ChSystem& sys, ChSolver::Type& solver_type, ChTimestepper::Typ
                 solver->SetSharpnessLambda(1.0);
 
                 ////sys.SetMaxPenetrationRecoverySpeed(1.5);
-                ////sys.SetMinBounceSpeed(2.0);
                 break;
             }
             case ChSolver::Type::BICGSTAB:
@@ -493,17 +482,15 @@ void SelectSolver(ChSystem& sys, ChSolver::Type& solver_type, ChTimestepper::Typ
         case ChTimestepper::Type::HHT: {
             auto integrator = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
             integrator->SetAlpha(-0.2);
-            integrator->SetMaxiters(50);
+            integrator->SetMaxIters(50);
             integrator->SetAbsTolerances(1e-4, 1e2);
-            integrator->SetMode(ChTimestepperHHT::ACCELERATION);
             integrator->SetStepControl(false);
             integrator->SetModifiedNewton(false);
-            integrator->SetScaling(false);
             break;
         }
         case ChTimestepper::Type::EULER_IMPLICIT: {
             auto integrator = std::static_pointer_cast<ChTimestepperEulerImplicit>(sys.GetTimestepper());
-            integrator->SetMaxiters(50);
+            integrator->SetMaxIters(50);
             integrator->SetAbsTolerances(1e-4, 1e2);
             break;
         }

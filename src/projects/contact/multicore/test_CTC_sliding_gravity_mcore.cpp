@@ -33,24 +33,23 @@
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 using namespace chrono::irrlicht;
 using namespace irr;
 
 class ContactReporter : public ChContactContainer::ReportContactCallback {
   public:
     ContactReporter(std::shared_ptr<ChBody> body) : m_body(body) {}
-    virtual bool OnReportContact(const ChVector<>& pA,
-                                 const ChVector<>& pB,
+    virtual bool OnReportContact(const ChVector3d& pA,
+                                 const ChVector3d& pB,
                                  const ChMatrix33<>& plane_coord,
                                  const double& distance,
                                  const double& eff_radius,
-                                 const ChVector<>& cforce,
-                                 const ChVector<>& ctorque,
+                                 const ChVector3d& cforce,
+                                 const ChVector3d& ctorque,
                                  ChContactable* modA,
                                  ChContactable* modB) override {
-        const ChVector<>& p = m_body->GetPos();
-        const ChVector<>& nrm = plane_coord.Get_A_Xaxis();
+        const ChVector3d& p = m_body->GetPos();
+        const ChVector3d& nrm = plane_coord.GetAxisX();
         std::cout << "  ---" << std::endl;
         std::cout << "  B:   " << p.x() << "  " << p.y() << "  " << p.z() << std::endl;
         std::cout << "  pA:  " << pA.x() << "  " << pA.y() << "  " << pA.z() << std::endl;
@@ -67,27 +66,25 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
 
 std::shared_ptr<ChBody> AddBoxBody(int id,
                                    ChSystemMulticoreSMC* sys,
-                                   std::shared_ptr<ChMaterialSurfaceSMC> mat,
-                                   ChVector<> size,
+                                   std::shared_ptr<ChContactMaterialSMC> mat,
+                                   ChVector3d size,
                                    double mass,
-                                   ChVector<> pos,
+                                   ChVector3d pos,
                                    bool fixed) {
-    ChVector<> inertia((1.0 / 12.0) * mass * (pow(size.y(), 2) + pow(size.z(), 2)),
+    ChVector3d inertia((1.0 / 12.0) * mass * (pow(size.y(), 2) + pow(size.z(), 2)),
                        (1.0 / 12.0) * mass * (pow(size.x(), 2) + pow(size.z(), 2)),
                        (1.0 / 12.0) * mass * (pow(size.x(), 2) + pow(size.y(), 2)));
 
     // Create container. Set body parameters and container collision model
-    auto body = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
-    body->SetIdentifier(id);
+    auto body = chrono_types::make_shared<ChBody>();
+    body->SetTag(id);
     body->SetMass(mass);
     body->SetInertiaXX(inertia);
     body->SetPos(pos);
-    body->SetBodyFixed(fixed);
-    body->SetCollide(true);
+    body->SetFixed(fixed);
+    body->EnableCollision(true);
 
-    body->GetCollisionModel()->ClearModel();
     utils::AddBoxGeometry(body.get(), mat, size / 2);
-    body->GetCollisionModel()->BuildModel();
     body->GetVisualShape(0)->SetColor(ChColor(0.55f, 0.57f, 0.67f));
 
     // Return a pointer to the wall object
@@ -97,34 +94,32 @@ std::shared_ptr<ChBody> AddBoxBody(int id,
 
 std::shared_ptr<ChBody> AddSphereBody(int id,
                                       ChSystemMulticoreSMC* sys,
-                                      std::shared_ptr<ChMaterialSurfaceSMC> mat,
-                                      ChVector<> size,
+                                      std::shared_ptr<ChContactMaterialSMC> mat,
+                                      ChVector3d size,
                                       double mass,
-                                      ChVector<> pos,
+                                      ChVector3d pos,
                                       bool fixed) {
-    ChVector<> inertia((1.0 / 12.0) * mass * (pow(size.y(), 2) + pow(size.z(), 2)),
+    ChVector3d inertia((1.0 / 12.0) * mass * (pow(size.y(), 2) + pow(size.z(), 2)),
                        (1.0 / 12.0) * mass * (pow(size.x(), 2) + pow(size.z(), 2)),
                        (1.0 / 12.0) * mass * (pow(size.x(), 2) + pow(size.y(), 2)));
 
     // Create container. Set body parameters and container collision model
-    auto body = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
-    body->SetIdentifier(id);
+    auto body = chrono_types::make_shared<ChBody>();
+    body->SetTag(id);
     body->SetMass(mass);
     body->SetInertiaXX(inertia);
     body->SetPos(pos);
-    body->SetBodyFixed(fixed);
-    body->SetCollide(true);
+    body->SetFixed(fixed);
+    body->EnableCollision(true);
 
     // collision
-    body->GetCollisionModel()->ClearModel();
-    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector<>(+size.x() / 2, -size.y() / 2 + 0.1, +size.z() / 2));
-    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector<>(+size.x() / 2, -size.y() / 2 + 0.1, -size.z() / 2));
-    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector<>(-size.x() / 2, -size.y() / 2 + 0.1, +size.z() / 2));
-    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector<>(-size.x() / 2, -size.y() / 2 + 0.1, -size.z() / 2));
-    body->GetCollisionModel()->BuildModel();
+    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector3d(+size.x() / 2, -size.y() / 2 + 0.1, +size.z() / 2));
+    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector3d(+size.x() / 2, -size.y() / 2 + 0.1, -size.z() / 2));
+    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector3d(-size.x() / 2, -size.y() / 2 + 0.1, +size.z() / 2));
+    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector3d(-size.x() / 2, -size.y() / 2 + 0.1, -size.z() / 2));
 
     // visualization
-    auto box = chrono_types::make_shared<ChBoxShape>(size.x(), size.y(), size.z());
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(size.x(), size.y(), size.z());
     box->SetColor(ChColor(0.55f, 0.57f, 0.67f));
     body->AddVisualShape(box);
 
@@ -134,10 +129,10 @@ std::shared_ptr<ChBody> AddSphereBody(int id,
 }
 
 double CalcKE(ChSystemMulticoreSMC* sys) {
-    const std::shared_ptr<ChBody> body = sys->Get_bodylist().at(1);
+    const std::shared_ptr<ChBody> body = sys->GetBodies().at(1);
 
-    ChVector<> eng_trn = 0.5 * body->GetMass() * body->GetPos_dt() * body->GetPos_dt();
-    ChVector<> eng_rot = 0.5 * body->GetInertiaXX() * body->GetWvel_par() * body->GetWvel_par();
+    ChVector3d eng_trn = 0.5 * body->GetMass() * body->GetPosDt() * body->GetPosDt();
+    ChVector3d eng_rot = 0.5 * body->GetInertiaXX() * body->GetAngVelParent() * body->GetAngVelParent();
 
     double KE_trn = eng_trn.x() + eng_trn.y() + eng_trn.z();
     double KE_rot = eng_rot.x() + eng_rot.y() + eng_rot.z();
@@ -151,18 +146,18 @@ bool CalcAverageKE(ChSystemMulticoreSMC* sys, const double& threshold) {
     double KE_trn = 0;
     double KE_rot = 0;
 
-    for (int i = 0; i < sys->Get_bodylist().size(); ++i) {
-        const std::shared_ptr<ChBody> body = sys->Get_bodylist().at(i);
+    for (int i = 0; i < sys->GetBodies().size(); ++i) {
+        const std::shared_ptr<ChBody> body = sys->GetBodies().at(i);
 
-        ChVector<> eng_trn = 0.5 * body->GetMass() * body->GetPos_dt() * body->GetPos_dt();
-        ChVector<> eng_rot = 0.5 * body->GetInertiaXX() * body->GetWvel_par() * body->GetWvel_par();
+        ChVector3d eng_trn = 0.5 * body->GetMass() * body->GetPosDt() * body->GetPosDt();
+        ChVector3d eng_rot = 0.5 * body->GetInertiaXX() * body->GetAngVelParent() * body->GetAngVelParent();
 
         KE_trn += eng_trn.x() + eng_trn.y() + eng_trn.z();
         KE_rot += eng_rot.x() + eng_rot.y() + eng_rot.z();
     }
 
-    double KE_trn_avg = KE_trn / sys->Get_bodylist().size();
-    double KE_rot_avg = KE_rot / sys->Get_bodylist().size();
+    double KE_trn_avg = KE_trn / sys->GetBodies().size();
+    double KE_rot_avg = KE_rot / sys->GetBodies().size();
     double KE_tot_avg = KE_trn_avg + KE_rot_avg;
 
     // Return true if the calc falls below the given threshold
@@ -175,7 +170,7 @@ bool CalcAverageKE(ChSystemMulticoreSMC* sys, const double& threshold) {
 
 int main(int argc, char* argv[]) {
     // Print the sim set - up parameters to userlog
-    GetLog() << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << ".VCMS\n";
+    std::cout << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << ".VCMS\n";
 
     // Execute test for each force model
     std::vector<ChSystemSMC::ContactForceModel> fmodels = {
@@ -183,7 +178,7 @@ int main(int argc, char* argv[]) {
         ChSystemSMC::ContactForceModel::PlainCoulomb, ChSystemSMC::ContactForceModel::Flores};
 
     for (int f = 0; f < fmodels.size(); ++f) {
-        GetLog() << "\nModel #" << f << "\n";
+        std::cout << "\nModel #" << f << "\n";
 
         // Create a shared material to be used by the all bodies
         float y_modulus = 2.0e5f;  /// Default 2e5
@@ -197,11 +192,11 @@ int main(int argc, char* argv[]) {
         float adDMT = 0.0f;        /// Magnitude of the adhesion in the DMT adhesion model
         float adSPerko = 0.0f;     /// Magnitude of the adhesion in the SPerko adhesion model
 
-        auto mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+        auto mat = chrono_types::make_shared<ChContactMaterialSMC>();
         mat->SetYoungModulus(y_modulus);
         mat->SetPoissonRatio(p_ratio);
-        mat->SetSfriction(s_frict);
-        mat->SetKfriction(k_frict);
+        mat->SetStaticFriction(s_frict);
+        mat->SetSlidingFriction(k_frict);
         mat->SetRollingFriction(roll_frict);
         mat->SetSpinningFriction(spin_frict);
         mat->SetRestitution(cor_in);
@@ -211,10 +206,10 @@ int main(int argc, char* argv[]) {
 
         // Create a multicore SMC system and set the system parameters
         double time_step = 1.0E-5;
-        ChVector<> gravity(0, -9.81, 0);
+        ChVector3d gravity(0, -9.81, 0);
 
         ChSystemMulticoreSMC sys;
-        sys.Set_G_acc(gravity);
+        sys.SetGravitationalAcceleration(gravity);
         sys.GetSettings()->solver.max_iteration_bilateral = 100;
         sys.GetSettings()->solver.tolerance = 1e-3;
         sys.GetSettings()->solver.contact_force_model = fmodels[f];
@@ -222,19 +217,19 @@ int main(int argc, char* argv[]) {
         sys.GetSettings()->solver.tangential_displ_mode = ChSystemSMC::TangentialDisplacementModel::OneStep;
         sys.GetSettings()->collision.bins_per_axis = vec3(10, 10, 10);
         sys.GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::HYBRID;
-        sys.SetCollisionSystemType(ChCollisionSystemType::CHRONO);
+        sys.SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
         sys.SetNumThreads(2);
 
         // Add the wall to the system
         double wmass = 10.0;
-        ChVector<> wsize(8, 1, 3);
-        ChVector<> wpos(0, -wsize.y() / 2 - 0.5, 0);
+        ChVector3d wsize(8, 1, 3);
+        ChVector3d wpos(0, -wsize.y() / 2 - 0.5, 0);
         auto wall = AddBoxBody(-1, &sys, mat, wsize, wmass, wpos, true);
 
         // Add the block to the system
         double bmass = 1.0;
-        ChVector<> bsize(0.5, 0.5, 0.5);
-        ChVector<> bpos(0, bsize.y() / 2 - 0.49, 0);
+        ChVector3d bsize(0.5, 0.5, 0.5);
+        ChVector3d bpos(0, bsize.y() / 2 - 0.49, 0);
         auto body = AddBoxBody(0, &sys, mat, bsize, bmass, bpos, false);
         ////auto body = AddSphereBody(0, &sys, mat, bsize, bmass, bpos, false);
 
@@ -246,7 +241,7 @@ int main(int argc, char* argv[]) {
         vis->AddLogo();
         vis->AddSkyBox();
         vis->AddTypicalLights();
-        vis->AddCamera(ChVector<>(0, 0, -7.5));
+        vis->AddCamera(ChVector3d(0, 0, -7.5));
         vis->AttachSystem(&sys);
 
         // Callback for contact reporting
@@ -263,14 +258,14 @@ int main(int argc, char* argv[]) {
             ////sys.GetContactContainer()->ReportAllContacts(creporter);
 
             if (CalcKE(&sys) < 1e-9) {
-                GetLog() << "[settling] KE falls below threshold at t = " << sys.GetChTime() << "\n";
+                std::cout << "[settling] KE falls below threshold at t = " << sys.GetChTime() << "\n";
                 break;
             }
         }
 
         // Give th block a horizontal push
-        ChVector<> init_bv(5, 0, 0);
-        body->SetPos_dt(init_bv);
+        ChVector3d init_bv(5, 0, 0);
+        body->SetPosDt(init_bv);
 
         // Iterate through simulation. Calculate resultant forces and motion for each timestep
         time_end = sys.GetChTime() + 2.0;
@@ -282,18 +277,18 @@ int main(int argc, char* argv[]) {
             ////std::cout << "============= " << sys.GetChTime() << std::endl;
             sys.DoStepDynamics(time_step);
             ////sys.GetContactContainer()->ReportAllContacts(creporter);
-            ////ChVector<> frc = body->GetContactForce();
+            ////ChVector3d frc = body->GetContactForce();
             ////std::cout << "  ----------- " << std::endl;
             ////std::cout << frc.x() << "  " << frc.y() << "  " << frc.z() << std::endl;
 
             if (CalcKE(&sys) < 1e-9) {
-                GetLog() << "[simulation] KE falls below threshold at t = " << sys.GetChTime() << "\n";
+                std::cout << "[simulation] KE falls below threshold at t = " << sys.GetChTime() << "\n";
                 break;
             }
 
             if (sys.GetChTime() > time_end) {
-                GetLog() << "[simulation] KE still above threshold!\n";
-                GetLog() << "Kinetic energy: " << CalcKE(&sys) << "\n";
+                std::cout << "[simulation] KE still above threshold!\n";
+                std::cout << "Kinetic energy: " << CalcKE(&sys) << "\n";
                 break;
             }
         }
@@ -303,7 +298,7 @@ int main(int argc, char* argv[]) {
         double d_act = body->GetPos().x() - bpos.x();
         double d_err = abs((d_ref - d_act) / d_ref) * 100;
 
-        GetLog() << "Error " << d_err << " %\n";
+        std::cout << "Error " << d_err << " %\n";
     }
 
     return 0;

@@ -23,8 +23,7 @@
 
 #include <cstdio>
 
-#include "chrono/assets/ChPointPointShape.h"
-#include "chrono/core/ChLog.h"
+#include "chrono/assets/ChVisualShapePointPoint.h"
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/physics/ChBody.h"
 #include "chrono/physics/ChLinkMotorLinearSpeed.h"
@@ -139,7 +138,7 @@ class ShockODE : public ChLinkTSDA::ODE {
         m_lf_damper_table.AddPoint(5, 17837.69167);
     }
 
-    virtual int GetNumStates() const override { return 2; }
+    virtual unsigned int GetNumStates() const override { return 2; }
     virtual void SetInitialConditions(ChVectorDynamic<>& states,  // output vector containig initial conditions
                                       const ChLinkTSDA& link      // associated link
                                       ) override {
@@ -166,8 +165,8 @@ class ShockODE : public ChLinkTSDA::ODE {
         double force_hf, force_lf;
         if (m_use_damper_tables) {
             // use lookup tables
-            force_hf = m_hf_damper_table.Get_y(vel);
-            force_lf = m_lf_damper_table.Get_y(vel_min);
+            force_hf = m_hf_damper_table.GetVal(vel);
+            force_lf = m_lf_damper_table.GetVal(vel_min);
         } else {
             // use continuous funktions (derived from the tables)
             force_hf = HF_DamperForce(vel);
@@ -228,8 +227,8 @@ class ShockODE : public ChLinkTSDA::ODE {
         }
     }
 
-    ChFunction_Recorder m_hf_damper_table;
-    ChFunction_Recorder m_lf_damper_table;
+    ChFunctionInterp m_hf_damper_table;
+    ChFunctionInterp m_lf_damper_table;
     bool m_use_damper_tables;
 };
 
@@ -246,10 +245,10 @@ class Actuation : public ChFunction {
         }
     }
 
-    virtual double Get_y(double x) const override {
+    virtual double GetVal(double x) const override {
         if (x > m_start && x < m_start + m_width) {
             if (m_smooth)
-                return 1 + std::cos(2 * CH_C_PI * ((x - m_start) / m_width - 0.5));
+                return 1 + std::cos(2 * CH_PI * ((x - m_start) / m_width - 0.5));
             else
                 return 2;
         }
@@ -267,35 +266,35 @@ class Actuation : public ChFunction {
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     ChSystemNSC system;
-    system.Set_G_acc(ChVector<>(0, 0, 0));
+    system.SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
     // Create the ground body with two visualization spheres
     auto ground = chrono_types::make_shared<ChBody>();
     system.AddBody(ground);
-    ground->SetBodyFixed(true);
-    ground->SetCollide(false);
+    ground->SetFixed(true);
+    ground->EnableCollision(false);
 
-    auto sph = chrono_types::make_shared<ChSphereShape>(0.1);
+    auto sph = chrono_types::make_shared<ChVisualShapeSphere>(0.1);
     ground->AddVisualShape(sph);
 
     // Create a body suspended through a ChLinkTSDA
     auto body = chrono_types::make_shared<ChBody>();
     system.AddBody(body);
-    body->SetPos(ChVector<>(0, -3, 0));
-    body->SetBodyFixed(false);
-    body->SetCollide(false);
+    body->SetPos(ChVector3d(0, -3, 0));
+    body->SetFixed(false);
+    body->EnableCollision(false);
     body->SetMass(500);
-    body->SetInertiaXX(ChVector<>(1, 1, 1));
+    body->SetInertiaXX(ChVector3d(1, 1, 1));
 
-    auto box = chrono_types::make_shared<ChBoxShape>(2, 2, 2);
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(2, 2, 2);
     box->SetColor(ChColor(0.6f, 0, 0));
     body->AddVisualShape(box);
 
     // Create an actuator to control body speed (along Y direction)
-    auto x2y = Q_from_AngZ(-CH_C_PI_2);
+    auto x2y = QuatFromAngleZ(-CH_PI_2);
     auto speed_fun = chrono_types::make_shared<Actuation>(smooth_actuation);
     auto motor = chrono_types::make_shared<ChLinkMotorLinearSpeed>();
     system.AddLink(motor);
@@ -307,7 +306,7 @@ int main(int argc, char* argv[]) {
     ShockODE rhs(use_tables);
 
     auto spring = chrono_types::make_shared<ChLinkTSDA>();
-    spring->Initialize(body, ground, true, ChVector<>(0, 0, 0), ChVector<>(0, 0, 0));
+    spring->Initialize(body, ground, true, ChVector3d(0, 0, 0), ChVector3d(0, 0, 0));
     spring->IsStiff(use_jacobians);
     spring->RegisterForceFunctor(force);
     spring->RegisterODE(&rhs);
@@ -324,7 +323,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0, 0, 6));
+    vis->AddCamera(ChVector3d(0, 0, 6));
     vis->AttachSystem(&system);
 
     // Create output directory and log file
@@ -345,7 +344,7 @@ int main(int argc, char* argv[]) {
             system.SetTimestepperType(ChTimestepper::Type::HHT);
             auto integrator = std::static_pointer_cast<ChTimestepperHHT>(system.GetTimestepper());
             integrator->SetAlpha(-0.2);
-            integrator->SetMaxiters(num_nonlin_iterations);
+            integrator->SetMaxIters(num_nonlin_iterations);
             integrator->SetAbsTolerances(abs_tol);
             integrator->SetStepControl(step_control);
             integrator->SetVerbose(verbose_integrator);
@@ -355,7 +354,7 @@ int main(int argc, char* argv[]) {
             title += "EI - ";
             system.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);
             auto integrator = std::static_pointer_cast<ChTimestepperEulerImplicit>(system.GetTimestepper());
-            integrator->SetMaxiters(num_nonlin_iterations);
+            integrator->SetMaxIters(num_nonlin_iterations);
             integrator->SetAbsTolerances(1e-6);
             integrator->SetVerbose(verbose_integrator);
             break;
@@ -415,7 +414,7 @@ int main(int argc, char* argv[]) {
 
         double spring_vel = spring->GetVelocity();
         double pos = body->GetPos().y();
-        double vel = body->GetPos_dt().y();
+        double vel = body->GetPosDt().y();
         ChVectorDynamic<> state = spring->GetStates();
         log << time << ", " << spring_vel << ", " << state(0) << ", " << state(1) << ", ";
         log << pos << ", " << vel;

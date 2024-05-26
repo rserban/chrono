@@ -32,30 +32,30 @@ using namespace chrono;
 void test1() {
     // Create the system
     ChSystemNSC system;
-    system.Set_G_acc(ChVector<>(0, 0, -10));
+    system.SetGravitationalAcceleration(ChVector3d(0, 0, -10));
 
     // Set solver settings
-    system.SetSolverMaxIterations(200);
+    system.GetSolver()->AsIterative()->SetMaxIterations(200);
     system.SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
     // Add bodies
-    auto ground = std::shared_ptr<ChBody>(system.NewBody());
-    ground->SetPos(ChVector<>(0, 0, 0));
-    ground->SetBodyFixed(true);
+    auto ground = chrono_types::make_shared<ChBody>();
+    ground->SetPos(ChVector3d(0, 0, 0));
+    ground->SetFixed(true);
     system.Add(ground);
 
-    ChVector<> pos1(1, 0, 0);
-    auto body1 = std::shared_ptr<ChBody>(system.NewBody());
+    ChVector3d pos1(1, 0, 0);
+    auto body1 = chrono_types::make_shared<ChBody>();
     body1->SetMass(1);
     body1->SetPos(pos1);
-    body1->SetInertiaXX(ChVector<>(0.1, 0.1, 0.1));
+    body1->SetInertiaXX(ChVector3d(0.1, 0.1, 0.1));
     system.AddBody(body1);
 
-    ChVector<> pos2(2, 0, 0);
-    auto body2 = std::shared_ptr<ChBody>(system.NewBody());
+    ChVector3d pos2(2, 0, 0);
+    auto body2 = chrono_types::make_shared<ChBody>();
     body2->SetMass(1);
     body2->SetPos(pos2);
-    body2->SetInertiaXX(ChVector<>(0.1, 0.1, 0.1));
+    body2->SetInertiaXX(ChVector3d(0.1, 0.1, 0.1));
     system.AddBody(body2);
     
     // Arbitrary direction
@@ -63,14 +63,14 @@ void test1() {
     q.Normalize();
 
     // Add angle motor to body1
-    auto fun1 = chrono_types::make_shared<ChFunction_Setpoint>();
+    auto fun1 = chrono_types::make_shared<ChFunctionSetpoint>();
     auto joint1 = chrono_types::make_shared<ChLinkMotorRotationAngle>();
     joint1->Initialize(ground, body1, ChFrame<>(pos1, q));
     joint1->SetAngleFunction(fun1);
     system.AddLink(joint1);
 
     // Add speed motor to body2
-    auto fun2 = chrono_types::make_shared<ChFunction_Setpoint>();
+    auto fun2 = chrono_types::make_shared<ChFunctionSetpoint>();
     auto joint2 = chrono_types::make_shared<ChLinkMotorRotationSpeed>();
     joint2->Initialize(ground, body2, ChFrame<>(pos2, q));
     joint2->SetSpeedFunction(fun2);
@@ -87,8 +87,8 @@ void test1() {
         system.DoStepDynamics(step);
 
         std::cout << time << "  ";
-        std::cout << joint1->GetMotorRot() << "  " << joint1->GetMotorTorque() << "     ";
-        std::cout << joint2->GetMotorRot() << "  " << joint2->GetMotorTorque() << "     ";
+        std::cout << joint1->GetMotorAngle() << "  " << joint1->GetMotorTorque() << "     ";
+        std::cout << joint2->GetMotorAngle() << "  " << joint2->GetMotorTorque() << "     ";
 
         time += step;
     }
@@ -99,41 +99,41 @@ void test1() {
 void test2() {
     // Create the system
     ChSystemNSC system;
-    system.Set_G_acc(ChVector<>(0, 0, 0));
+    system.SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
     // Set solver settings
-    system.SetSolverMaxIterations(200);
+    system.GetSolver()->AsIterative()->SetMaxIterations(200);
     system.SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
     // Add bodies
-    auto ground = std::shared_ptr<ChBody>(system.NewBody());
-    ground->SetPos(ChVector<>(0, 0, 0));
-    ground->SetBodyFixed(true);
+    auto ground = chrono_types::make_shared<ChBody>();
+    ground->SetPos(ChVector3d(0, 0, 0));
+    ground->SetFixed(true);
     system.Add(ground);
 
-    ChVector<> pos(3, 0, 0);
-    auto body = std::shared_ptr<ChBody>(system.NewBody());
+    ChVector3d pos(3, 0, 0);
+    auto body = chrono_types::make_shared<ChBody>();
     body->SetMass(1);
     body->SetPos(pos);
-    body->SetInertiaXX(ChVector<>(0.1, 0.1, 0.1));
+    body->SetInertiaXX(ChVector3d(0.1, 0.1, 0.1));
     system.AddBody(body);
 
     // Motor orientation
-    auto q = Q_from_AngY(0.25 * CH_C_PI);
+    auto q = QuatFromAngleY(0.25 * CH_PI);
     ////ChQuaternion<> q(1, 2, 3, 4);
     ////q.Normalize();
     auto frame = ChFrame<>(pos, q);
 
     // Add angle motor
-    auto fun3 = chrono_types::make_shared<ChFunction_Setpoint>();
+    auto fun3 = chrono_types::make_shared<ChFunctionSetpoint>();
     auto joint = chrono_types::make_shared<ChLinkMotorRotationAngle>();
     joint->Initialize(ground, body, frame);
     joint->SetAngleFunction(fun3);
     system.AddLink(joint);
 
     // Add off-center force to body
-    auto F_abs = ChVector<>(0, 5, 0);
-    auto d_loc = ChVector<>(1, 0, 0);
+    auto F_abs = ChVector3d(0, 5, 0);
+    auto d_loc = ChVector3d(1, 0, 0);
 
     auto container = chrono_types::make_shared<ChLoadContainer>();
     system.Add(container);
@@ -152,9 +152,9 @@ void test2() {
 
         system.DoStepDynamics(step);
 
-        auto omega = body->GetWvel_loc();
+        auto omega = body->GetAngVelLocal();
         std::cout << time << "    ";
-        std::cout << joint->GetMotorRot() << "  " << joint->GetMotorTorque() << "    ";
+        std::cout << joint->GetMotorAngle() << "  " << joint->GetMotorTorque() << "    ";
         std::cout << omega.x() << "  " << omega.y() << "  " << omega.z() << "    ";
         std::cout << std::endl;
 

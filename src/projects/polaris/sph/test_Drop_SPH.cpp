@@ -47,7 +47,7 @@ using std::endl;
 
 // ===================================================================================================================
 
-const ChVector<> gravity(0, 0, -9.81);
+const ChVector3d gravity(0, 0, -9.81);
 
 double sphere_radius = 0.3;
 
@@ -78,7 +78,7 @@ std::shared_ptr<chrono::ChBody> CreateSolidPhase(chrono::ChSystemNSC& sys,
                                                  chrono::fsi::ChSystemFsi& sysFSI,
                                                  const chrono::ChCoordsys<>& init_pos) {
     // Set common material Properties
-    auto mysurfmaterial = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto mysurfmaterial = chrono_types::make_shared<ChContactMaterialSMC>();
     mysurfmaterial->SetYoungModulus(1e8);
     mysurfmaterial->SetFriction(0.2f);
     mysurfmaterial->SetRestitution(0.05f);
@@ -91,27 +91,25 @@ std::shared_ptr<chrono::ChBody> CreateSolidPhase(chrono::ChSystemNSC& sys,
     auto sphere = chrono_types::make_shared<ChBody>();
 
     // Set the general properties of the sphere
-    double volume = chrono::utils::CalcSphereVolume(sphere_radius);
+    double volume = ChSphere::GetVolume(sphere_radius);
     // Carbon steel's density is about 7.84 g/cm3=7840 kg/m3
     // double density = sysFSI.GetDensity() * 2.0;
     double density = 7840;
     double mass = density * volume;
-    ChVector<> sphere_pos = ChVector<>(2.0, 0, 0.2 + sphere_radius + 2 * initSpace0);
-    ChVector<> sphere_vel = ChVector<>(0.0, 0.0, 0.0);
+    ChVector3d sphere_pos = ChVector3d(2.0, 0, 0.2 + sphere_radius + 2 * initSpace0);
+    ChVector3d sphere_vel = ChVector3d(0.0, 0.0, 0.0);
     ChQuaternion<> sphere_rot = QUNIT;
-    ChVector<> gyration = chrono::utils::CalcSphereGyration(sphere_radius).diagonal();
+    ChVector3d gyration = ChSphere::GetGyration(sphere_radius).diagonal();
     sphere->SetPos(sphere_pos);
-    sphere->SetPos_dt(sphere_vel);
+    sphere->SetPosDt(sphere_vel);
     sphere->SetMass(mass);
     sphere->SetInertiaXX(mass * gyration);
 
     // Set the collision type of the sphere
-    sphere->SetCollide(true);
-    sphere->SetBodyFixed(false);
-    sphere->GetCollisionModel()->ClearModel();
+    sphere->EnableCollision(true);
+    sphere->SetFixed(false);
     sphere->GetCollisionModel()->SetSafeMargin(initSpace0);
     chrono::utils::AddSphereGeometry(sphere.get(), mysurfmaterial, sphere_radius, VNULL, sphere_rot);
-    sphere->GetCollisionModel()->BuildModel();
 
     // Add this body to chrono system
     sys.AddBody(sphere);
@@ -184,7 +182,7 @@ int main(int argc, char* argv[]) {
     cout << "Load SPH parameter file..." << endl;
     sysFSI.ReadParametersFromFile(vehicle::GetDataFile(terrain_dir + "/sph_params.json"));
 
-    sysFSI.SetActiveDomain(ChVector<>(active_box_dim, active_box_dim, 1));
+    sysFSI.SetActiveDomain(ChVector3d(active_box_dim, active_box_dim, 1));
     sysFSI.SetDiscreType(false, false);
     sysFSI.SetWallBC(BceVersion::ORIGINAL);
     sysFSI.SetSPHMethod(FluidDynamics::WCSPH);
@@ -197,7 +195,7 @@ int main(int argc, char* argv[]) {
     sysFSI.SetOutputLength(0);
     ////sysFSI.SetOutputDirectory(out_dir);
 
-    sys.Set_G_acc(gravity);
+    sys.SetGravitationalAcceleration(gravity);
 
     // Create terrain
     cout << "Create terrain..." << endl;
@@ -215,7 +213,7 @@ int main(int argc, char* argv[]) {
     if (run_time_vis) {
         visFSI.SetTitle("Object drop test");
         visFSI.SetSize(1280, 720);
-        visFSI.UpdateCamera(init_pos.pos + ChVector<>(-7, 0, 6), init_pos.pos + ChVector<>(1, 0, 0.5));
+        visFSI.UpdateCamera(init_pos.pos + ChVector3d(-7, 0, 6), init_pos.pos + ChVector3d(1, 0, 0.5));
         visFSI.SetCameraMoveScale(1.0f);
         visFSI.EnableFluidMarkers(run_time_vis_particles);
         visFSI.EnableRigidBodyMarkers(run_time_vis_bce);
@@ -243,7 +241,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    DataWriterObject data_writer(sysFSI, sphere, ChVector<>(2 * sphere_radius));
+    DataWriterObject data_writer(sysFSI, sphere, ChVector3d(2 * sphere_radius));
     data_writer.SetVerbose(verbose);
     data_writer.SetParticleOutput(output_level);
     data_writer.UseFilteredVelData(use_filter_vel, filter_window_vel);

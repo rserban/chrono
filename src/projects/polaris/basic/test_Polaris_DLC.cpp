@@ -21,6 +21,7 @@
 
 #include "chrono/core/ChRealtimeStep.h"
 #include "chrono/solver/ChIterativeSolverLS.h"
+#include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
 #include "chrono_vehicle/ChVehicleModelData.h"
@@ -51,7 +52,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle system
     auto contact_method = ChContactMethod::SMC;
     WheeledVehicle vehicle(vehicle::GetDataFile(vehicle_json), contact_method);
-    vehicle.Initialize(ChCoordsys<>(ChVector<>(-75, 0, 0.2), QUNIT));
+    vehicle.Initialize(ChCoordsys<>(ChVector3d(-75, 0, 0.2), QUNIT));
     vehicle.GetChassis()->SetFixed(false);
     vehicle.SetChassisVisualizationType(VisualizationType::MESH);
     vehicle.SetSuspensionVisualizationType(VisualizationType::PRIMITIVES);
@@ -88,7 +89,7 @@ int main(int argc, char* argv[]) {
     terrain.Initialize();
 
     // Create the path-follower driver
-    auto path = DoubleLaneChangePath(ChVector<>(-75, 0, 0.1), 28.93, 3.6105, 25.0, 30.0, true);
+    auto path = DoubleLaneChangePath(ChVector3d(-75, 0, 0.1), 28.93, 3.6105, 25.0, 30.0, true);
 
     double target_speed = 10;
     ChPathFollowerDriver driver(vehicle, path, "my_path", target_speed);
@@ -100,7 +101,7 @@ int main(int argc, char* argv[]) {
     // Create the Irrlicht visualization
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Polaris - double lane change");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 5.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 5.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -118,8 +119,8 @@ int main(int argc, char* argv[]) {
     ChRealtimeStepTimer realtime_timer;
     while (vis->Run()) {
         // Update sentinel and target location markers for the path-follower controller.
-        const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 

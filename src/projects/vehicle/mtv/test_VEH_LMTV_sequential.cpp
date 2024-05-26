@@ -45,7 +45,7 @@ using namespace chrono::vehicle::fmtv;
 // =============================================================================
 
 // Initial vehicle location and orientation
-ChVector<> initLoc(0, 0, 0.4);
+ChVector3d initLoc(0, 0, 0.4);
 ChQuaternion<> initRot(1, 0, 0, 0);
 
 // Visualization type for vehicle parts (PRIMITIVES, MESH, or NONE)
@@ -60,7 +60,7 @@ VisualizationType tire_vis_type = VisualizationType::MESH;
 TireModelType tire_model = TireModelType::TMEASY;
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 0.0, 1.75);
+ChVector3d trackPoint(0.0, 0.0, 1.75);
 
 // Simulation step sizes
 double step_size = 1e-3;
@@ -80,7 +80,7 @@ bool povray_output = false;
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // --------------
     // Create systems
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
     // Create the terrain
     // ------------------
 
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     patch_mat->SetFriction(0.8f);
     patch_mat->SetRestitution(0.01f);
     RigidTerrain terrain(lmtv.GetSystem());
@@ -219,8 +219,8 @@ int main(int argc, char* argv[]) {
 
         // Test for validity of kingpin angles (max. allowed by lmtv: 27 deg)
         auto suspF = std::static_pointer_cast<ChToeBarLeafspringAxle>(lmtv.GetVehicle().GetSuspension(0));
-        double leftAngle = suspF->GetKingpinAngleLeft() * 180.0 / CH_C_PI;
-        double rightAngle = suspF->GetKingpinAngleRight() * 180.0 / CH_C_PI;
+        double leftAngle = suspF->GetKingpinAngleLeft() * 180.0 / CH_PI;
+        double rightAngle = suspF->GetKingpinAngleRight() * 180.0 / CH_PI;
         if (std::abs(leftAngle) > maxKingpinAngle) {
             maxKingpinAngle = std::abs(leftAngle);
         }

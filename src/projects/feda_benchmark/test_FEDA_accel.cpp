@@ -78,7 +78,7 @@ bool data_output = true;
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // --------------
     // Create systems
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
     FEDA my_feda;
     my_feda.SetContactMethod(ChContactMethod::SMC);
     my_feda.SetChassisFixed(false);
-    my_feda.SetInitPosition(ChCoordsys<>(ChVector<>(-terrainLength / 2 + 5, 0, 0.5), ChQuaternion<>(1, 0, 0, 0)));
+    my_feda.SetInitPosition(ChCoordsys<>(ChVector3d(-terrainLength / 2 + 5, 0, 0.5), ChQuaternion<>(1, 0, 0, 0)));
     // my_hmmwv.SetPowertrainType(powertrain_model);
     // my_hmmwv.SetDriveType(drive_type);
     my_feda.SetTireType(tire_model);
@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
     my_feda.SetTireVisualizationType(tire_vis_type);
 
     // Create the terrain
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialSMC>();
     patch_mat->SetFriction(0.9f);
     patch_mat->SetRestitution(0.01f);
     patch_mat->SetYoungModulus(2e7f);
@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
     // Create the straight path and the driver system
     // ----------------------------------------------
 
-    auto path = StraightLinePath(ChVector<>(-terrainLength / 2, 0, 0.5), ChVector<>(terrainLength / 2, 0, 0.5), 1);
+    auto path = StraightLinePath(ChVector3d(-terrainLength / 2, 0, 0.5), ChVector3d(terrainLength / 2, 0, 0.5), 1);
     ChPathFollowerDriver driver(my_feda.GetVehicle(), path, "my_path", 1000.0);
     driver.GetSteeringController().SetLookAheadDistance(5.0);
     driver.GetSteeringController().SetGains(0.5, 0, 0);
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht interface
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("FEDA acceleration test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -151,9 +151,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     csv << "time";
     csv << "throttle";
@@ -171,7 +171,7 @@ int main(int argc, char* argv[]) {
     double last_speed = -1;
 
     // Record vehicle speed
-    ChFunction_Recorder speed_recorder, dist_recorder;
+    ChFunctionInterp speed_recorder, dist_recorder;
 
     // Initialize simulation frame counter and simulation time
     int step_number = 0;
@@ -250,7 +250,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (data_output) {
-        csv.write_to_file(out_dir + "/feda_accel_chrono.dat");
+        csv.WriteToFile(out_dir + "/feda_accel_chrono.dat");
     }
 
     return 0;

@@ -47,44 +47,44 @@ int main(int argc, char* argv[]) {
     pos1.z() += 0.25;
     auto circle_path = framework.AddPath(vehicle::CirclePath(pos1, 15, 80, false, 3));
 
-    std::vector<ChVector<>> local_points = {ChVector<>(64.8927, 13.249, -0.481722),    //
-                                            ChVector<>(80.3284, 12.7266, -0.603526),   //
-                                            ChVector<>(94.6545, 12.2176, -0.694871),   //
-                                            ChVector<>(105.61, 12.3841, -0.739324),    //
-                                            ChVector<>(114.282, 16.0502, -0.693778),   //
-                                            ChVector<>(120.643, 26.2061, -0.528403),   //
-                                            ChVector<>(121.556, 41.204, -0.317819),    //
-                                            ChVector<>(122.405, 63.1628, 0.00486306),  //
-                                            ChVector<>(121.647, 76.5746, 0.20102),     //
-                                            ChVector<>(120.709, 88.7467, 0.389847),    //
-                                            ChVector<>(120.974, 107.356, 0.759666),    //
-                                            ChVector<>(121.9, 124.316, 1.09734),       //
-                                            ChVector<>(123.194, 147.227, 1.59602),     //
-                                            ChVector<>(123.864, 155.117, 1.87896),     //
-                                            ChVector<>(123.159, 160.661, 1.82409),     //
-                                            ChVector<>(118.760, 163.799, 1.61755),     //
-                                            ChVector<>(106.761, 164.621, 1.2629),      //
-                                            ChVector<>(84.4186, 165.658, 0.667642),    //
-                                            ChVector<>(60.3295, 166.995, 0.0448156),   //
-                                            ChVector<>(41.2747, 168.255, -0.414149),   //
-                                            ChVector<>(18.7352, 169.553, -0.935203),   //
-                                            ChVector<>(7.37289, 169.942, -1.14195),    //
-                                            ChVector<>(0.416377, 167.835, -1.23743),   //
-                                            ChVector<>(-1.55959, 159.595, -0.857577),  //
-                                            ChVector<>(-2.12039, 140.422, -0.056825),  //
-                                            ChVector<>(-3.4468, 114.978, 0.612327),    //
-                                            ChVector<>(-2.90567, 98.4509, 0.934667),   //
-                                            ChVector<>(-2.13378, 87.3479, 1.06922),    //
-                                            ChVector<>(-1.94289, 76.7192, 1.0948),     //
-                                            ChVector<>(-2.36216, 63.751, 0.885862),    //
-                                            ChVector<>(-3.5639, 46.2598, 0.512486),    //
-                                            ChVector<>(-3.72494, 35.4111, 0.233689),   //
-                                            ChVector<>(-3.96505, 28.2692, 0.0131532),  //
-                                            ChVector<>(-2.41712, 24.2123, -0.130718),  //
-                                            ChVector<>(3.0726, 22.2459, -0.157238),    //
-                                            ChVector<>(17.785, 19.1502, -0.209135),    //
-                                            ChVector<>(34.5575, 15.9428, -0.298507),   //
-                                            ChVector<>(52.1876, 14.0408, -0.381472)};
+    std::vector<ChVector3d> local_points = {ChVector3d(64.8927, 13.249, -0.481722),    //
+                                            ChVector3d(80.3284, 12.7266, -0.603526),   //
+                                            ChVector3d(94.6545, 12.2176, -0.694871),   //
+                                            ChVector3d(105.61, 12.3841, -0.739324),    //
+                                            ChVector3d(114.282, 16.0502, -0.693778),   //
+                                            ChVector3d(120.643, 26.2061, -0.528403),   //
+                                            ChVector3d(121.556, 41.204, -0.317819),    //
+                                            ChVector3d(122.405, 63.1628, 0.00486306),  //
+                                            ChVector3d(121.647, 76.5746, 0.20102),     //
+                                            ChVector3d(120.709, 88.7467, 0.389847),    //
+                                            ChVector3d(120.974, 107.356, 0.759666),    //
+                                            ChVector3d(121.9, 124.316, 1.09734),       //
+                                            ChVector3d(123.194, 147.227, 1.59602),     //
+                                            ChVector3d(123.864, 155.117, 1.87896),     //
+                                            ChVector3d(123.159, 160.661, 1.82409),     //
+                                            ChVector3d(118.760, 163.799, 1.61755),     //
+                                            ChVector3d(106.761, 164.621, 1.2629),      //
+                                            ChVector3d(84.4186, 165.658, 0.667642),    //
+                                            ChVector3d(60.3295, 166.995, 0.0448156),   //
+                                            ChVector3d(41.2747, 168.255, -0.414149),   //
+                                            ChVector3d(18.7352, 169.553, -0.935203),   //
+                                            ChVector3d(7.37289, 169.942, -1.14195),    //
+                                            ChVector3d(0.416377, 167.835, -1.23743),   //
+                                            ChVector3d(-1.55959, 159.595, -0.857577),  //
+                                            ChVector3d(-2.12039, 140.422, -0.056825),  //
+                                            ChVector3d(-3.4468, 114.978, 0.612327),    //
+                                            ChVector3d(-2.90567, 98.4509, 0.934667),   //
+                                            ChVector3d(-2.13378, 87.3479, 1.06922),    //
+                                            ChVector3d(-1.94289, 76.7192, 1.0948),     //
+                                            ChVector3d(-2.36216, 63.751, 0.885862),    //
+                                            ChVector3d(-3.5639, 46.2598, 0.512486),    //
+                                            ChVector3d(-3.72494, 35.4111, 0.233689),   //
+                                            ChVector3d(-3.96505, 28.2692, 0.0131532),  //
+                                            ChVector3d(-2.41712, 24.2123, -0.130718),  //
+                                            ChVector3d(3.0726, 22.2459, -0.157238),    //
+                                            ChVector3d(17.785, 19.1502, -0.209135),    //
+                                            ChVector3d(34.5575, 15.9428, -0.298507),   //
+                                            ChVector3d(52.1876, 14.0408, -0.381472)};
     auto loop_path = framework.AddPath(local_points, true);
 
     std::vector<av::GPScoord> gps_points = {av::GPScoord(43.0723306, -89.4006454),  //
@@ -144,9 +144,9 @@ int main(int argc, char* argv[]) {
 
     auto van1 = framework.AddVehicle(av::Vehicle::Type::VAN, circle_path, pos1, 4.0);
     auto truck1 =
-        framework.AddVehicle(av::Vehicle::Type::TRUCK, loop_path, ChVector<>(41.2747, 168.255, -0.414149), 8.25);
+        framework.AddVehicle(av::Vehicle::Type::TRUCK, loop_path, ChVector3d(41.2747, 168.255, -0.414149), 8.25);
     auto truck2 =
-        framework.AddVehicle(av::Vehicle::Type::TRUCK, loop_path, ChVector<>(0.416377, 167.835, -1.23743), 8.0);
+        framework.AddVehicle(av::Vehicle::Type::TRUCK, loop_path, ChVector3d(0.416377, 167.835, -1.23743), 8.0);
     auto truck3 =
         framework.AddVehicle(av::Vehicle::Type::TRUCK, gps_loop_path, av::GPScoord(43.0732437, -89.4015011), 4.0);
 

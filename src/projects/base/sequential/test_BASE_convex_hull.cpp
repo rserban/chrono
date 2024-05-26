@@ -16,7 +16,6 @@
 //
 // =============================================================================
 
-#include "chrono/core/ChLog.h"
 #include "chrono/utils/ChConvexHull.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
@@ -30,7 +29,7 @@ using std::cout;
 using std::endl;
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     ////std::vector<ChVector2<>> points = {
     ////        ChVector2<>( -0.22500 , -0.08334   ),    //
@@ -176,18 +175,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    utils::CSV_writer csvP("\t");
-    csvP.stream().setf(std::ios::scientific | std::ios::showpos);
-    csvP.stream().precision(18);
+    utils::ChWriterCSV csvP("\t");
+    csvP.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csvP.Stream().precision(18);
 
     for (auto p : points) {
         csvP << p.x() << p.y() << std::endl;
     }
-    csvP.write_to_file(out_dir + "/points.txt");
+    csvP.WriteToFile(out_dir + "/points.txt");
 
-    utils::CSV_writer csvH("\t");
-    csvH.stream().setf(std::ios::scientific | std::ios::showpos);
-    csvH.stream().precision(18);
+    utils::ChWriterCSV csvH("\t");
+    csvH.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csvH.Stream().precision(18);
 
     utils::ChConvexHull2D ch(points);
     auto hull = ch.GetHull();
@@ -197,7 +196,7 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "\nNumber points in hull: " << hull.size() << std::endl;
     std::cout << "Area: " << ch.GetArea() << "   Perimeter: " << ch.GetPerimeter() << std::endl;
-    csvH.write_to_file(out_dir + "/hull.txt");
+    csvH.WriteToFile(out_dir + "/hull.txt");
 
     return 0;
 }

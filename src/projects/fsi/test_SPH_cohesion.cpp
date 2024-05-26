@@ -62,7 +62,7 @@ class SimStats : public opengl::ChOpenGLStats {
 class ParticleSelector : public opengl::ChOpenGLParticleCB {
   public:
     ParticleSelector() {}
-    virtual bool Render(const ChVector<>& pos) const override { return pos.y() > 0; }
+    virtual bool Render(const ChVector3d& pos) const override { return pos.y() > 0; }
 };
 
 #endif
@@ -71,9 +71,9 @@ class ParticleSelector : public opengl::ChOpenGLParticleCB {
 
 std::shared_ptr<chrono::ChBody> CreateSolids(chrono::ChSystemNSC& sys,
                                              chrono::fsi::ChSystemFsi& sysFSI,
-                                             const ChVector<>& b_size) {
+                                             const ChVector3d& b_size) {
     // Set common material Properties
-    auto mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto mat = chrono_types::make_shared<ChContactMaterialNSC>();
     mat->SetFriction(0.2f);
     mat->SetRestitution(0.05f);
 
@@ -88,33 +88,31 @@ std::shared_ptr<chrono::ChBody> CreateSolids(chrono::ChSystemNSC& sys,
     double top_z = -3 * init_spacing;
 
     auto ground = chrono_types::make_shared<ChBodyEasyBox>(gxDim, gyDim, gzDim, 1000, true, true, mat);
-    ground->SetPos(ChVector<>(0.0, 0.0, top_z - 0.5 * gzDim));
-    ground->SetCollide(true);
-    ground->SetBodyFixed(true);
+    ground->SetPos(ChVector3d(0.0, 0.0, top_z - 0.5 * gzDim));
+    ground->EnableCollision(true);
+    ground->SetFixed(true);
     sys.AddBody(ground);
 
     // Add BCE markers
-    sysFSI.AddBoxBCE(ground, ChFrame<>(), ChVector<>(gxDim, gyDim, gzDim), false);
+    sysFSI.AddBoxBCE(ground, ChFrame<>(), ChVector3d(gxDim, gyDim, gzDim), false);
 
     // Create a falling sphere
     double sphere_radius = 0.25;
-    double volume = chrono::utils::CalcSphereVolume(sphere_radius);
+    double volume = ChSphere::GetVolume(sphere_radius);
     double density = 4000;
     double mass = density * volume;
-    ChVector<> sphere_pos = ChVector<>(0.0, 0, b_size.z() + sphere_radius + 2 * init_spacing);
-    ChVector<> sphere_vel = ChVector<>(0.0, 0.0, 0.0);
-    ChVector<> gyration = chrono::utils::CalcSphereGyration(sphere_radius).diagonal();
+    ChVector3d sphere_pos = ChVector3d(0.0, 0, b_size.z() + sphere_radius + 2 * init_spacing);
+    ChVector3d sphere_vel = ChVector3d(0.0, 0.0, 0.0);
+    ChVector3d gyration = ChSphere::GetGyration(sphere_radius).diagonal();
 
     auto sphere = chrono_types::make_shared<ChBody>();
     sphere->SetPos(sphere_pos);
-    sphere->SetPos_dt(sphere_vel);
+    sphere->SetPosDt(sphere_vel);
     sphere->SetMass(mass);
     sphere->SetInertiaXX(mass * gyration);
-    sphere->SetCollide(true);
-    sphere->SetBodyFixed(false);
-    sphere->GetCollisionModel()->ClearModel();
+    sphere->EnableCollision(true);
+    sphere->SetFixed(false);
     chrono::utils::AddSphereGeometry(sphere.get(), mat, sphere_radius, VNULL, QUNIT);
-    sphere->GetCollisionModel()->BuildModel();
     sys.AddBody(sphere);
 
     // Add this body to the FSI system and create BCEs
@@ -137,9 +135,9 @@ int main(int argc, char* argv[]) {
     ChSystemNSC sys;
     ChSystemFsi sysFSI(&sys);
 
-    const ChVector<> gravity(0, 0, -9.81);
-    sysFSI.Set_G_acc(gravity);
-    sys.Set_G_acc(gravity);
+    const ChVector3d gravity(0, 0, -9.81);
+    sysFSI.SetGravitationalAcceleration(gravity);
+    sys.SetGravitationalAcceleration(gravity);
 
     // Soil material properties
     double rho = 1700.0;
@@ -156,8 +154,8 @@ int main(int argc, char* argv[]) {
     mat_props.mu_fric_s = friction;
     mat_props.mu_fric_2 = friction;
     mat_props.average_diam = 0.005;
-    mat_props.friction_angle = CH_C_PI / 10;  // default
-    mat_props.dilation_angle = CH_C_PI / 10;  // default
+    mat_props.friction_angle = CH_PI / 10;  // default
+    mat_props.dilation_angle = CH_PI / 10;  // default
     mat_props.cohesion_coeff = 0;             // default
     mat_props.kernel_threshold = 0.8;
 
@@ -171,7 +169,7 @@ int main(int argc, char* argv[]) {
     sysFSI.SetKernelLength(kernel_length);
 
     // Dimension of soil block
-    ChVector<> b_size(1.0, 1.0, 0.5);
+    ChVector3d b_size(1.0, 1.0, 0.5);
     sysFSI.SetContainerDim(b_size);
     sysFSI.SetDiscreType(false, false);
     sysFSI.SetWallBC(BceVersion::ADAMI);
@@ -187,7 +185,7 @@ int main(int argc, char* argv[]) {
     sysFSI.SetBoundaries(-5.0 * b_size, +5.0 * b_size);
 
     // Initialize the SPH particles
-    sysFSI.AddBoxSPH(ChVector<>(0.0, 0.0, b_size.z() / 2), b_size / 2);
+    sysFSI.AddBoxSPH(ChVector3d(0.0, 0.0, b_size.z() / 2), b_size / 2);
 
     // Create bottom plate and dropping sphere with BCE markers
     auto sphere = CreateSolids(sys, sysFSI, b_size);
@@ -198,7 +196,7 @@ int main(int argc, char* argv[]) {
     ChFsiVisualizationGL visFSI(&sysFSI, &vis);
     visFSI.SetTitle("Object drop test");
     visFSI.SetSize(1280, 720);
-    visFSI.UpdateCamera(ChVector<>(0, -2 * b_size.y(), b_size.z()), ChVector<>(0, 0, b_size.z()));
+    visFSI.UpdateCamera(ChVector3d(0, -2 * b_size.y(), b_size.z()), ChVector3d(0, 0, b_size.z()));
     visFSI.SetCameraMoveScale(0.02f);
     visFSI.EnableFluidMarkers(true);
     visFSI.EnableRigidBodyMarkers(false);
@@ -249,7 +247,7 @@ int main(int argc, char* argv[]) {
             std::ofstream fsph;
             fsph.open(vis_dir + "sphere" + std::to_string(vis_output_frame) + ".csv");
             fsph << "x, y, z, |U|" << std::endl;
-            fsph << psph.x() << ", " << psph.y() << ", " << psph.z() << ", " << sphere->GetPos_dt().Length()
+            fsph << psph.x() << ", " << psph.y() << ", " << psph.z() << ", " << sphere->GetPosDt().Length()
                  << std::endl;
             fsph.close();
 

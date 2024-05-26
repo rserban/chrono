@@ -30,26 +30,26 @@ using namespace chrono;
 int main(int argc, char* argv[]) {
     // Create system
     ChSystemNSC sys;
-    sys.Set_G_acc(ChVector<double>(0, 0, 0));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
     // Create the bodies
-    auto body1 = std::shared_ptr<ChBody>(sys.NewBody());
-    body1->SetPos(ChVector<>(-0.5, 0, 0));
-    body1->SetBodyFixed(true);
-    auto cyl1 = chrono_types::make_shared<ChCylinderShape>(0.1, 1);
+    auto body1 = chrono_types::make_shared<ChBody>();
+    body1->SetPos(ChVector3d(-0.5, 0, 0));
+    body1->SetFixed(true);
+    auto cyl1 = chrono_types::make_shared<ChVisualShapeCylinder>(0.1, 1);
     cyl1->SetColor(ChColor(1.0f, 0.0f, 0.0f));
-    body1->AddVisualShape(cyl1, ChFrame<>(VNULL, Q_from_AngY(CH_C_PI_2)));
+    body1->AddVisualShape(cyl1, ChFrame<>(VNULL, QuatFromAngleY(CH_PI_2)));
     sys.AddBody(body1);
 
-    auto body2 = std::shared_ptr<ChBody>(sys.NewBody());
-    body2->SetPos(ChVector<>(+0.5, 0, 0));
-    auto box2 = chrono_types::make_shared<ChBoxShape>(2, 0.4, 0.4);
+    auto body2 = chrono_types::make_shared<ChBody>();
+    body2->SetPos(ChVector3d(+0.5, 0, 0));
+    auto box2 = chrono_types::make_shared<ChVisualShapeBox>(2, 0.4, 0.4);
     box2->SetColor(ChColor(0.0f, 1.0f, 0.0f));
     body2->AddVisualShape(box2);
     sys.AddBody(body2);
 
     // Create a sine function
-    std::shared_ptr<ChFunction_Sine> fun = chrono_types::make_shared<ChFunction_Sine>(0.0, 0.1, CH_C_PI_4);
+    auto fun = chrono_types::make_shared<ChFunctionSine>(0.1, CH_PI_4, 0.0);
 
     // ---------------------------------------------
 
@@ -78,31 +78,31 @@ int main(int argc, char* argv[]) {
         case TEST0: {
             auto joint = chrono_types::make_shared<ChLinkLockRevolute>();
             sys.AddLink(joint);
-            joint->Initialize(body1, body2, ChCoordsys<>(ChVector<>(0, 0, 0)));
-            sys.Set_G_acc(ChVector<>(0, -10, 0));
+            joint->Initialize(body1, body2, ChFrame<>(ChVector3d(0, 0, 0)));
+            sys.SetGravitationalAcceleration(ChVector3d(0, -10, 0));
             break;
         }
         case TEST1: {
             auto joint = chrono_types::make_shared<ChLinkLockLock>();
             sys.AddLink(joint);
-            joint->Initialize(body1, body2, ChCoordsys<>(ChVector<>(0, 0, 0)));
-            joint->SetMotion_axis(ChVector<>(0, 0, 1));
-            joint->SetMotion_ang(fun);
+            joint->Initialize(body1, body2, ChFrame<>(ChVector3d(0, 0, 0)));
+            joint->SetMotionAxis(ChVector3d(0, 0, 1));
+            joint->SetMotionAng1(fun);
             break;
         }
         case TEST2: {
             auto joint = chrono_types::make_shared<ChLinkLockRevolute>();
             sys.AddLink(joint);
-            joint->Initialize(body1, body2, ChCoordsys<>(ChVector<>(0, 0, 0)));
-            joint->GetMarker1()->SetMotion_ang(fun);
+            joint->Initialize(body1, body2, ChFrame<>(ChVector3d(0, 0, 0)));
+            joint->GetMarker1()->SetMotionAngle(fun);
             break;
         }
         case TEST3: {
             auto joint = chrono_types::make_shared<ChLinkLockRevolute>();
             sys.AddLink(joint);
-            joint->Initialize(body1, body2, ChCoordsys<>(ChVector<>(0, 0, 0)));
-            joint->GetMarker1()->SetMotion_axis(ChVector<>(0, 1, 0));
-            joint->GetMarker1()->SetMotion_ang(fun);
+            joint->Initialize(body1, body2, ChFrame<>(ChVector3d(0, 0, 0)));
+            joint->GetMarker1()->SetMotionAxis(ChVector3d(0, 1, 0));
+            joint->GetMarker1()->SetMotionAngle(fun);
             break;
         }
     }
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0, 1, 2));
+    vis->AddCamera(ChVector3d(0, 1, 2));
     vis->AttachSystem(&sys);
 
     // Run simulation for specified time

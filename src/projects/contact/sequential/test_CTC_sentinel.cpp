@@ -26,10 +26,10 @@ using namespace irr;
 
 // ====================================================================================
 
-class Monitor : public collision::ChCollisionSystem::NarrowphaseCallback {
+class Monitor : public ChCollisionSystem::NarrowphaseCallback {
 public:
     Monitor(std::shared_ptr<ChBody> sentinel) : m_sentinel(sentinel) {}
-    virtual bool OnNarrowphase(collision::ChCollisionInfo& contactinfo) {
+    virtual bool OnNarrowphase(ChCollisionInfo& contactinfo) {
         auto c1 = contactinfo.modelA->GetContactable();
         auto c2 = contactinfo.modelB->GetContactable();
         if (c1 == m_sentinel.get() || c2 == m_sentinel.get()) {
@@ -47,25 +47,23 @@ private:
 int main(int argc, char* argv[]) {
     // Create the system
     ChSystemSMC system;
-    system.Set_G_acc(ChVector<>(0, -10, 0));
+    system.SetGravitationalAcceleration(ChVector3d(0, -10, 0));
 
     // Shared contact material
-    auto material = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto material = chrono_types::make_shared<ChContactMaterialSMC>();
 
     // Create the sentinel sphere
     auto sentinel = chrono_types::make_shared<ChBody>();
 
-    sentinel->SetIdentifier(0);
+    sentinel->SetTag(0);
     sentinel->SetMass(1);
-    sentinel->SetPos(ChVector<>(0, 4, 0));
-    sentinel->SetCollide(true);
-    sentinel->SetBodyFixed(true);
+    sentinel->SetPos(ChVector3d(0, 4, 0));
+    sentinel->EnableCollision(true);
+    sentinel->SetFixed(true);
 
-    sentinel->GetCollisionModel()->ClearModel();
     sentinel->GetCollisionModel()->AddSphere(material, 0.2);
-    sentinel->GetCollisionModel()->BuildModel();
 
-    auto sphereS = chrono_types::make_shared<ChSphereShape>(0.2);
+    auto sphereS = chrono_types::make_shared<ChVisualShapeSphere>(0.2);
     sentinel->AddVisualShape(sphereS);
 
     system.AddBody(sentinel);
@@ -76,18 +74,16 @@ int main(int argc, char* argv[]) {
 
     auto ball = chrono_types::make_shared<ChBody>();
 
-    ball->SetIdentifier(1);
+    ball->SetTag(1);
     ball->SetMass(mass);
-    ball->SetInertiaXX(0.4 * mass * radius * radius * ChVector<>(1, 1, 1));
-    ball->SetPos(ChVector<>(0.9, 1.1, 0));
-    ball->SetCollide(true);
-    ball->SetBodyFixed(false);
+    ball->SetInertiaXX(0.4 * mass * radius * radius * ChVector3d(1, 1, 1));
+    ball->SetPos(ChVector3d(0.9, 1.1, 0));
+    ball->EnableCollision(true);
+    ball->SetFixed(false);
 
-    ball->GetCollisionModel()->ClearModel();
     ball->GetCollisionModel()->AddSphere(material, radius);
-    ball->GetCollisionModel()->BuildModel();
 
-    auto sphereB = chrono_types::make_shared<ChSphereShape>(radius);
+    auto sphereB = chrono_types::make_shared<ChVisualShapeSphere>(radius);
     sphereB->SetTexture(GetChronoDataFile("textures/bluewhite.png"));
     ball->AddVisualShape(sphereB);
 
@@ -100,19 +96,17 @@ int main(int argc, char* argv[]) {
 
     auto ground = chrono_types::make_shared<ChBody>();
 
-    ground->SetIdentifier(-1);
+    ground->SetTag(-1);
     ground->SetMass(1);
-    ground->SetPos(ChVector<>(0, 0, 0));
+    ground->SetPos(ChVector3d(0, 0, 0));
     ground->SetRot(ChQuaternion<>(1, 0, 0, 0));
-    ground->SetCollide(true);
-    ground->SetBodyFixed(true);
+    ground->EnableCollision(true);
+    ground->SetFixed(true);
 
-    ground->GetCollisionModel()->ClearModel();
-    ground->GetCollisionModel()->AddBox(material, width, thickness, length, ChVector<>(0, -thickness, 0));
-    ground->GetCollisionModel()->BuildModel();
+    ground->GetCollisionModel()->AddBox(material, width, thickness, length, ChVector3d(0, -thickness, 0));
 
-    auto box = chrono_types::make_shared<ChBoxShape>(width, thickness, length);
-    ground->AddVisualShape(box, ChFrame<>(ChVector<>(0, -thickness, 0)));
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(width, thickness, length);
+    ground->AddVisualShape(box, ChFrame<>(ChVector3d(0, -thickness, 0)));
 
     system.AddBody(ground);
 
@@ -124,7 +118,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0, 3, -6));
+    vis->AddCamera(ChVector3d(0, 3, -6));
     vis->AttachSystem(&system);
 
     // Custom callback

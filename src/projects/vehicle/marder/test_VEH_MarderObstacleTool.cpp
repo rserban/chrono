@@ -54,7 +54,7 @@ using std::endl;
 // USER SETTINGS
 // =============================================================================
 // Initial vehicle position
-ChVector<> initLoc(0, 0, 0.9);
+ChVector3d initLoc(0, 0, 0.9);
 
 // Initial vehicle orientation
 ChQuaternion<> initRot(1, 0, 0, 0);
@@ -78,7 +78,7 @@ bool use_mkl = false;
 double render_step_size = 1.0 / 120;  // FPS = 120
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 2.0, 0.0);
+ChVector3d trackPoint(0.0, 2.0, 0.0);
 
 // Driver input files
 std::string path_file("paths/straightOrigin.txt");
@@ -100,13 +100,13 @@ bool dbg_output = false;
 
 // =============================================================================
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2021 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2021 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     const double inchToMeters = 0.0254;
     const double MetersToInch = 1.0 / 0.0254;
     const double NewtonToLbf = 0.2248089431;
 
-    ChFunction_Recorder accTravel;
+    ChFunctionInterp accTravel;
     accTravel.AddPoint(1.0, 1.0);
     accTravel.AddPoint(5.0, 10.0);
     accTravel.AddPoint(10.0, 25.0);
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
 
     double target_speed = 1.5;
     double xpos_max = 100.0;
-    initLoc.x() = -accTravel.Get_y(target_speed);
+    initLoc.x() = -accTravel.GetVal(target_speed);
 
     std::vector<double> angles;   // winkel in rad
     std::vector<double> widths;   // länge in in
@@ -133,12 +133,12 @@ int main(int argc, char* argv[]) {
     widths.push_back(4.0 * MetersToInch);
     widths.push_back(5.0 * MetersToInch);
 
-    angles.push_back((180.0 - 45.0) * CH_C_DEG_TO_RAD);
-    angles.push_back((180.0 - 30.0) * CH_C_DEG_TO_RAD);
-    angles.push_back((180.0 - 15.0) * CH_C_DEG_TO_RAD);
-    angles.push_back((180.0 + 15.0) * CH_C_DEG_TO_RAD);
-    angles.push_back((180.0 + 30.0) * CH_C_DEG_TO_RAD);
-    angles.push_back((180.0 + 45.0) * CH_C_DEG_TO_RAD);
+    angles.push_back((180.0 - 45.0) * CH_DEG_TO_RAD);
+    angles.push_back((180.0 - 30.0) * CH_DEG_TO_RAD);
+    angles.push_back((180.0 - 15.0) * CH_DEG_TO_RAD);
+    angles.push_back((180.0 + 15.0) * CH_DEG_TO_RAD);
+    angles.push_back((180.0 + 30.0) * CH_DEG_TO_RAD);
+    angles.push_back((180.0 + 45.0) * CH_DEG_TO_RAD);
 
     size_t NOHGT = heights.size();
     size_t NWDTH = widths.size();
@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
                 ////DrivelineTypeTV driveline_type = DrivelineTypeTV::SIMPLE;
                 BrakeType brake_type = BrakeType::SIMPLE;
                 EngineModelType engine_type = EngineModelType::SIMPLE_MAP;
-                TransmissionModelType transmission_type = TransmissionModelType::SIMPLE_MAP;
+                TransmissionModelType transmission_type = TransmissionModelType::AUTOMATIC_SIMPLE_MAP;
 
                 Marder marder;
                 marder.SetContactMethod(contact_method);
@@ -182,7 +182,7 @@ int main(int argc, char* argv[]) {
                 ////marder.CreateTrack(false);
 
                 // Disable gravity in this simulation
-                ////marder.GetSystem()->Set_G_acc(ChVector<>(0, 0, 0));
+                ////marder.GetSystem()->SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
                 // Control steering type (enable crossdrive capability)
                 ////marder.GetDriveline()->SetGyrationMode(true);
@@ -208,10 +208,10 @@ int main(int argc, char* argv[]) {
                 // --------------------------------------------------
 
                 // Enable contact on all tracked vehicle parts, except the left sprocket
-                ////marder.GetVehicle().SetCollide(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
+                ////marder.GetVehicle().EnableCollision(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
 
                 // Disable contact for all tracked vehicle parts
-                ////marder.GetVehicle().SetCollide(TrackedCollisionFlag::NONE);
+                ////marder.GetVehicle().EnableCollision(TrackedCollisionFlag::NONE);
 
                 // Disable all contacts for vehicle chassis (if chassis collision was defined)
                 ////marder.GetVehicle().SetChassisCollide(false);
@@ -237,15 +237,15 @@ int main(int argc, char* argv[]) {
                 // If enabled, the underlying Chrono contact processing does not compute any forces.
                 ////vehicle.EnableCustomContact(chrono_types::make_shared<MyCustomContact>(), false, true);
 
-                std::vector<ChVector<double> > bellyPts;
-                bellyPts.push_back(ChVector<>(0.2332, 0, 0));
-                bellyPts.push_back(ChVector<double>(-0.1043, 0, -0.3759));
-                bellyPts.push_back(ChVector<double>(-1.45045, 0, -0.3759));
-                bellyPts.push_back(ChVector<double>(-2.7966, 0, -0.3759));
-                bellyPts.push_back(ChVector<double>(-4.14275, 0, -0.3759));
-                bellyPts.push_back(ChVector<double>(-5.4889, 0, -0.3759));
-                bellyPts.push_back(ChVector<double>(-5.9805, 0, 0.3655));
-                std::vector<ChFunction_Recorder> clearance;
+                std::vector<ChVector3d > bellyPts;
+                bellyPts.push_back(ChVector3d(0.2332, 0, 0));
+                bellyPts.push_back(ChVector3d(-0.1043, 0, -0.3759));
+                bellyPts.push_back(ChVector3d(-1.45045, 0, -0.3759));
+                bellyPts.push_back(ChVector3d(-2.7966, 0, -0.3759));
+                bellyPts.push_back(ChVector3d(-4.14275, 0, -0.3759));
+                bellyPts.push_back(ChVector3d(-5.4889, 0, -0.3759));
+                bellyPts.push_back(ChVector3d(-5.9805, 0, 0.3655));
+                std::vector<ChFunctionInterp> clearance;
                 clearance.resize(bellyPts.size());
 
                 // ------------------
@@ -260,7 +260,7 @@ int main(int argc, char* argv[]) {
                 // Create the ground
                 double base_height = 0.0;
                 float friction_coef = 1.0f;
-                double aa = CH_C_RAD_TO_DEG * angles[jAngle];
+                double aa = CH_RAD_TO_DEG * angles[jAngle];
                 double obl = inchToMeters * widths[kWidth];
                 double obh = inchToMeters * heights[iHeight];
 
@@ -271,7 +271,7 @@ int main(int argc, char* argv[]) {
                 xpos_max = terrain.GetXObstacleEnd() + 7.0;
 
                 // Create the driver
-                auto path = ChBezierCurve::read(vehicle::GetDataFile(path_file));
+                auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
                 ChPathFollowerDriver driver(marder.GetVehicle(), vehicle::GetDataFile(steering_controller_file),
                                             vehicle::GetDataFile(speed_controller_file), path, "my_path", 0.0);
                 driver.Initialize();
@@ -336,12 +336,10 @@ int main(int argc, char* argv[]) {
                     marder.GetSystem()->SetTimestepperType(ChTimestepper::Type::HHT);
                     auto integrator = std::static_pointer_cast<ChTimestepperHHT>(marder.GetSystem()->GetTimestepper());
                     integrator->SetAlpha(-0.2);
-                    integrator->SetMaxiters(50);
+                    integrator->SetMaxIters(50);
                     integrator->SetAbsTolerances(1e-4, 1e2);
-                    integrator->SetMode(ChTimestepperHHT::ACCELERATION);
                     integrator->SetStepControl(false);
                     integrator->SetModifiedNewton(false);
-                    integrator->SetScaling(true);
                     integrator->SetVerbose(true);
 #endif
                 } else {
@@ -352,7 +350,6 @@ int main(int argc, char* argv[]) {
                     marder.GetSystem()->SetSolver(solver);
 
                     marder.GetSystem()->SetMaxPenetrationRecoverySpeed(1.5);
-                    marder.GetSystem()->SetMinBounceSpeed(2.0);
                 }
 
                 // ---------------
@@ -390,25 +387,25 @@ int main(int argc, char* argv[]) {
                         auto track_L = marder.GetVehicle().GetTrackAssembly(LEFT);
                         auto track_R = marder.GetVehicle().GetTrackAssembly(RIGHT);
                         cout << "Time: " << marder.GetSystem()->GetChTime() << endl;
-                        cout << "      Num. contacts: " << marder.GetSystem()->GetNcontacts() << endl;
-                        const ChFrameMoving<>& c_ref = marder.GetChassisBody()->GetFrame_REF_to_abs();
-                        const ChVector<>& c_pos = marder.GetVehicle().GetPos();
+                        cout << "      Num. contacts: " << marder.GetSystem()->GetNumContacts() << endl;
+                        const ChFrameMoving<>& c_ref = marder.GetChassisBody()->GetFrameRefToAbs();
+                        const ChVector3d& c_pos = marder.GetVehicle().GetPos();
                         cout << "      chassis:    " << c_pos.x() << "  " << c_pos.y() << "  " << c_pos.z() << endl;
                         {
-                            const ChVector<>& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
-                            const ChVector<>& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
-                            ChVector<> i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
-                            ChVector<> s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
+                            const ChVector3d& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
+                            const ChVector3d& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
+                            ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
+                            ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                             cout << "      L idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  "
                                  << i_pos_rel.z() << endl;
                             cout << "      L sprocket: " << s_pos_rel.x() << "  " << s_pos_rel.y() << "  "
                                  << s_pos_rel.z() << endl;
                         }
                         {
-                            const ChVector<>& i_pos_abs = track_R->GetIdler()->GetWheelBody()->GetPos();
-                            const ChVector<>& s_pos_abs = track_R->GetSprocket()->GetGearBody()->GetPos();
-                            ChVector<> i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
-                            ChVector<> s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
+                            const ChVector3d& i_pos_abs = track_R->GetIdler()->GetWheelBody()->GetPos();
+                            const ChVector3d& s_pos_abs = track_R->GetSprocket()->GetGearBody()->GetPos();
+                            ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
+                            ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                             cout << "      R idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  "
                                  << i_pos_rel.z() << endl;
                             cout << "      R sprocket: " << s_pos_rel.x() << "  " << s_pos_rel.y() << "  "
@@ -459,8 +456,8 @@ int main(int argc, char* argv[]) {
                          << eTorque * effRadius / gear_ratio << std::endl;
                     if (xpos >= -1.0 && xpos <= xpos_max) {
                         for (size_t i = 0; i < bellyPts.size(); i++) {
-                            ChVector<> p = marder.GetVehicle().GetPointLocation(bellyPts[i]);
-                            double t = terrain.GetHeight(ChVector<>(p.x(), p.y(), 0));
+                            ChVector3d p = marder.GetVehicle().GetPointLocation(bellyPts[i]);
+                            double t = terrain.GetHeight(ChVector3d(p.x(), p.y(), 0));
                             clearance[i].AddPoint(xpos, p.z() - t);
                         }
                     }
@@ -471,7 +468,7 @@ int main(int argc, char* argv[]) {
                         bail_out = true;
                         break;
                     }
-                    driver.SetDesiredSpeed(ChSineStep(time, 1.0, 0.0, 2.0, target_speed));
+                    driver.SetDesiredSpeed(ChFunctionSineStep::Eval(time, 1.0, 0.0, 2.0, target_speed));
                     // Collect output data from modules
                     DriverInputs driver_inputs = driver.GetInputs();
                     marder.GetVehicle().GetTrackShoeStates(LEFT, shoe_states_left);
@@ -512,15 +509,15 @@ int main(int argc, char* argv[]) {
                     double vmin, vmax;
                     clearance[i].Estimate_x_range(x1, x2);
                     clearance[i].Estimate_y_range(x1, x2, vmin, vmax, 0);
-                    GetLog() << "Clearance#" << i << " = " << vmin << "\n";
+                    std::cout << "Clearance#" << i << " = " << vmin << "\n";
                     if (vmin < clearMin) {
                         clearMin = vmin;
                     }
                 }
 
                 double wallclock_time = timer.GetTimeSeconds();
-                GetLog() << "Model time      = " << sim_time << " s\n";
-                GetLog() << "Wall clock time = " << wallclock_time << " s\n";
+                std::cout << "Model time      = " << sim_time << " s\n";
+                std::cout << "Wall clock time = " << wallclock_time << " s\n";
                 double fMax = 0.0;
                 double fMean = 0.0;
                 for (size_t i = 0; i < engineForce.size(); i++) {
@@ -529,9 +526,9 @@ int main(int argc, char* argv[]) {
                     fMean += engineForce[i];
                 }
                 fMean /= double(engineForce.size());
-                GetLog() << "Average Tractive Force = " << fMean << " N\n";
-                GetLog() << "Max Tractive Force     = " << fMax << " N\n";
-                GetLog() << "Min. Clearance         = " << clearMin << " m\n";
+                std::cout << "Average Tractive Force = " << fMean << " N\n";
+                std::cout << "Max Tractive Force     = " << fMax << " N\n";
+                std::cout << "Min. Clearance         = " << clearMin << " m\n";
 
                 double clearNogo = -19.99;
                 if (bail_out) {

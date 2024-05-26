@@ -34,6 +34,7 @@
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/terrain/FlatTerrain.h"
@@ -53,7 +54,6 @@
 #include "driver_model.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::hmmwv;
 
@@ -94,7 +94,7 @@ double horizontal_offset = 2.5;
 double horizontal_pos = hdimX - horizontal_offset;
 
 // Initial vehicle position, orientation, and forward velocity
-ChVector<> initLoc(-horizontal_pos, 0, 0.6);
+ChVector3d initLoc(-horizontal_pos, 0, 0.6);
 ChQuaternion<> initRot(1, 0, 0, 0);
 double initSpeed = 0;
 
@@ -150,59 +150,9 @@ std::string out_dir = "../GONOGO_HMMWV";
 
 // =============================================================================
 
-/*
-
-// Callback class for specifying rigid tire contact model.
-// This version uses a collection of convex contact shapes (meshes).
-class MyLuggedTire : public ChTireContactCallback {
-  public:
-    MyLuggedTire() {
-        std::string lugged_file("hmmwv/lugged_wheel_section.obj");
-        geometry::ChTriangleMeshConnected lugged_mesh;
-        utils::LoadConvexMesh(vehicle::GetDataFile(lugged_file), lugged_mesh, lugged_convex);
-        num_hulls = lugged_convex.GetHullCount();
-    }
-
-    virtual void onCallback(std::shared_ptr<ChBody> wheelBody) {
-        auto coll_model = chrono_types::make_shared<collision::ChCollisionModelCore>();
-        wheelBody->SetCollisionModel(coll_model);
-
-        coll_model->ClearModel();
-
-        // Assemble the tire contact from 15 segments, properly offset.
-        // Each segment is further decomposed in convex hulls.
-        for (int iseg = 0; iseg < 15; iseg++) {
-            ChQuaternion<> rot = Q_from_AngAxis(iseg * 24 * CH_C_DEG_TO_RAD, VECT_Y);
-            for (int ihull = 0; ihull < num_hulls; ihull++) {
-                std::vector<ChVector<> > convexhull;
-                lugged_convex.GetConvexHullResult(ihull, convexhull);
-                coll_model->AddConvexHull(convexhull, VNULL, rot);
-            }
-        }
-
-        // Add a cylinder to represent the wheel hub.
-        coll_model->AddCylinder(0.223, 0.223, 0.126);
-
-        coll_model->BuildModel();
-
-        coll_model->SetFamily(coll_fam_t);
-
-        wheelBody->GetMaterialSurfaceDEM()->SetFriction(mu_t);
-        wheelBody->GetMaterialSurfaceDEM()->SetRestitution(cr_t);
-    }
-
-  private:
-    ChConvexDecompositionHACDv2 lugged_convex;
-    int num_hulls;
-};
-
-*/
-
-// =============================================================================
-
 // Custom material composition law.
 // Use the maximum coefficient of friction.
-class CustomCompositionStrategy : public ChMaterialCompositionStrategy {
+class CustomCompositionStrategy : public ChContactMaterialCompositionStrategy {
   public:
     virtual float CombineFriction(float a1, float a2) const override { return std::max<float>(a1, a2); }
 };
@@ -236,7 +186,7 @@ void TimingOutput(chrono::ChSystem* mSys, chrono::ChStreamOutAsciiFile* ofile = 
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
     
     // ----------------------------
     // Parse command line arguments
@@ -304,11 +254,11 @@ int main(int argc, char* argv[]) {
     double slope_val, r_val, rho_val, mu_val, coh_val;
     iss >> slope_val >> r_val >> rho_val >> mu_val >> coh_val;
 
-    double slope = slope_val * (CH_C_PI / 180);
+    double slope = slope_val * (CH_PI / 180);
     double r_g = r_val / 1000;
     double rho_g = rho_val;
     double mu_g = mu_val;
-    double area = CH_C_PI * r_g * r_g;
+    double area = CH_PI * r_g * r_g;
     double coh_force = area * (coh_val * 1e3);
     double coh_g = coh_force * time_step;
     double envelope = 0.1 * r_g;
@@ -359,11 +309,12 @@ int main(int argc, char* argv[]) {
     // -------------
 
     // Prepare rotated acceleration vector
-    ChVector<> gravity(0, 0, -9.81);
-    ChVector<> gravityR = ChMatrix33<>(slope, ChVector<>(0, 1, 0)) * gravity;
+    ChVector3d gravity(0, 0, -9.81);
+    ChVector3d gravityR = ChMatrix33<>(slope, ChVector3d(0, 1, 0)) * gravity;
 
     ChSystemMulticoreNSC* system = new ChSystemMulticoreNSC();
-    system->Set_G_acc(gravity);
+    system->SetGravitationalAcceleration(gravity);
+    system->SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
 
     // Use a custom material property composition strategy.
     // This ensures that tire-terrain interaction always uses the same coefficient of friction.
@@ -451,7 +402,7 @@ int main(int argc, char* argv[]) {
         vis.SetWindowSize(1280, 720);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.AddCamera(ChVector<>(0, -10, 0), ChVector<>(0, 0, 0));
+        vis.AddCamera(ChVector3d(0, -10, 0), ChVector3d(0, 0, 0));
         vis.SetCameraVertical(CameraVerticalDir::Z);
     }
 #endif
@@ -516,7 +467,7 @@ int main(int argc, char* argv[]) {
         // Rotate gravity vector
         if (!is_pitched && time > time_pitch) {
             cout << time << "    Pitch: " << gravityR.x() << " " << gravityR.y() << " " << gravityR.z() << endl;
-            system->Set_G_acc(gravityR);
+            system->SetGravitationalAcceleration(gravityR);
             is_pitched = true;
         }
 
@@ -533,14 +484,14 @@ int main(int argc, char* argv[]) {
 
             // Save output
             if (output && sim_frame == next_out_frame) {
-                ChVector<> pv = hmmwv->GetChassisBody()->GetFrame_REF_to_abs().GetPos();
-                ChVector<> vv = hmmwv->GetChassisBody()->GetFrame_REF_to_abs().GetPos_dt();
-                ChVector<> av = hmmwv->GetChassisBody()->GetFrame_REF_to_abs().GetPos_dtdt();
+                ChVector3d pv = hmmwv->GetChassisBody()->GetFrameRefToAbs().GetPos();
+                ChVector3d vv = hmmwv->GetChassisBody()->GetFrameRefToAbs().GetPosDt();
+                ChVector3d av = hmmwv->GetChassisBody()->GetFrameRefToAbs().GetPosDt2();
 
-                ChVector<> v0 = hmmwv->GetVehicle().GetSpindleLinVel(0, LEFT);
-                ChVector<> v1 = hmmwv->GetVehicle().GetSpindleLinVel(0, RIGHT);
-                ChVector<> v2 = hmmwv->GetVehicle().GetSpindleLinVel(1, LEFT);
-                ChVector<> v3 = hmmwv->GetVehicle().GetSpindleLinVel(1, RIGHT);
+                ChVector3d v0 = hmmwv->GetVehicle().GetSpindleLinVel(0, LEFT);
+                ChVector3d v1 = hmmwv->GetVehicle().GetSpindleLinVel(0, RIGHT);
+                ChVector3d v2 = hmmwv->GetVehicle().GetSpindleLinVel(1, LEFT);
+                ChVector3d v3 = hmmwv->GetVehicle().GetSpindleLinVel(1, RIGHT);
 
                 ofile << system->GetChTime() << del;
                 ofile << driver_inputs.m_throttle << del << driver_inputs.m_steering << del;
@@ -612,39 +563,37 @@ double CreateContainer(ChSystem* system,  // containing system
                        ) {
     bool visible_walls = false;
 
-    auto material = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto material = chrono_types::make_shared<ChContactMaterialNSC>();
     material->SetFriction((float)mu);
     material->SetCohesion((float)coh);
     material->SetCompliance(1e-9f);
 
-    auto ground = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
-    ground->SetIdentifier(-1);
+    auto ground = chrono_types::make_shared<ChBody>();
+    ground->SetTag(-1);
     ground->SetMass(1000);
-    ground->SetBodyFixed(true);
-    ground->SetCollide(true);
-
-    ground->GetCollisionModel()->ClearModel();
+    ground->SetFixed(true);
+    ground->EnableCollision(true);
 
     // Attention: collision family for ground should be >= 5 (first values used in Chrono::Vehicle)
     ground->GetCollisionModel()->SetFamily(5);
-    ground->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(WheeledCollisionFamily::TIRE);
+    ground->GetCollisionModel()->DisallowCollisionsWith(WheeledCollisionFamily::TIRE);
 
     // Bottom box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hdimX, hdimY, hthick), ChVector<>(0, 0, -hthick),
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hdimX, hdimY, hthick), ChVector3d(0, 0, -hthick),
                           ChQuaternion<>(1, 0, 0, 0), true);
     // Left box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hdimX, hthick, hdimZ + hthick),
-                          ChVector<>(0, hdimY + hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hdimX, hthick, hdimZ + hthick),
+                          ChVector3d(0, hdimY + hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
     // Right box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hdimX, hthick, hdimZ + hthick),
-                          ChVector<>(0, -hdimY - hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hdimX, hthick, hdimZ + hthick),
+                          ChVector3d(0, -hdimY - hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
 
     // Front box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hthick, hdimY, hdimZ + hthick),
-                          ChVector<>(hdimX + hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hthick, hdimY, hdimZ + hthick),
+                          ChVector3d(hdimX + hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
     // Rear box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hthick, hdimY, hdimZ + hthick),
-                          ChVector<>(-hdimX - hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hthick, hdimY, hdimZ + hthick),
+                          ChVector3d(-hdimX - hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
 
     // If a positive radius was provided, create a "rough" surface
     if (radius > 0) {
@@ -653,12 +602,10 @@ double CreateContainer(ChSystem* system,  // containing system
         int ny = (int)std::floor(hdimY / d);
         for (int ix = -nx; ix <= nx; ix++) {
             for (int iy = -ny; iy <= ny; iy++) {
-                utils::AddSphereGeometry(ground.get(), material, radius, ChVector<>(ix * d, iy * d, radius));
+                utils::AddSphereGeometry(ground.get(), material, radius, ChVector3d(ix * d, iy * d, radius));
             }
         }
     }
-
-    ground->GetCollisionModel()->BuildModel();
 
     system->AddBody(ground);
 
@@ -680,7 +627,7 @@ int CreateParticles(ChSystemMulticoreNSC* system,  // containing system
     system->Add3DOFContainer(particle_container);
 
     particle_container->kernel_radius = 2 * radius;
-    particle_container->mass = rho * (4 * CH_C_PI / 3) * std::pow(radius, 3);
+    particle_container->mass = rho * (4 * CH_PI / 3) * std::pow(radius, 3);
 
     particle_container->contact_mu = mu;
     particle_container->contact_cohesion = coh;
@@ -699,12 +646,12 @@ int CreateParticles(ChSystemMulticoreNSC* system,  // containing system
     std::vector<real3> vel;
 
     double r = 1.01 * radius;
-    ChVector<> hdims(hdimX - r, hdimY - r, 0);
-    ChVector<> center(0, 0, top_height + 2 * r);
+    ChVector3d hdims(hdimX - r, hdimY - r, 0);
+    ChVector3d center(0, 0, top_height + 2 * r);
 
-    utils::PDSampler<> sampler(2 * r);
+    utils::ChPDSampler<> sampler(2 * r);
     for (int il = 0; il < num_layers; il++) {
-        utils::Generator::PointVector points = sampler.SampleBox(center, hdims);
+        utils::ChGenerator::PointVector points = sampler.SampleBox(center, hdims);
         center.z() += 2 * r;
         for (int i = 0; i < points.size(); i++) {
             pos.push_back(real3(points[i].x(), points[i].y(), points[i].z()));
@@ -718,40 +665,40 @@ int CreateParticles(ChSystemMulticoreNSC* system,  // containing system
     return (int)pos.size();
 #else
     // Create a material
-    auto mat_g = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto mat_g = chrono_types::make_shared<ChContactMaterialNSC>();
     mat_g->SetFriction((float)mu);
     mat_g->SetCohesion((float)coh);
     mat_g->SetCompliance(1e-9f);
 
     // Create a particle generator and a mixture entirely made out of spheres
     double r = 1.01 * radius;
-    utils::PDSampler<double> sampler(2 * r);
-    utils::Generator gen(system);
-    std::shared_ptr<utils::MixtureIngredient> m1 = gen.AddMixtureIngredient(utils::MixtureType::SPHERE, 1.0);
-    m1->setDefaultMaterial(mat_g);
-    m1->setDefaultDensity(rho);
-    m1->setDefaultSize(radius);
+    utils::ChPDSampler<double> sampler(2 * r);
+    utils::ChGenerator gen(system);
+    std::shared_ptr<utils::ChMixtureIngredient> m1 = gen.AddMixtureIngredient(utils::MixtureType::SPHERE, 1.0);
+    m1->SetDefaultMaterial(mat_g);
+    m1->SetDefaultDensity(rho);
+    m1->SetDefaultSize(radius);
 
     // Set starting value for body identifiers
-    gen.setBodyIdentifier(1);
+    gen.SetStartTag(1);
 
     // Create particles in layers until reaching the desired number of particles
-    ChVector<> hdims(hdimX - r, hdimY - r, 0);
-    ChVector<> center(0, 0, top_height + 2 * r);
+    ChVector3d hdims(hdimX - r, hdimY - r, 0);
+    ChVector3d center(0, 0, top_height + 2 * r);
 
     for (int il = 0; il < num_layers; il++) {
         gen.CreateObjectsBox(sampler, center, hdims);
         center.z() += 2 * r;
     }
 
-    return gen.getTotalNumBodies();
+    return gen.GetTotalNumBodies();
 #endif
 }
 
 double FindHighestParticle(ChSystem* system) {
     double highest = 0;
-    for (auto body : system->Get_bodylist()) {
-        if (body->GetIdentifier() > 0 && body->GetPos().z() > highest)
+    for (auto body : system->GetBodies()) {
+        if (body->GetTag() > 0 && body->GetPos().z() > highest)
             highest = body->GetPos().z();
     }
     return highest;
@@ -764,10 +711,10 @@ HMMWV_Full* CreateVehicle(ChSystem* system, double vertical_offset) {
 
     hmmwv->SetContactMethod(ChContactMethod::NSC);
     hmmwv->SetChassisFixed(false);
-    hmmwv->SetInitPosition(ChCoordsys<>(initLoc + ChVector<>(0, 0, vertical_offset), initRot));
+    hmmwv->SetInitPosition(ChCoordsys<>(initLoc + ChVector3d(0, 0, vertical_offset), initRot));
     hmmwv->SetInitFwdVel(initSpeed);
     hmmwv->SetEngineType(EngineModelType::SIMPLE_MAP);
-    hmmwv->SetTransmissionType(TransmissionModelType::SIMPLE_MAP);
+    hmmwv->SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_MAP);
     hmmwv->SetDriveType(DrivelineTypeWV::AWD);
     hmmwv->SetTireType(TireModelType::RIGID);
 
@@ -784,7 +731,7 @@ HMMWV_Full* CreateVehicle(ChSystem* system, double vertical_offset) {
 
 GONOGO_Driver* CreateDriver(ChVehicle& vehicle) {
     double height = initLoc.z();
-    auto path = StraightLinePath(ChVector<>(-10 * hdimX, 0, height), ChVector<>(10 * hdimX, 0, height));
+    auto path = StraightLinePath(ChVector3d(-10 * hdimX, 0, height), ChVector3d(10 * hdimX, 0, height));
 
     auto driver = new GONOGO_Driver(vehicle, path, time_start_engine, time_max_throttle);
     double look_ahead_dist = 5;

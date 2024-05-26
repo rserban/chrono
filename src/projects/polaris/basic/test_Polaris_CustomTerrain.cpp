@@ -80,13 +80,13 @@ CustomTerrain::CustomTerrain(WheeledVehicle& vehicle) : m_vehicle(vehicle) {
 
     // Create a ground body (only to carry some visualization assets)
     auto ground = chrono_types::make_shared<ChBody>();
-    ground->SetBodyFixed(true);
-    ground->SetCollide(false);
+    ground->SetFixed(true);
+    ground->EnableCollision(false);
 
-    auto box = chrono_types::make_shared<ChBoxShape>(20, 20, 1);
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(20, 20, 1);
     // box->SetColor(ChColor(0.2f, 0.3f, 1.0f));
     box->SetTexture(GetChronoDataFile("textures/concrete.jpg"), 10, 10);
-    ground->AddVisualShape(box, ChFrame<>(ChVector<>(0, 0, -0.5), QUNIT));
+    ground->AddVisualShape(box, ChFrame<>(ChVector3d(0, 0, -0.5), QUNIT));
 
     vehicle.GetSystem()->AddBody(ground);
 }
@@ -102,7 +102,7 @@ void CustomTerrain::Synchronize() {
     // - Add some damping in lateral direction to prevent drift (sliding).
 
     double terrain_height = 0;
-    ChVector<> terrain_normal(0, 0, 1);
+    ChVector3d terrain_normal(0, 0, 1);
 
     double tire_stiffness = 175000;
     double tire_damping = 350;
@@ -113,16 +113,16 @@ void CustomTerrain::Synchronize() {
 
         // Wheel state
         WheelState wheel_state = m_wheels[i]->GetState();
-        ChVector<> disc_center = wheel_state.pos;
+        ChVector3d disc_center = wheel_state.pos;
 
         // Extract the wheel normal (expressed in global frame)
         ChMatrix33<> A(wheel_state.rot);
-        ChVector<> disc_normal = A.Get_A_Yaxis();
+        ChVector3d disc_normal = A.GetAxisY();
 
         // Find the location of the lowest point on the wheel disc in the direction of the world vertical.
-        ChVector<> wheel_forward = Vcross(disc_normal, ChWorldFrame::Vertical());
+        ChVector3d wheel_forward = Vcross(disc_normal, ChWorldFrame::Vertical());
         wheel_forward.Normalize();
-        ChVector<> wheel_bottom_location = disc_center + disc_radius * Vcross(disc_normal, wheel_forward);
+        ChVector3d wheel_bottom_location = disc_center + disc_radius * Vcross(disc_normal, wheel_forward);
 
         // No contact if the disc center is below the terrain.
         double disc_height = ChWorldFrame::Height(disc_center);
@@ -135,7 +135,7 @@ void CustomTerrain::Synchronize() {
 
         // Based on the sampled normal we now do a first order approximation of where the contact point
         // would be. We also will estimate the contact depth at that point.
-        ChVector<> wheel_forward_normal = Vcross(disc_normal, terrain_normal);
+        ChVector3d wheel_forward_normal = Vcross(disc_normal, terrain_normal);
 
         // There is no contact if the disc is (almost) horizontal, so bail out in that case.
         double sinTilt2 = wheel_forward_normal.Length2();
@@ -155,15 +155,15 @@ void CustomTerrain::Synchronize() {
         wheel_bottom_location = disc_center + (disc_radius - depth) * Vcross(disc_normal, wheel_forward_normal);
 
         // Create the tire frame
-        ChVector<> longitudinal = Vcross(disc_normal, terrain_normal);
+        ChVector3d longitudinal = Vcross(disc_normal, terrain_normal);
         longitudinal.Normalize();
-        ChVector<> lateral = Vcross(terrain_normal, longitudinal);
+        ChVector3d lateral = Vcross(terrain_normal, longitudinal);
         ChMatrix33<> rot;
         rot.Set_A_axis(longitudinal, lateral, terrain_normal);
         ChFrame<> frame(wheel_bottom_location, rot);
 
         // Get wheel velocity expressed in the tire frame
-        ChVector<> wheel_vel = frame.TransformDirectionParentToLocal(wheel_state.lin_vel);
+        ChVector3d wheel_vel = frame.TransformDirectionParentToLocal(wheel_state.lin_vel);
 
         // Calculate the tire vertical load assuming a spring-damper model
         double Fn = tire_stiffness * depth - tire_damping * wheel_vel.z();
@@ -172,8 +172,8 @@ void CustomTerrain::Synchronize() {
         double Fy = -tire_damping * wheel_vel.y();
    
         // Tire force and moment in tire frame
-        ChVector<> tire_F(0, Fy, Fn);
-        ChVector<> tire_M(0, 0, 0);
+        ChVector3d tire_F(0, Fy, Fn);
+        ChVector3d tire_M(0, 0, 0);
 
         // Load the tire force structure (all expressed in absolute frame)
         m_tire_forces[i].force = frame.TransformDirectionLocalToParent(tire_F);
@@ -184,8 +184,8 @@ void CustomTerrain::Synchronize() {
     // 2. Add tire forces as external forces to spindle bodies
 
     for (int i = 0; i < 4; i++) {
-        m_wheels[i]->GetSpindle()->Accumulate_force(m_tire_forces[i].force, m_tire_forces[i].point, false);
-        m_wheels[i]->GetSpindle()->Accumulate_torque(m_tire_forces[i].moment, false);
+        m_wheels[i]->GetSpindle()->AccumulateForce(m_tire_forces[i].force, m_tire_forces[i].point, false);
+        m_wheels[i]->GetSpindle()->AccumulateTorque(m_tire_forces[i].moment, false);
     }
 }
 
@@ -196,10 +196,10 @@ void CustomTerrain::Advance(double step) {}
 int main(int argc, char* argv[]) {
     // Create the Chrono system
     ChSystemNSC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
     // Create vehicle
-    ChCoordsys<> init_pos(ChVector<>(0, 0, 0.5), QUNIT);
+    ChCoordsys<> init_pos(ChVector3d(0, 0, 0.5), QUNIT);
 
     std::string vehicle_json = "Polaris/Polaris.json";
     std::string engine_json = "Polaris/Polaris_EngineSimpleMap.json";
@@ -268,13 +268,13 @@ int main(int argc, char* argv[]) {
             auto vis_vsg = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
             vis_vsg->SetWindowTitle("Polaris - Custom terrain example");
             vis_vsg->AttachVehicle(&vehicle);
-            vis_vsg->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 8.0, 0.5);
+            vis_vsg->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 8.0, 0.5);
             vis_vsg->SetWindowSize(ChVector2<int>(800, 600));
             vis_vsg->SetWindowPosition(ChVector2<int>(100, 300));
             vis_vsg->SetUseSkyBox(true);
             vis_vsg->SetCameraAngleDeg(40);
             vis_vsg->SetLightIntensity(1.0f);
-            vis_vsg->SetLightDirection(1.5 * CH_C_PI_2, CH_C_PI_4);
+            vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
             vis_vsg->Initialize();
 
             vis = vis_vsg;
@@ -286,7 +286,7 @@ int main(int argc, char* argv[]) {
             // Create the vehicle Irrlicht interface
             auto vis_irr = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
             vis_irr->SetWindowTitle("Polaris - Custom terrain example");
-            vis_irr->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 5.0, 0.5);
+            vis_irr->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 5.0, 0.5);
             vis_irr->Initialize();
             vis_irr->AddTypicalLights();
             vis_irr->AddSkyBox();
@@ -301,7 +301,7 @@ int main(int argc, char* argv[]) {
 #ifdef CHRONO_OPENGL
             auto vis_gl = chrono_types::make_shared<ChVehicleVisualSystemOpenGL>();
             vis_gl->AttachVehicle(&vehicle);
-            vis_gl->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+            vis_gl->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
             vis_gl->SetWindowTitle("Polaris - Custom terrain example");
             vis_gl->SetWindowSize(1280, 720);
             vis_gl->SetRenderMode(opengl::SOLID);

@@ -56,7 +56,7 @@ VisualizationType tire_vis_type = VisualizationType::PRIMITIVES;
 
 // Type of powertrain model (SHAFTS, SIMPLE_MAP)
 EngineModelType engine_model = EngineModelType::SIMPLE_MAP;
-TransmissionModelType transmission_model = TransmissionModelType::SIMPLE_MAP;
+TransmissionModelType transmission_model = TransmissionModelType::AUTOMATIC_SIMPLE_MAP;
 
 // Drive type (FWD, RWD, or AWD)
 DrivelineTypeWV drive_type = DrivelineTypeWV::AWD;
@@ -74,7 +74,7 @@ double tire_step_size = 1e-3;
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // --------------
     // Create systems
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
     LMTV lmtv;
     lmtv.SetContactMethod(ChContactMethod::SMC);
     lmtv.SetChassisFixed(false);
-    lmtv.SetInitPosition(ChCoordsys<>(ChVector<>(-terrainLength / 2 + 5, 0, 0.7), ChQuaternion<>(1, 0, 0, 0)));
+    lmtv.SetInitPosition(ChCoordsys<>(ChVector3d(-terrainLength / 2 + 5, 0, 0.7), ChQuaternion<>(1, 0, 0, 0)));
     lmtv.SetEngineType(engine_model);
     lmtv.SetTransmissionType(transmission_model);
     // lmtv.SetDriveType(drive_type);
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     lmtv.SetTireVisualizationType(tire_vis_type);
 
     // Create the terrain
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialSMC>();
     patch_mat->SetFriction(0.9f);
     patch_mat->SetRestitution(0.01f);
     patch_mat->SetYoungModulus(2e7f);
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
     terrain.Initialize();
 
     // Create the straight path and the driver system
-    auto path = StraightLinePath(ChVector<>(-terrainLength / 2, 0, 0.5), ChVector<>(terrainLength * 10, 0, 0.5), 1);
+    auto path = StraightLinePath(ChVector3d(-terrainLength / 2, 0, 0.5), ChVector3d(terrainLength * 10, 0, 0.5), 1);
     ChPathFollowerDriver driver(lmtv.GetVehicle(), path, "my_path", 1000.0);
     driver.GetSteeringController().SetLookAheadDistance(5.0);
     driver.GetSteeringController().SetGains(0.5, 0, 0);
@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht interface
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("LMTV acceleration test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -143,7 +143,7 @@ int main(int argc, char* argv[]) {
     double last_speed = -1;
 
     // Record vehicle speed
-    ChFunction_Recorder speed_recorder;
+    ChFunctionInterp speed_recorder;
 
     // Initialize simulation frame counter and simulation time
     int step_number = 0;

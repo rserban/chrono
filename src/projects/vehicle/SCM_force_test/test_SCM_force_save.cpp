@@ -38,18 +38,18 @@ bool enable_moving_patch = true;
 // -----------------------------------------------------------------------------
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // Initialize output
     if (!filesystem::create_directory(filesystem::path(out_dir))) {
         cout << "Error creating directory " << out_dir << endl;
         return 1;
     }
-    utils::CSV_writer csv(" ");
+    utils::ChWriterCSV csv(" ");
 
     // Create the Chrono system (Z up)
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
     // Create the rover
     auto viper = CreateViper(sys);
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
     // Add moving patches for each wheel
     if (enable_moving_patch) {
         double wheel_range = 0.5;
-        ChVector<> size(0.5, 2 * wheel_range, 2 * wheel_range);
+        ChVector3d size(0.5, 2 * wheel_range, 2 * wheel_range);
        
         terrain->AddMovingPatch(wheels[0], VNULL, size);
         terrain->AddMovingPatch(wheels[1], VNULL, size);
@@ -84,8 +84,8 @@ int main(int argc, char* argv[]) {
     std::ofstream ROVER_states(out_dir + "/ROVER_states_saved.txt", std::ios::trunc);
 
     // Simulation loop
-    ChVector<> wheelContFList_F;
-    ChVector<> wheelContFList_M;
+    ChVector3d wheelContFList_F;
+    ChVector3d wheelContFList_M;
 
     for (int istep = 0; istep < num_steps; istep++) {
         if (istep % 100 == 0)
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
         // Save vehicle states
         ROVER_states << time << "   ";
         for (int i = 0; i < 4; i++) {
-            ROVER_states << wheels[i]->GetPos() << "   " << wheels[i]->GetPos_dt() << "   " << wheels[i]->GetWvel_par()
+            ROVER_states << wheels[i]->GetPos() << "   " << wheels[i]->GetPosDt() << "   " << wheels[i]->GetAngVelParent()
                          << "   ";
         }
         ROVER_states << endl;

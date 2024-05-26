@@ -12,9 +12,6 @@
 #ifdef CHRONO_PARDISO_MKL
     #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 #endif
-#ifdef CHRONO_PARDISOPROJECT
-    #include "chrono_pardisoproject/ChSolverPardisoProject.h"
-#endif
 #ifdef CHRONO_MUMPS
     #include "chrono_mumps/ChSolverMumps.h"
 #endif
@@ -57,14 +54,10 @@ int main(int argc, char* argv[]) {
 
     // System, solver and integrator
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, g));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, g));
 
     if (solver_type == ChSolver::Type::PARDISO_MKL) {
 #ifndef CHRONO_PARDISO_MKL
-        solver_type = ChSolver::Type::SPARSE_QR;
-#endif
-    } else if (solver_type == ChSolver::Type::PARDISO_PROJECT) {
-#ifndef CHRONO_PARDISOPROJECT
         solver_type = ChSolver::Type::SPARSE_QR;
 #endif
     } else if (solver_type == ChSolver::Type::MUMPS) {
@@ -77,13 +70,6 @@ int main(int argc, char* argv[]) {
 #ifdef CHRONO_PARDISO_MKL
         std::cout << "Using Pardiso MKL solver" << std::endl;
         auto solver = chrono_types::make_shared<ChSolverPardisoMKL>();
-        solver->LockSparsityPattern(true);
-        sys.SetSolver(solver);
-#endif
-    } else if (solver_type == ChSolver::Type::PARDISO_PROJECT) {
-#ifdef CHRONO_PARDISOPROJECT
-        std::cout << "Using Pardiso PROJECT solver" << std::endl;
-        auto solver = chrono_types::make_shared<ChSolverPardisoProject>();
         solver->LockSparsityPattern(true);
         sys.SetSolver(solver);
 #endif
@@ -117,7 +103,6 @@ int main(int argc, char* argv[]) {
                 solver->SetSharpnessLambda(1.0);
 
                 ////sys.SetMaxPenetrationRecoverySpeed(1.5);
-                ////sys.SetMinBounceSpeed(2.0);
                 break;
             }
             case ChSolver::Type::BICGSTAB:
@@ -139,18 +124,16 @@ int main(int argc, char* argv[]) {
         case ChTimestepper::Type::HHT: {
             auto integrator = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
             integrator->SetAlpha(-0.2);
-            integrator->SetMaxiters(50);
+            integrator->SetMaxIters(50);
             integrator->SetAbsTolerances(1e-4, 1e2);
-            integrator->SetMode(ChTimestepperHHT::ACCELERATION);
             integrator->SetStepControl(false);
             integrator->SetModifiedNewton(false);
-            integrator->SetScaling(false);
             break;
         }
 
         case ChTimestepper::Type::EULER_IMPLICIT: {
             auto integrator = std::static_pointer_cast<ChTimestepperEulerImplicit>(sys.GetTimestepper());
-            integrator->SetMaxiters(50);
+            integrator->SetMaxIters(50);
             integrator->SetAbsTolerances(1e-4, 1e2);
             break;
         }
@@ -158,25 +141,25 @@ int main(int argc, char* argv[]) {
     sys.GetTimestepper()->SetVerbose(verbose_integrator);
 
     double length = 1;
-    double del_angle = CH_C_2PI / n;
+    double del_angle = CH_2PI / n;
     double radius = (length / 2) / std::tan(del_angle / 2);
 
     std::vector<std::shared_ptr<ChBody>> bodies;
-    ChVector<> loc;
+    ChVector3d loc;
     ChQuaternion<> rot;
     double angle = 0;
     for (int i = 0; i < n; i++) {
         loc.x() = radius * std::sin(angle);
         loc.z() = radius * std::cos(angle);
-        rot = Q_from_AngY(angle);
+        rot = QuatFromAngleY(angle);
 
         auto body = chrono_types::make_shared<ChBody>();
-        body->SetNameString("body_" + std::to_string(i));
+        body->SetName("body_" + std::to_string(i));
         body->SetPos(loc);
         body->SetRot(rot);
         if (i == fixed_body)
-            body->SetBodyFixed(true);
-        auto box = chrono_types::make_shared<ChBoxShape>(2 * length, length / 3, length / 3);
+            body->SetFixed(true);
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(2 * length, length / 3, length / 3);
         box->SetColor(ChColor(0.0f, 0.0f, (i * 1.0f) / (n - 1)));
         body->AddVisualShape(box);
         sys.AddBody(body);
@@ -185,7 +168,7 @@ int main(int argc, char* argv[]) {
         angle += del_angle;
     }
 
-    ChQuaternion<> z2y = Q_from_AngX(-CH_C_PI_2);
+    ChQuaternion<> z2y = QuatFromAngleX(-CH_PI_2);
 
     for (int i = 0; i < n; i++) {
         if (i == broken_link)
@@ -194,23 +177,23 @@ int main(int argc, char* argv[]) {
         int j = (i == n - 1) ? 0 : i + 1;
 
         auto rev = chrono_types::make_shared<ChLinkRevolute>();
-        rev->SetNameString("rev" + std::to_string(i));
-        ChVector<> rloc = bodies[i]->TransformPointLocalToParent(ChVector<>(length/2, 0, 0));
+        rev->SetName("rev" + std::to_string(i));
+        ChVector3d rloc = bodies[i]->TransformPointLocalToParent(ChVector3d(length/2, 0, 0));
         rev->Initialize(bodies[i], bodies[j], ChFrame<>(rloc, bodies[i]->GetRot() * z2y));
         sys.AddLink(rev);
 
         auto rsda = chrono_types::make_shared<ChLinkRSDA>();
-        rsda->SetNameString("rsda" + std::to_string(i));
+        rsda->SetName("rsda" + std::to_string(i));
         rsda->SetSpringCoefficient(10);
         rsda->SetDampingCoefficient(3);
         rsda->SetRestAngle(0);
-        rsda->Initialize(bodies[i], bodies[j],                               //
-                         true,                                               //
-                         ChCoordsys<>(ChVector<>(+length / 2, 0, 0), z2y),   //
-                         ChCoordsys<>(ChVector<>(-length / 2, 0, 0), z2y));  //
+        rsda->Initialize(bodies[i], bodies[j],                            //
+                         true,                                            //
+                         ChFrame<>(ChVector3d(+length / 2, 0, 0), z2y),   //
+                         ChFrame<>(ChVector3d(-length / 2, 0, 0), z2y));  //
         sys.AddLink(rsda);
 
-        rsda->AddVisualShape(chrono_types::make_shared<ChRotSpringShape>(length / 4, 100));
+        rsda->AddVisualShape(chrono_types::make_shared<ChVisualShapeRotSpring>(length / 4, 100));
     }
 
     // Create the Irrlicht application
@@ -222,7 +205,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0, 0, 6));
+    vis->AddCamera(ChVector3d(0, 0, 6));
     vis->AttachSystem(&sys);
 
     // Simulation loop

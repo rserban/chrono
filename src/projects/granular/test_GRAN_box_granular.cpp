@@ -28,9 +28,8 @@
 #include <vector>
 
 #include "chrono/ChConfig.h"
-#include "chrono/assets/ChBoxShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/core/ChTimer.h"
-#include "chrono/core/ChStream.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
@@ -67,8 +66,8 @@ void TimingOutput(chrono::ChSystem* mSys) {
     double SOLVER = mSys->GetTimerAdvance();
     double UPDT = mSys->GetTimerUpdate();
     int REQ_ITS = 0;
-    int BODS = mSys->GetNbodies();
-    int CNTC = mSys->GetNcontacts();
+    int BODS = mSys->GetNumBodies();
+    int CNTC = mSys->GetNumContacts();
     if (chrono::ChSystemMulticore* mc_sys = dynamic_cast<chrono::ChSystemMulticore*>(mSys)) {
         REQ_ITS = std::static_pointer_cast<ChIterativeSolverMulticore>(mSys->GetSolver())->GetIterations();
     }
@@ -113,9 +112,9 @@ int main(int argc, char** argv) {
     double radius_g = 10e-3;
     int Id_g = 100;
     double rho_g = 2500;
-    double vol_g = (4.0 / 3) * CH_C_PI * radius_g * radius_g * radius_g;
+    double vol_g = (4.0 / 3) * CH_PI * radius_g * radius_g * radius_g;
     double mass_g = rho_g * vol_g;
-    ChVector<> inertia_g = 0.4 * mass_g * radius_g * radius_g * ChVector<>(1, 1, 1);
+    ChVector3d inertia_g = 0.4 * mass_g * radius_g * radius_g * ChVector3d(1, 1, 1);
 
     int num_layers = 20;
 
@@ -128,7 +127,7 @@ int main(int argc, char** argv) {
     float kt_g = 3.0e6f;
     float gt_g = 1.0e3f;
     float coh_pressure = 1e4f;
-    float coh_g = (float)(CH_C_PI * radius_g * radius_g) * coh_pressure;
+    float coh_g = (float)(CH_PI * radius_g * radius_g) * coh_pressure;
 
     // Track properties
     double hX = 0.11 / 2;
@@ -138,7 +137,7 @@ int main(int argc, char** argv) {
     int npads = 20;
 
     double mass_t = 10000;
-    ChVector<> inertia_t(1786.92, 10449.67, 10721.22);
+    ChVector3d inertia_t(1786.92, 10449.67, 10721.22);
 
     float mu_t = 0.8f;
     float cr_t = 0.1f;
@@ -195,11 +194,11 @@ int main(int argc, char** argv) {
         }
     }
 
-    system->Set_G_acc(ChVector<>(0, 0, -9.81));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
     system->GetSettings()->solver.use_full_inertia_tensor = false;
     system->GetSettings()->solver.tolerance = 0.1;
     system->GetSettings()->solver.max_iteration_bilateral = 100;
-    system->GetSettings()->collision.narrowphase_algorithm = collision::ChNarrowphase::Algorithm::HYBRID;
+    system->GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::HYBRID;
     system->GetSettings()->collision.bins_per_axis = vec3(binsX, binsY, binsZ);
 
     // Set number of threads
@@ -215,11 +214,11 @@ int main(int argc, char** argv) {
     // ---------------------
 
     // Create contact material for container
-    std::shared_ptr<ChMaterialSurface> material_c;
+    std::shared_ptr<ChContactMaterial> material_c;
 
     switch (method) {
         case ChContactMethod::SMC: {
-            auto mat_c = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+            auto mat_c = chrono_types::make_shared<ChContactMaterialSMC>();
             mat_c->SetFriction(mu_g);
             mat_c->SetRestitution(cr_g);
             mat_c->SetYoungModulus(Y_g);
@@ -235,7 +234,7 @@ int main(int argc, char** argv) {
             break;
         }
         case ChContactMethod::NSC: {
-            auto mat_c = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+            auto mat_c = chrono_types::make_shared<ChContactMaterialNSC>();
             mat_c->SetFriction(mu_g);
             mat_c->SetRestitution(cr_g);
             mat_c->SetCohesion(coh_g);
@@ -247,41 +246,39 @@ int main(int argc, char** argv) {
     }
 
     // Create container body
-    auto container = std::shared_ptr<ChBody>(system->NewBody());
+    auto container = chrono_types::make_shared<ChBody>();
     system->AddBody(container);
-    container->SetIdentifier(-1);
+    container->SetTag(-1);
     container->SetMass(1);
-    container->SetBodyFixed(true);
-    container->SetCollide(true);
+    container->SetFixed(true);
+    container->EnableCollision(true);
 
-    container->GetCollisionModel()->ClearModel();
     // Bottom box
-    utils::AddBoxGeometry(container.get(), material_c, ChVector<>(hdimX, hdimY, hthick), ChVector<>(0, 0, -hthick),
+    utils::AddBoxGeometry(container.get(), material_c, ChVector3d(hdimX, hdimY, hthick), ChVector3d(0, 0, -hthick),
                           ChQuaternion<>(1, 0, 0, 0), true);
     // Front box
-    utils::AddBoxGeometry(container.get(), material_c, ChVector<>(hthick, hdimY, hdimZ + hthick),
-                          ChVector<>(hdimX + hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), false);
+    utils::AddBoxGeometry(container.get(), material_c, ChVector3d(hthick, hdimY, hdimZ + hthick),
+                          ChVector3d(hdimX + hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), false);
     // Rear box
-    utils::AddBoxGeometry(container.get(), material_c, ChVector<>(hthick, hdimY, hdimZ + hthick),
-                          ChVector<>(-hdimX - hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), false);
+    utils::AddBoxGeometry(container.get(), material_c, ChVector3d(hthick, hdimY, hdimZ + hthick),
+                          ChVector3d(-hdimX - hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), false);
     // Left box
-    utils::AddBoxGeometry(container.get(), material_c, ChVector<>(hdimX, hthick, hdimZ + hthick),
-                          ChVector<>(0, hdimY + hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), false);
+    utils::AddBoxGeometry(container.get(), material_c, ChVector3d(hdimX, hthick, hdimZ + hthick),
+                          ChVector3d(0, hdimY + hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), false);
     // Right box
-    utils::AddBoxGeometry(container.get(), material_c, ChVector<>(hdimX, hthick, hdimZ + hthick),
-                          ChVector<>(0, -hdimY - hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), false);
-    container->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(container.get(), material_c, ChVector3d(hdimX, hthick, hdimZ + hthick),
+                          ChVector3d(0, -hdimY - hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), false);
 
     // ----------------
     // Create particles
     // ----------------
 
     // Create contact material for granular material
-    std::shared_ptr<ChMaterialSurface> material_g;
+    std::shared_ptr<ChContactMaterial> material_g;
 
     switch (method) {
         case ChContactMethod::SMC: {
-            auto mat_g = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+            auto mat_g = chrono_types::make_shared<ChContactMaterialSMC>();
             mat_g->SetFriction(mu_g);
             mat_g->SetRestitution(cr_g);
             mat_g->SetYoungModulus(Y_g);
@@ -297,7 +294,7 @@ int main(int argc, char** argv) {
             break;
         }
         case ChContactMethod::NSC: {
-            auto mat_g = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+            auto mat_g = chrono_types::make_shared<ChContactMaterialNSC>();
             mat_g->SetFriction(mu_g);
             mat_g->SetRestitution(cr_g);
             mat_g->SetCohesion(coh_g);
@@ -309,10 +306,10 @@ int main(int argc, char** argv) {
     }
 
     // Create a particle generator and a mixture entirely made out of spheres
-    utils::Generator gen(system);
-    std::shared_ptr<utils::MixtureIngredient> m1 = gen.AddMixtureIngredient(shape, 1.0);
-    m1->setDefaultMaterial(material_g);
-    m1->setDefaultDensity(rho_g);
+    utils::ChGenerator gen(system);
+    std::shared_ptr<utils::ChMixtureIngredient> m1 = gen.AddMixtureIngredient(shape, 1.0);
+    m1->SetDefaultMaterial(material_g);
+    m1->SetDefaultDensity(rho_g);
 
     double v_sep;
     double h_sep;
@@ -322,33 +319,33 @@ int main(int argc, char** argv) {
             if (randomized_size) {
                 m1->setDistributionSize(0.75 * radius_g, 0.5 * radius_g, 0.1 * radius_g, radius_g);
             } else {
-                m1->setDefaultSize(radius_g);
+                m1->SetDefaultSize(radius_g);
             }
             v_sep = 2.001 * radius_g;
             h_sep = v_sep;
             break;
         case utils::MixtureType::BISPHERE:
-            m1->setDefaultSize(ChVector<>(radius_g, 0.75 * radius_g, 0));
+            m1->SetDefaultSize(ChVector3d(radius_g, 0.75 * radius_g, 0));
             v_sep = 2.001 * radius_g;
             h_sep = 2.751 * radius_g;
             break;
     }
 
-    utils::PDSampler<double> sampler(h_sep);
+    utils::ChPDSampler<double> sampler(h_sep);
 
     // Set starting value for body identifiers
-    gen.setBodyIdentifier(Id_g);
+    gen.SetStartTag(Id_g);
 
     // Create particles in layers until reaching the desired number of particles
-    ChVector<> hdims(hdimX - h_sep / 2, hdimY - h_sep / 2, 0);
-    ChVector<> center(0, 0, v_sep);
+    ChVector3d hdims(hdimX - h_sep / 2, hdimY - h_sep / 2, 0);
+    ChVector3d center(0, 0, v_sep);
 
     for (int il = 0; il < num_layers; il++) {
         gen.CreateObjectsBox(sampler, center, hdims);
         center.z() += v_sep;
     }
 
-    unsigned int num_particles = gen.getTotalNumBodies();
+    unsigned int num_particles = gen.GetTotalNumBodies();
     std::cout << "Generated particles:  " << num_particles << std::endl;
 
     // -------------------------------
@@ -356,11 +353,11 @@ int main(int argc, char** argv) {
     // -------------------------------
 
     // Create contact material for track body
-    std::shared_ptr<ChMaterialSurface> material_t;
+    std::shared_ptr<ChContactMaterial> material_t;
 
     switch (method) {
         case ChContactMethod::SMC: {
-            auto mat_t = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+            auto mat_t = chrono_types::make_shared<ChContactMaterialSMC>();
             mat_t->SetFriction(mu_t);
             mat_t->SetRestitution(cr_t);
             mat_t->SetYoungModulus(Y_t);
@@ -376,7 +373,7 @@ int main(int argc, char** argv) {
             break;
         }
         case ChContactMethod::NSC: {
-            auto mat_t = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+            auto mat_t = chrono_types::make_shared<ChContactMaterialNSC>();
             mat_t->SetFriction(mu_t);
             mat_t->SetRestitution(cr_t);
             mat_t->SetCohesion(coh_t);
@@ -387,22 +384,20 @@ int main(int argc, char** argv) {
         }
     }
 
-    auto track = std::shared_ptr<ChBody>(system->NewBody());
+    auto track = chrono_types::make_shared<ChBody>();
     system->AddBody(track);
 
-    track->SetIdentifier(0);
-    track->SetBodyFixed(false);
+    track->SetTag(0);
+    track->SetFixed(false);
     track->SetMass(mass_t);
     track->SetInertiaXX(inertia_t);
-    track->SetPos(ChVector<>(0, 0, hZ + center.z()));
+    track->SetPos(ChVector3d(0, 0, hZ + center.z()));
     track->SetRot(ChQuaternion<>(1, 0, 0, 0));
-    track->SetCollide(true);
+    track->EnableCollision(true);
 
-    track->GetCollisionModel()->ClearModel();
     for (int i = -npads / 2; i < npads / 2; i++) {
-        utils::AddBoxGeometry(track.get(), material_t, ChVector<>(hX, hY, hZ), ChVector<>(i * pitch, 0, 0));
+        utils::AddBoxGeometry(track.get(), material_t, ChVector3d(hX, hY, hZ), ChVector3d(i * pitch, 0, 0));
     }
-    track->GetCollisionModel()->BuildModel();
 
     // ---------------------------
     // Set active Bbox
@@ -416,8 +411,8 @@ int main(int argc, char** argv) {
 
     real3 bsize = bmax - bmin;
     real3 bpos = 0.5 * (bmax + bmin);
-    auto bbox = chrono_types::make_shared<ChBoxShape>(bsize.x, bsize.y, bsize.z);
-    container->AddVisualShape(bbox, ChFrame<>(ChVector<>(bpos.x, bpos.y, bpos.z)));
+    auto bbox = chrono_types::make_shared<ChVisualShapeBox>(bsize.x, bsize.y, bsize.z);
+    container->AddVisualShape(bbox, ChFrame<>(ChVector3d(bpos.x, bpos.y, bpos.z)));
 
     // -------------------------------
     // Create output directories
@@ -445,7 +440,7 @@ int main(int argc, char** argv) {
         vis.SetWindowSize(1280, 720);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.AddCamera(ChVector<>(0, -4, center.z()), ChVector<>(0, 0, center.z()));
+        vis.AddCamera(ChVector3d(0, -4, center.z()), ChVector3d(0, 0, center.z()));
         vis.SetCameraVertical(CameraVerticalDir::Z);
     }
 

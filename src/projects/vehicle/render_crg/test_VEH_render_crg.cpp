@@ -62,7 +62,7 @@ const std::string out_dir = "../RENDER_CRG";
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // ---------------------------------------
     // Create the vehicle, terrain, and driver
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
     HMMWV_Full my_hmmwv;
     my_hmmwv.SetContactMethod(ChContactMethod::SMC);
     my_hmmwv.SetChassisFixed(false);
-    my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector<>(2, 0, 0.5), QUNIT));
+    my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(2, 0, 0.5), QUNIT));
     my_hmmwv.SetEngineType(EngineModelType::SHAFTS);
     my_hmmwv.SetTransmissionType(TransmissionModelType::SHAFTS);
     my_hmmwv.SetDriveType(DrivelineTypeWV::RWD);
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("OpenCRG Demo SR Steering");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->SetHUDLocation(500, 20);
     vis->Initialize();
     vis->AddTypicalLights();
@@ -142,9 +142,9 @@ int main(int argc, char* argv[]) {
     std::cout << "Closed loop?     " << path_is_closed << std::endl;
     std::cout << "Set end time to: " << t_end << std::endl;
 
-    vis->SetChaseCameraPosition(ChVector<>(450, 35, 15));
+    vis->SetChaseCameraPosition(ChVector3d(450, 35, 15));
     vis->SetChaseCameraState(utils::ChChaseCamera::State::Free);
-    vis->SetChaseCameraAngle(-150.0 * CH_C_DEG_TO_RAD);
+    vis->SetChaseCameraAngle(-150.0 * CH_DEG_TO_RAD);
     vis->EnableStats(false);
 
     while (vis->Run()) {

@@ -37,12 +37,12 @@ int main(int argc, char* argv[]) {
     // Create system
     // -------------
     ChSystemSMC mphysicalSystem;
-    mphysicalSystem.Set_G_acc(ChVector<>(0.01, 0.0, 0.0));
+    mphysicalSystem.SetGravitationalAcceleration(ChVector3d(0.01, 0.0, 0.0));
 
     // Ground body
     auto ground = chrono_types::make_shared<ChBody>();
-    ground->SetIdentifier(-1);
-    ground->SetBodyFixed(true);
+    ground->SetTag(-1);
+    ground->SetFixed(true);
     mphysicalSystem.Add(ground);
 
     // FEA mesh
@@ -70,8 +70,8 @@ int main(int argc, char* argv[]) {
                 my_mesh,                        // the mesh where to put the created nodes and elements
                 msection_cable,                 // the ChBeamSectionCable to use for the ChElementBeamANCF elements
                 num_elements,                   // the number of ChElementBeamANCF to create
-                ChVector<>(loc_x, loc_y, 0.0),  // the 'A' point in space (beginning of beam)
-                ChVector<>(loc_x, loc_y, 0.1)   // the 'B' point in space (end of beam) _1D_elementsNodes_mesh,
+                ChVector3d(loc_x, loc_y, 0.0),  // the 'A' point in space (beginning of beam)
+                ChVector3d(loc_x, loc_y, 0.1)   // the 'B' point in space (end of beam) _1D_elementsNodes_mesh,
             );
 
             base_nodes.push_back(builder.GetLastBeamNodes().front());
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0.05, -0.3, 0.05), ChVector<>(0.05, 0.0, 0.0));
+    vis->AddCamera(ChVector3d(0.05, -0.3, 0.05), ChVector3d(0.05, 0.0, 0.0));
     vis->AttachSystem(&mphysicalSystem);
 
     // ---------------
@@ -138,10 +138,8 @@ int main(int argc, char* argv[]) {
         mphysicalSystem.SetTimestepperType(ChTimestepper::Type::HHT);
         auto mystepper = std::dynamic_pointer_cast<ChTimestepperHHT>(mphysicalSystem.GetTimestepper());
         mystepper->SetAlpha(-0.1);
-        mystepper->SetMaxiters(100);
+        mystepper->SetMaxIters(100);
         mystepper->SetAbsTolerances(1e-10, 1e-10);
-        mystepper->SetMode(ChTimestepperHHT::ACCELERATION);
-        mystepper->SetScaling(true);
         mystepper->SetVerbose(false);
     } else {
         mphysicalSystem.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);
@@ -164,9 +162,9 @@ int main(int argc, char* argv[]) {
     // ---------------
     // Simulation loop
     // ---------------
-    utils::CSV_writer csv(" ");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(18);
+    utils::ChWriterCSV csv(" ");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(18);
 
     int step_number = 0;
     double dt = 0.01;
@@ -191,7 +189,7 @@ int main(int argc, char* argv[]) {
             csv << node->GetPos();
         }
         csv << endl;
-        csv.write_to_file(out_dir + "/results.dat");
+        csv.WriteToFile(out_dir + "/results.dat");
     }
 
     return 0;

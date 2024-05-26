@@ -21,7 +21,7 @@
 #include "chrono/utils/ChFilters.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 #include "chrono/solver/ChSolverPSOR.h"
-#include "chrono/assets/ChCylinderShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
 #include "chrono/assets/ChTexture.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
@@ -102,9 +102,9 @@ int main(int argc, char* argv[]) {
     m113.SetTrackShoeType(TrackShoeType::SINGLE_PIN);
     m113.SetDrivelineType(DrivelineTypeTV::SIMPLE);
     m113.SetEngineType(EngineModelType::SIMPLE_MAP);
-    m113.SetTransmissionType(TransmissionModelType::SIMPLE_MAP);
+    m113.SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_MAP);
 
-    m113.SetInitPosition(ChCoordsys<>(ChVector<>(0.0, 0.0, 1.0), QUNIT));
+    m113.SetInitPosition(ChCoordsys<>(ChVector3d(0.0, 0.0, 1.0), QUNIT));
     m113.Initialize();
     auto& vehicle = m113.GetVehicle();
     auto engine = vehicle.GetEngine();
@@ -125,10 +125,10 @@ int main(int argc, char* argv[]) {
     // --------------------------------------------------
 
     // Enable contact on all tracked vehicle parts, except the left sprocket
-    ////vehicle.SetCollide(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
+    ////vehicle.EnableCollision(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
 
     // Disable contact for all tracked vehicle parts
-    ////vehicle.SetCollide(TrackedCollisionFlag::NONE);
+    ////vehicle.EnableCollision(TrackedCollisionFlag::NONE);
 
     // Disable all contacts for vehicle chassis (if chassis collision was defined)
     ////vehicle.SetChassisCollide(false);
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
     float restitution = 0.01f;
     float E = 2e7f;
     float nu = 0.3f;
-    auto material = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto material = chrono_types::make_shared<ChContactMaterialSMC>();
     material->SetFriction(mu);
     material->SetRestitution(restitution);
     material->SetYoungModulus(E);
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
     // Create the path and the driver system
     // -------------------------------------
 
-    auto path = StraightLinePath(ChVector<>(-10, 0, 0.25), ChVector<>(200, 0, 0.25));
+    auto path = StraightLinePath(ChVector3d(-10, 0, 0.25), ChVector3d(200, 0, 0.25));
     ChPathFollowerDriver driver(vehicle, path, "my_path", target_speed);
     driver.GetSteeringController().SetLookAheadDistance(5);
     driver.GetSteeringController().SetGains(1.0, 0.5, 0.5);
@@ -188,7 +188,7 @@ int main(int argc, char* argv[]) {
 
     auto vis = chrono_types::make_shared<ChTrackedVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("M113 half round obstacle");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 0.0), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 0.0), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -215,9 +215,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     utils::ChRunningAverage fwd_acc_GC_filter(filter_window_size);
     utils::ChRunningAverage lat_acc_GC_filter(filter_window_size);
@@ -228,7 +228,7 @@ int main(int argc, char* argv[]) {
     utils::ChRunningAverage vert_acc_driver_filter(filter_window_size);
 
     // Driver location in vehicle local frame
-    ChVector<> driver_pos = vehicle.GetChassis()->GetLocalDriverCoordsys().pos;
+    ChVector3d driver_pos = vehicle.GetChassis()->GetLocalDriverCoordsys().pos;
 
     // ---------------
     // Solver settings
@@ -242,7 +242,6 @@ int main(int argc, char* argv[]) {
     vehicle.GetSystem()->SetSolver(solver);
 
     vehicle.GetSystem()->SetMaxPenetrationRecoverySpeed(1.5);
-    vehicle.GetSystem()->SetMinBounceSpeed(2.0);
 
     // ---------------
     // Simulation loop
@@ -276,9 +275,9 @@ int main(int argc, char* argv[]) {
         double time = vehicle.GetChTime();
 
         // Extract chassis CG and driver accelerations
-        ChVector<> acc_CG = vehicle.GetChassisBody()->GetPos_dtdt();                 // global frame
+        ChVector3d acc_CG = vehicle.GetChassisBody()->GetPosDt2();                 // global frame
         acc_CG = vehicle.GetChassisBody()->TransformDirectionParentToLocal(acc_CG);  // local frame
-        ChVector<> acc_driver = vehicle.GetPointAcceleration(driver_pos);     // local frame
+        ChVector3d acc_driver = vehicle.GetPointAcceleration(driver_pos);     // local frame
 
         // Filter accelerations
         double acc_CG_x = fwd_acc_GC_filter.Add(acc_CG.x());
@@ -316,8 +315,8 @@ int main(int argc, char* argv[]) {
 #ifdef CHRONO_IRRLICHT
         if (step_number % render_steps == 0) {
             // Update sentinel and target location markers for the path-follower controller.
-            const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-            const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+            const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+            const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
             ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
             ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 
@@ -374,7 +373,7 @@ int main(int argc, char* argv[]) {
     if (state_output) {
         char filename[100];
         sprintf(filename, "%s/output_%.2f_%d.dat", out_dir.c_str(), target_speed, int(std::round(radius)));
-        csv.write_to_file(filename);
+        csv.WriteToFile(filename);
     }
 
     return 0;
@@ -387,26 +386,24 @@ void AddHalfround(ChSystem* system, double radius, double obstacle_distance) {
     float friction_coefficient = 0.8f;
     float restitution_coefficient = 0.01f;
 
-    auto obstacle = std::shared_ptr<ChBody>(system->NewBody());
-    obstacle->SetPos(ChVector<>(0, 0, 0));
-    obstacle->SetBodyFixed(true);
-    obstacle->SetCollide(true);
+    auto obstacle = chrono_types::make_shared<ChBody>();
+    obstacle->SetPos(ChVector3d(0, 0, 0));
+    obstacle->SetFixed(true);
+    obstacle->EnableCollision(true);
 
     // Visualization
-    auto shape = chrono_types::make_shared<ChCylinderShape>(radius, length);
+    auto shape = chrono_types::make_shared<ChVisualShapeCylinder>(radius, length);
     shape->SetColor(ChColor(1, 1, 1));
-    obstacle->AddVisualShape(shape, ChFrame<>(ChVector<>(obstacle_distance, 0, 0), Q_from_AngX(CH_C_PI_2)));
+    obstacle->AddVisualShape(shape, ChFrame<>(ChVector3d(obstacle_distance, 0, 0), QuatFromAngleX(CH_PI_2)));
 
     obstacle->GetVisualShape(0)->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 10, 10);
 
     // Contact
-    auto obst_mat = ChMaterialSurface::DefaultMaterial(system->GetContactMethod());
+    auto obst_mat = ChContactMaterial::DefaultMaterial(system->GetContactMethod());
     obst_mat->SetFriction(friction_coefficient);
     obst_mat->SetRestitution(restitution_coefficient);
 
-    obstacle->GetCollisionModel()->ClearModel();
-    obstacle->GetCollisionModel()->AddCylinder(obst_mat, radius, radius, length * 0.5, ChVector<>(obstacle_distance, 0, 0));
-    obstacle->GetCollisionModel()->BuildModel();
+    obstacle->GetCollisionModel()->AddCylinder(obst_mat, radius, radius, length * 0.5, ChVector3d(obstacle_distance, 0, 0));
 
     system->AddBody(obstacle);
 }

@@ -24,7 +24,6 @@
 //
 // =============================================================================
 
-#include "chrono/core/ChStream.h"
 #include "chrono/utils/ChFilters.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
@@ -63,7 +62,7 @@ std::string steering_controller_file("hmmwv/SteeringController.json");
 std::string speed_controller_file("hmmwv/SpeedController.json");
 
 // Initial vehicle position
-ChVector<> initLoc(-40, 0, 0.7);
+ChVector3d initLoc(-40, 0, 0.7);
 
 // Simulation step size (should not be too high!)
 double step_size = 1e-3;
@@ -76,7 +75,7 @@ bool useMesh = true;
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2018 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2018 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     const int heightVals[16] = {0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30};
     int iObstacle = 1;
@@ -87,23 +86,23 @@ int main(int argc, char* argv[]) {
     switch (argc) {
         default:
         case 1:
-            GetLog() << "usage: demo_VEH_Shock [ObstacleNumber [Speed_mph]]\n\n";
-            GetLog() << "Using standard values for simulation:\n"
+            std::cout << "usage: demo_VEH_Shock [ObstacleNumber [Speed_mph]]\n\n";
+            std::cout << "Using standard values for simulation:\n"
                      << "Terrain No. = " << iObstacle << " (" << heightVals[iObstacle] << " in Obstacle Height)\n"
                      << "Speed       = " << target_speed << " mph\n";
             break;
         case 2:
             iObstacle = ChClamp(atoi(argv[1]), 1, 15);
-            GetLog() << "usage: demo_VEH_Shock [ObstacleNumber [Speed_mph]]\n\n";
-            GetLog() << "Using standard values for simulation:\n"
+            std::cout << "usage: demo_VEH_Shock [ObstacleNumber [Speed_mph]]\n\n";
+            std::cout << "Using standard values for simulation:\n"
                      << "Terrain No. = " << iObstacle << " (" << heightVals[iObstacle] << " in Obstacle Height)\n"
                      << "Speed       = " << target_speed << " mph\n";
             break;
         case 3:
             iObstacle = ChClamp(atoi(argv[1]), 1, 15);
             target_speed = ChClamp<double>(atof(argv[2]), 1, 100);
-            GetLog() << "usage: demo_VEH_Shock [ObstacleNumber [Speed_mph]]\n\n";
-            GetLog() << "Using standard values for simulation:\n"
+            std::cout << "usage: demo_VEH_Shock [ObstacleNumber [Speed_mph]]\n\n";
+            std::cout << "Using standard values for simulation:\n"
                      << "Terrain No. = " << iObstacle << " (" << heightVals[iObstacle] << " in Obstacle Height)\n"
                      << "Speed       = " << target_speed << " mph\n";
             break;
@@ -173,7 +172,7 @@ int main(int argc, char* argv[]) {
     mrole.SetTireVisualizationType(VisualizationType::MESH);
     ////mrole.GetChassis()->SetFixed(true);
 
-    GetLog() << "\nBe patient - startup may take some time... \n";
+    std::cout << "\nBe patient - startup may take some time... \n";
 
     // Create the ground
     // RigidTerrain terrain(mrole.GetSystem(), vehicle::GetDataFile(rigidterrain_file));
@@ -188,7 +187,7 @@ int main(int argc, char* argv[]) {
 #ifdef USE_IRRLICHT
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Multi Role Vehicle Shock Test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -197,7 +196,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     // Create the driver
-    auto path = ChBezierCurve::read(vehicle::GetDataFile(path_file));
+    auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
     ChPathFollowerDriver driver(mrole.GetVehicle(), vehicle::GetDataFile(steering_controller_file),
                                 vehicle::GetDataFile(speed_controller_file), path, "my_path", target_speed);
     driver.Initialize();
@@ -238,7 +237,7 @@ int main(int argc, char* argv[]) {
             break;
         }
         if (xpos >= xstart) {
-            ChVector<> seat_acc = mrole.GetVehicle().GetPointAcceleration(
+            ChVector3d seat_acc = mrole.GetVehicle().GetPointAcceleration(
                 mrole.GetVehicle().GetChassis()->GetLocalDriverCoordsys().pos);
             seat_logger.AddData(seat_acc);
         }
@@ -267,7 +266,7 @@ int main(int argc, char* argv[]) {
 
         if (v_pos >= xstart) {
             double speed = mrole.GetSpeed();
-            ChVector<> seat_acc = mrole.GetPointAcceleration(mrole.GetChassis()->GetLocalDriverCoordsys().pos);
+            ChVector3d seat_acc = mrole.GetPointAcceleration(mrole.GetChassis()->GetLocalDriverCoordsys().pos);
             seat_logger.AddData(seat_acc);
         }
     }
@@ -282,24 +281,24 @@ int main(int argc, char* argv[]) {
     double az_limit = 2.5;
     double az = seat_logger.GetLegacyAz();
 
-    GetLog() << "Shock Simulation Results #1 (ISO 2631-5 Method):\n";
-    GetLog() << "  Significant Speed                        Vsig = " << target_speed << " m/s\n";
-    GetLog() << "  Equivalent Static Spine Compressive Stress Se = " << se << " MPa\n";
+    std::cout << "Shock Simulation Results #1 (ISO 2631-5 Method):\n";
+    std::cout << "  Significant Speed                        Vsig = " << target_speed << " m/s\n";
+    std::cout << "  Equivalent Static Spine Compressive Stress Se = " << se << " MPa\n";
     if (se <= se_low) {
-        GetLog() << "Se <= " << se_low << " MPa (ok) - low risc of health effect, below limit for average occupants\n";
+        std::cout << "Se <= " << se_low << " MPa (ok) - low risc of health effect, below limit for average occupants\n";
     } else if (se >= se_high) {
-        GetLog() << "Se >= " << se_high << " MPa - severe risc of health effect!\n";
+        std::cout << "Se >= " << se_high << " MPa - severe risc of health effect!\n";
     } else {
-        GetLog() << "Se is between [" << se_low << ";" << se_high << "] - risc of health effects, above limit!\n";
+        std::cout << "Se is between [" << se_low << ";" << se_high << "] - risc of health effects, above limit!\n";
     }
-    GetLog() << "\nShock Simulation Results #2 (Traditional NRMM Method):\n";
-    GetLog() << "Significant Speed = " << target_speed << " mph\n";
-    GetLog() << "Obstacle Height   = " << heightVals[iObstacle] << " in\n";
-    GetLog() << "  Maximum Vertical Seat Acceleration = " << az << " g\n";
+    std::cout << "\nShock Simulation Results #2 (Traditional NRMM Method):\n";
+    std::cout << "Significant Speed = " << target_speed << " mph\n";
+    std::cout << "Obstacle Height   = " << heightVals[iObstacle] << " in\n";
+    std::cout << "  Maximum Vertical Seat Acceleration = " << az << " g\n";
     if (az <= az_limit) {
-        GetLog() << "Az <= " << az_limit << " g (ok)\n";
+        std::cout << "Az <= " << az_limit << " g (ok)\n";
     } else {
-        GetLog() << "Az > " << az_limit << " g - severe risk for average occupant!\n";
+        std::cout << "Az > " << az_limit << " g - severe risk for average occupant!\n";
     }
     return 0;
 }

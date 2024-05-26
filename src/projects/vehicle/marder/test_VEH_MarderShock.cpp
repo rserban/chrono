@@ -49,7 +49,7 @@ using std::endl;
 // USER SETTINGS
 // =============================================================================
 // Initial vehicle position
-ChVector<> initLoc(0, 0, 0.9);
+ChVector3d initLoc(0, 0, 0.9);
 
 // Initial vehicle orientation
 ChQuaternion<> initRot(1, 0, 0, 0);
@@ -73,7 +73,7 @@ bool use_mkl = false;
 double render_step_size = 1.0 / 120;  // FPS = 120
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 0.0, 0.0);
+ChVector3d trackPoint(0.0, 0.0, 0.0);
 
 // Driver input files
 std::string path_file("paths/straightOrigin.txt");
@@ -99,9 +99,9 @@ void AddFallingObjects(ChSystem* system);
 
 // =============================================================================
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
-    ChFunction_Recorder accTravel;
+    ChFunctionInterp accTravel;
     accTravel.AddPoint(1.0, 10.0);
     accTravel.AddPoint(5.0, 10.0);
     accTravel.AddPoint(10.0, 25.0);
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     accTravel.AddPoint(20.0, 300.0);
 
     double target_speed = 1.0;
-    double obs_xpos = accTravel.Get_y(target_speed) + 1.0;
+    double obs_xpos = accTravel.GetVal(target_speed) + 1.0;
     double obs_radius = 0.9;
     double xpos_max = obs_xpos + 10.0;
     // --------------------------
@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
     ////DrivelineTypeTV driveline_type = DrivelineTypeTV::SIMPLE;
     BrakeType brake_type = BrakeType::SIMPLE;
     EngineModelType engine_type = EngineModelType::SIMPLE_MAP;
-    TransmissionModelType transmission_type = TransmissionModelType::SIMPLE_MAP;
+    TransmissionModelType transmission_type = TransmissionModelType::AUTOMATIC_SIMPLE_MAP;
 
     Marder marder;
     marder.SetContactMethod(contact_method);
@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
     ////marder.CreateTrack(false);
 
     // Disable gravity in this simulation
-    ////marder.GetSystem()->Set_G_acc(ChVector<>(0, 0, 0));
+    ////marder.GetSystem()->SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
     // Control steering type (enable crossdrive capability)
     ////marder.GetDriveline()->SetGyrationMode(true);
@@ -163,10 +163,10 @@ int main(int argc, char* argv[]) {
     // --------------------------------------------------
 
     // Enable contact on all tracked vehicle parts, except the left sprocket
-    ////marder.GetVehicle().SetCollide(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
+    ////marder.GetVehicle().EnableCollision(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
 
     // Disable contact for all tracked vehicle parts
-    ////marder.GetVehicle().SetCollide(TrackedCollisionFlag::NONE);
+    ////marder.GetVehicle().EnableCollision(TrackedCollisionFlag::NONE);
 
     // Disable all contacts for vehicle chassis (if chassis collision was defined)
     ////marder.GetVehicle().SetChassisCollide(false);
@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
     minfo.Y = 2e7f;
     for (int i = 0; i < 6; i++) {
         auto patch_mat = minfo.CreateMaterial(contact_method);
-        auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(ChVector<>(terrainLength * double(i), 0, 0), QUNIT),
+        auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(ChVector3d(terrainLength * double(i), 0, 0), QUNIT),
                                       terrainLength, terrainWidth);
         patch->SetColor(ChColor(0.5f, 0.8f, 0.5f));
         patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
@@ -213,7 +213,7 @@ int main(int argc, char* argv[]) {
     ////AddFallingObjects(vehicle.GetSystem());
 
     // Create the driver
-    auto path = ChBezierCurve::read(vehicle::GetDataFile(path_file));
+    auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
     ChPathFollowerDriver driver(marder.GetVehicle(), vehicle::GetDataFile(steering_controller_file),
                                 vehicle::GetDataFile(speed_controller_file), path, "my_path", 0.0);
     driver.Initialize();
@@ -285,12 +285,10 @@ int main(int argc, char* argv[]) {
         marder.GetSystem()->SetTimestepperType(ChTimestepper::Type::HHT);
         auto integrator = std::static_pointer_cast<ChTimestepperHHT>(marder.GetSystem()->GetTimestepper());
         integrator->SetAlpha(-0.2);
-        integrator->SetMaxiters(50);
+        integrator->SetMaxIters(50);
         integrator->SetAbsTolerances(1e-4, 1e2);
-        integrator->SetMode(ChTimestepperHHT::ACCELERATION);
         integrator->SetStepControl(false);
         integrator->SetModifiedNewton(false);
-        integrator->SetScaling(true);
         integrator->SetVerbose(true);
 #endif
     } else {
@@ -301,7 +299,6 @@ int main(int argc, char* argv[]) {
         marder.GetSystem()->SetSolver(solver);
 
         marder.GetSystem()->SetMaxPenetrationRecoverySpeed(1.5);
-        marder.GetSystem()->SetMinBounceSpeed(2.0);
     }
 
     // ---------------
@@ -326,8 +323,8 @@ int main(int argc, char* argv[]) {
     std::ofstream kurs(out_dir + "/path.txt");
 
     // ChRealtimeStepTimer realtime_timer;
-    ChFunction_Recorder accLogger;
-    utils::ChButterworth_Lowpass lp(4, step_size, 30.0);
+    ChFunctionInterp accLogger;
+    utils::ChButterworthLowpass lp(4, step_size, 30.0);
     utils::ChRunningAverage avg(50);
     while (vis->Run()) {
         // Debugging output
@@ -335,23 +332,23 @@ int main(int argc, char* argv[]) {
             auto track_L = marder.GetVehicle().GetTrackAssembly(LEFT);
             auto track_R = marder.GetVehicle().GetTrackAssembly(RIGHT);
             cout << "Time: " << marder.GetSystem()->GetChTime() << endl;
-            cout << "      Num. contacts: " << marder.GetSystem()->GetNcontacts() << endl;
-            const ChFrameMoving<>& c_ref = marder.GetChassisBody()->GetFrame_REF_to_abs();
-            const ChVector<>& c_pos = marder.GetVehicle().GetPos();
+            cout << "      Num. contacts: " << marder.GetSystem()->GetNumContacts() << endl;
+            const ChFrameMoving<>& c_ref = marder.GetChassisBody()->GetFrameRefToAbs();
+            const ChVector3d& c_pos = marder.GetVehicle().GetPos();
             cout << "      chassis:    " << c_pos.x() << "  " << c_pos.y() << "  " << c_pos.z() << endl;
             {
-                const ChVector<>& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
-                const ChVector<>& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
-                ChVector<> i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
-                ChVector<> s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
+                const ChVector3d& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
+                const ChVector3d& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
+                ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
+                ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                 cout << "      L idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  " << i_pos_rel.z() << endl;
                 cout << "      L sprocket: " << s_pos_rel.x() << "  " << s_pos_rel.y() << "  " << s_pos_rel.z() << endl;
             }
             {
-                const ChVector<>& i_pos_abs = track_R->GetIdler()->GetWheelBody()->GetPos();
-                const ChVector<>& s_pos_abs = track_R->GetSprocket()->GetGearBody()->GetPos();
-                ChVector<> i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
-                ChVector<> s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
+                const ChVector3d& i_pos_abs = track_R->GetIdler()->GetWheelBody()->GetPos();
+                const ChVector3d& s_pos_abs = track_R->GetSprocket()->GetGearBody()->GetPos();
+                ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
+                ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                 cout << "      R idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  " << i_pos_rel.z() << endl;
                 cout << "      R sprocket: " << s_pos_rel.x() << "  " << s_pos_rel.y() << "  " << s_pos_rel.z() << endl;
             }
@@ -402,7 +399,7 @@ int main(int argc, char* argv[]) {
         }
         if (xpos > xpos_max)
             break;
-        driver.SetDesiredSpeed(ChSineStep(time, 1.0, 0.0, 2.0, target_speed));
+        driver.SetDesiredSpeed(ChFunctionSineStep::Eval(time, 1.0, 0.0, 2.0, target_speed));
         // Collect output data from modules
         DriverInputs driver_inputs = driver.GetInputs();
         marder.GetVehicle().GetTrackShoeStates(LEFT, shoe_states_left);
@@ -437,9 +434,9 @@ int main(int argc, char* argv[]) {
     double t1, t2, azmin, azmax;
     accLogger.Estimate_x_range(t1, t2);
     accLogger.Estimate_y_range(t1, t2, azmin, azmax, 0);
-    GetLog() << "Contact speed     = " << contact_speed << " m/s\n";
+    std::cout << "Contact speed     = " << contact_speed << " m/s\n";
     azmax /= 9.81;
-    GetLog() << "Seat acceleration = " << azmax << " g\n";
+    std::cout << "Seat acceleration = " << azmax << " g\n";
     kurs.close();
     return 0;
 }
@@ -449,15 +446,15 @@ void AddFixedObstacles(ChSystem* system, double xpos, double radius) {
     // double radius = 0.25;
     double length = 10;
 
-    auto obstacle = std::shared_ptr<ChBody>(system->NewBody());
-    obstacle->SetPos(ChVector<>(xpos, 0, 0.0));
-    obstacle->SetBodyFixed(true);
-    obstacle->SetCollide(true);
+    auto obstacle = chrono_types::make_shared<ChBody>();
+    obstacle->SetPos(ChVector3d(xpos, 0, 0.0));
+    obstacle->SetFixed(true);
+    obstacle->EnableCollision(true);
 
     // Visualization
-    auto shape = chrono_types::make_shared<ChCylinderShape>(radius, length);
+    auto shape = chrono_types::make_shared<ChVisualShapeCylinder>(radius, length);
     shape->SetColor(ChColor(1, 1, 1));
-    obstacle->AddVisualShape(shape, ChFrame<>(VNULL, Q_from_AngX(CH_C_PI_2)));
+    obstacle->AddVisualShape(shape, ChFrame<>(VNULL, QuatFromAngleX(CH_PI_2)));
 
     auto texture = chrono_types::make_shared<ChTexture>();
     obstacle->GetVisualShape(0)->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 10, 10);
@@ -469,9 +466,7 @@ void AddFixedObstacles(ChSystem* system, double xpos, double radius) {
     minfo.Y = 2e7f;
     auto obst_mat = minfo.CreateMaterial(system->GetContactMethod());
 
-    obstacle->GetCollisionModel()->ClearModel();
     obstacle->GetCollisionModel()->AddCylinder(obst_mat, radius, radius, length * 0.5);
-    obstacle->GetCollisionModel()->BuildModel();
 
     system->AddBody(obstacle);
 }
@@ -481,23 +476,21 @@ void AddFallingObjects(ChSystem* system) {
     double radius = 0.1;
     double mass = 10;
 
-    auto ball = std::shared_ptr<ChBody>(system->NewBody());
+    auto ball = chrono_types::make_shared<ChBody>();
     ball->SetMass(mass);
-    ball->SetInertiaXX(0.4 * mass * radius * radius * ChVector<>(1, 1, 1));
-    ball->SetPos(initLoc + ChVector<>(-3, 0, 2));
+    ball->SetInertiaXX(0.4 * mass * radius * radius * ChVector3d(1, 1, 1));
+    ball->SetPos(initLoc + ChVector3d(-3, 0, 2));
     ball->SetRot(ChQuaternion<>(1, 0, 0, 0));
-    ball->SetPos_dt(ChVector<>(3, 0, 0));
-    ball->SetBodyFixed(false);
+    ball->SetPosDt(ChVector3d(3, 0, 0));
+    ball->SetFixed(false);
 
     ChContactMaterialData minfo;
     auto obst_mat = minfo.CreateMaterial(system->GetContactMethod());
 
-    ball->SetCollide(true);
-    ball->GetCollisionModel()->ClearModel();
+    ball->EnableCollision(true);
     ball->GetCollisionModel()->AddSphere(obst_mat, radius);
-    ball->GetCollisionModel()->BuildModel();
 
-    auto sphere = chrono_types::make_shared<ChSphereShape>(radius);
+    auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(radius);
     sphere->SetTexture(GetChronoDataFile("textures/bluewhite.png"));
     ball->AddVisualShape(sphere);
 

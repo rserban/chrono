@@ -10,7 +10,7 @@ void test1() {
     std::vector<double> y_val;
     int nv = 21;
     for (int i = 0; i < nv; i++) {
-        double x = i * CH_C_2PI / (nv - 1);
+        double x = i * CH_2PI / (nv - 1);
         x_val.push_back(x);
         y_val.push_back(std::sin(x));
     }
@@ -25,7 +25,7 @@ void test1() {
     ChCubicSpline spline(x_val, y_val);
 
     double x_min = 0;
-    double x_max = CH_C_2PI;
+    double x_max = CH_2PI;
     int n = 300;
 
     ChVectorDynamic<> x(n);

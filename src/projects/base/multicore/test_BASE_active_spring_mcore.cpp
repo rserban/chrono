@@ -20,10 +20,9 @@
 
 #include <cstdio>
 
-#include "chrono/assets/ChPointPointShape.h"
-#include "chrono/assets/ChSphereShape.h"
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/core/ChLog.h"
+#include "chrono/assets/ChVisualShapePointPoint.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/physics/ChBody.h"
 
 #include "chrono_multicore/physics/ChSystemMulticore.h"
@@ -65,7 +64,7 @@ class MySpringForce : public ChLinkTSDA::ForceFunctor {
 
 // Functor class implementing the ODE right-hand side for a ChLinkTSDA.
 class MySpringRHS : public ChLinkTSDA::ODE {
-    virtual int GetNumStates() const override { return 2; }
+    virtual unsigned int GetNumStates() const override { return 2; }
     virtual void SetInitialConditions(ChVectorDynamic<>& states,  // output vector containig initial conditions
                                       const ChLinkTSDA& link      // associated link
                                       ) override {
@@ -85,30 +84,30 @@ class MySpringRHS : public ChLinkTSDA::ODE {
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     ChSystemMulticoreNSC system;
-    system.Set_G_acc(ChVector<>(0, 0, 0));
+    system.SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
     // Create the ground body with two visualization spheres
     auto ground = chrono_types::make_shared<ChBody>();
     system.AddBody(ground);
-    ground->SetBodyFixed(true);
-    ground->SetCollide(false);
+    ground->SetFixed(true);
+    ground->EnableCollision(false);
 
-    auto sph = chrono_types::make_shared<ChSphereShape>(0.1);
-    ground->AddVisualShape(sph, ChFrame<>(ChVector<>(0, 0, 0)));
+    auto sph = chrono_types::make_shared<ChVisualShapeSphere>(0.1);
+    ground->AddVisualShape(sph, ChFrame<>(ChVector3d(0, 0, 0)));
 
     // Create a body suspended through a ChLinkTSDA
     auto body = chrono_types::make_shared<ChBody>();
     system.AddBody(body);
-    body->SetPos(ChVector<>(0, -3, 0));
-    body->SetBodyFixed(false);
-    body->SetCollide(false);
+    body->SetPos(ChVector3d(0, -3, 0));
+    body->SetFixed(false);
+    body->EnableCollision(false);
     body->SetMass(1);
-    body->SetInertiaXX(ChVector<>(1, 1, 1));
+    body->SetInertiaXX(ChVector3d(1, 1, 1));
 
-    auto box = chrono_types::make_shared<ChBoxShape>(2, 2, 2);
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(2, 2, 2);
     box->SetColor(ChColor(0.6f, 0, 0));
     body->AddVisualShape(box);
 
@@ -117,12 +116,12 @@ int main(int argc, char* argv[]) {
     MySpringRHS rhs;
 
     auto spring = chrono_types::make_shared<ChLinkTSDA>();
-    spring->Initialize(body, ground, true, ChVector<>(0, 0, 0), ChVector<>(0, 0, 0));
+    spring->Initialize(body, ground, true, ChVector3d(0, 0, 0), ChVector3d(0, 0, 0));
     spring->SetRestLength(rest_length);
     spring->RegisterForceFunctor(force);
     spring->RegisterODE(&rhs);
     system.AddLink(spring);
-    auto spring_shape = chrono_types::make_shared<ChSpringShape>(0.05, 80, 15);
+    auto spring_shape = chrono_types::make_shared<ChVisualShapeSpring>(0.05, 80, 15);
     spring_shape->SetColor(ChColor(0.5f, 0.5f, 0.5f));
     spring->AddVisualShape(spring_shape);
 
@@ -133,7 +132,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(0, 0, 5), ChVector<>(0, 0, 0));
+    vis.AddCamera(ChVector3d(0, 0, 5), ChVector3d(0, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Y);
 
     // Create output directory and log file

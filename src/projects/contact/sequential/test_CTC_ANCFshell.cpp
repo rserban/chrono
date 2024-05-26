@@ -35,16 +35,16 @@ using namespace chrono::irrlicht;
 double sphere_swept_thickness = 0.01;
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.8));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.8));
 
     // max inside penetration (Bullet specific setting)
-    collision::ChCollisionModel::SetDefaultSuggestedMargin(0.001);
+    ChCollisionModel::SetDefaultSuggestedMargin(0.001);
 
     // Create contact surface material.
-    auto contact_mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto contact_mat = chrono_types::make_shared<ChContactMaterialSMC>();
     contact_mat->SetYoungModulus(6e4f);
     contact_mat->SetFriction(0.3f);
     contact_mat->SetRestitution(0.5f);
@@ -52,33 +52,33 @@ int main(int argc, char* argv[]) {
 
     // Adding fixed bodies and collision shapes
     auto cyl1 =
-        chrono_types::make_shared<ChBodyEasyCylinder>(geometry::ChAxis::Y, 0.1, 0.4, 1000, true, true, contact_mat);
-    cyl1->SetBodyFixed(true);
-    cyl1->SetPos(ChVector<>(0, 0, -0.25));
-    cyl1->SetRot(Q_from_AngZ(CH_C_PI_2));
+        chrono_types::make_shared<ChBodyEasyCylinder>(ChAxis::Y, 0.1, 0.4, 1000, true, true, contact_mat);
+    cyl1->SetFixed(true);
+    cyl1->SetPos(ChVector3d(0, 0, -0.25));
+    cyl1->SetRot(QuatFromAngleZ(CH_PI_2));
     sys.Add(cyl1);
 
     auto cyl2 =
-        chrono_types::make_shared<ChBodyEasyCylinder>(geometry::ChAxis::Y, 0.1, 0.4, 1000, true, true, contact_mat);
-    cyl2->SetBodyFixed(true);
-    cyl2->SetPos(ChVector<>(0, 0, 0.25));
-    cyl2->SetRot(Q_from_AngZ(CH_C_PI_2));
+        chrono_types::make_shared<ChBodyEasyCylinder>(ChAxis::Y, 0.1, 0.4, 1000, true, true, contact_mat);
+    cyl2->SetFixed(true);
+    cyl2->SetPos(ChVector3d(0, 0, 0.25));
+    cyl2->SetRot(QuatFromAngleZ(CH_PI_2));
     sys.Add(cyl2);
 
     // Create a mesh and import from file
     auto my_mesh = chrono_types::make_shared<ChMesh>();
     auto material = chrono_types::make_shared<ChMaterialShellANCF>(1000, 1e8, 0.3);
 
-    ChVector<> center(0, 0.5, 0);
-    ChMatrix33<> rot(-CH_C_PI_2, ChVector<>(0, 0, 1));
+    ChVector3d center(0, 0.5, 0);
+    ChMatrix33<> rot(-CH_PI_2, ChVector3d(0, 0, 1));
 
     try {
         std::vector<int> BC_NODES;
         std::vector<double> NODE_AVE_AREA;
         ChMeshFileLoader::ANCFShellFromGMFFile(my_mesh, GetChronoDataFile("fea/Plate.mesh").c_str(), material,
                                                NODE_AVE_AREA, BC_NODES, center, rot, 1, false, false);
-    } catch (ChException myerr) {
-        GetLog() << myerr.what();
+    } catch (std::exception myerr) {
+        std::cout << myerr.what();
         return 0;
     }
 
@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
     // Set structural damping.
     for (auto el : my_mesh->GetElements()) {
         auto element = std::dynamic_pointer_cast<ChElementShellANCF_3423>(el);
-        element->AddLayer(0.01, 0 * CH_C_DEG_TO_RAD, material);
+        element->AddLayer(0.01, 0 * CH_DEG_TO_RAD, material);
         element->SetAlphaDamp(0.08);
     }
 
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(1.0, 0.0, 0.0));
+    vis->AddCamera(ChVector3d(1.0, 0.0, 0.0));
     vis->EnableContactDrawing(ContactsDrawMode::CONTACT_DISTANCES);
     vis->AttachSystem(&sys);
 
@@ -141,10 +141,8 @@ int main(int argc, char* argv[]) {
     sys.SetTimestepperType(ChTimestepper::Type::HHT);
     auto stepper = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
     stepper->SetAlpha(-0.2);
-    stepper->SetMaxiters(200);
+    stepper->SetMaxIters(200);
     stepper->SetAbsTolerances(1e-06);
-    stepper->SetMode(ChTimestepperHHT::POSITION);
-    stepper->SetScaling(true);
     stepper->SetVerbose(false);
 
     // Simulate, flipping the direction of gravity every 0.5 seconds
@@ -156,7 +154,7 @@ int main(int argc, char* argv[]) {
         vis->BeginScene();
         vis->Render();
         if (frame % flip_frames == 0)
-            sys.Set_G_acc(-sys.Get_G_acc());
+            sys.SetGravitationalAcceleration(-sys.GetGravitationalAcceleration());
         vis->EndScene();
         sys.DoStepDynamics(time_step);
         frame++;

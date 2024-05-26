@@ -50,7 +50,7 @@ double delta = 0.05;         // SCM grid spacing
 bool heightmapterrain = false;
 std::string heightmap_file = "";
 
-ChCoordsys<> init_pos(ChVector<>(1.3, 0, 0.1), QUNIT);
+ChCoordsys<> init_pos(ChVector3d(1.3, 0, 0.1), QUNIT);
 
 // -----------------------------------------------------------------------------
 // Simulation parameters
@@ -60,7 +60,7 @@ ChCoordsys<> init_pos(ChVector<>(1.3, 0, 0.1), QUNIT);
 double step_size = 1e-3;
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 0.0, 1.75);
+ChVector3d trackPoint(0.0, 0.0, 1.75);
 
 // Output directories
 const std::string out_dir = GetChronoOutputPath() + "POLARIS_SCM";
@@ -68,7 +68,7 @@ const std::string out_dir = GetChronoOutputPath() + "POLARIS_SCM";
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // ------------------------
     // Create the Chrono system
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     ChSystemNSC sys;
     sys.SetNumThreads(std::min(8, ChOMP::GetNumProcs()));
-    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
     // --------------------------
     // Create the Polaris vehicle
@@ -132,8 +132,8 @@ int main(int argc, char* argv[]) {
 
     // Optionally, enable moving patch feature (multiple patches around each wheel)
     ////for (auto& axle : vehicle.GetAxles()) {
-    ////    terrain.AddMovingPatch(axle->m_wheels[0]->GetSpindle(), ChVector<>(0, 0, 0), ChVector<>(1, 0.5, 1));
-    ////    terrain.AddMovingPatch(axle->m_wheels[1]->GetSpindle(), ChVector<>(0, 0, 0), ChVector<>(1, 0.5, 1));
+    ////    terrain.AddMovingPatch(axle->m_wheels[0]->GetSpindle(), ChVector3d(0, 0, 0), ChVector3d(1, 0.5, 1));
+    ////    terrain.AddMovingPatch(axle->m_wheels[1]->GetSpindle(), ChVector3d(0, 0, 0), ChVector3d(1, 0.5, 1));
     ////}
 
     terrain.SetPlotType(vehicle::SCMTerrain::PLOT_SINKAGE, 0, 0.1);
@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
-    utils::CSV_writer csv(" ");
+    utils::ChWriterCSV csv(" ");
 
     // ---------------
     // Simulation loop
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
         // Output tire forces
         csv << time;
         for (int i = 0; i < 4; i++) {
-            ChVector<> force, moment;
+            ChVector3d force, moment;
             const auto& tfrc = terrain.GetContactForceBody(wheels[i]->GetSpindle(), force, moment);
             csv << force << moment;
         }
@@ -210,7 +210,7 @@ int main(int argc, char* argv[]) {
         vis.Advance(step_size);
     }
 
-    csv.write_to_file(out_dir + "/tire_forces.dat", std::to_string(num_times));
+    csv.WriteToFile(out_dir + "/tire_forces.dat", std::to_string(num_times));
 
     return 0;
 }

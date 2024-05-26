@@ -43,9 +43,9 @@ using namespace chrono::vehicle;
 // =============================================================================
 
 // Initial vehicle location and orientation
-ChVector<> initLoc(0, 1, 10);
+ChVector3d initLoc(0, 1, 10);
 double initYaw = 0;
-////double initYaw = CH_C_PI / 4;  // 45 deg towards vehicle's left
+////double initYaw = CH_PI / 4;  // 45 deg towards vehicle's left
 
 // =============================================================================
 
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle system
     auto contact_method = ChContactMethod::SMC;
     WheeledVehicle vehicle(vehicle::GetDataFile(vehicle_json), contact_method);
-    vehicle.Initialize(ChCoordsys<>(ChVector<>(0, 0, 0.2), QUNIT));
+    vehicle.Initialize(ChCoordsys<>(ChVector3d(0, 0, 0.2), QUNIT));
     vehicle.GetChassis()->SetFixed(false);
     vehicle.SetChassisVisualizationType(VisualizationType::MESH);
     vehicle.SetSuspensionVisualizationType(VisualizationType::PRIMITIVES);
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
 
     // Create the terrain
     RigidTerrain terrain(vehicle.GetSystem());
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialSMC>();
     patch_mat->SetFriction(0.9f);
     patch_mat->SetRestitution(0.01f);
     patch_mat->SetYoungModulus(2e7f);
@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
     terrain.Initialize();
 
     // Path follower driver
-    auto path = CirclePath(ChVector<>(0,0,0.5), 6, 20, true, 5);
+    auto path = CirclePath(ChVector3d(0,0,0.5), 6, 20, true, 5);
 
     ChPathFollowerDriver driver(vehicle, path, "my_path", 3);
     driver.GetSteeringController().SetLookAheadDistance(2.0);
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht interface
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Polaris acceleration test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 5.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 5.0, 0.5);
     vis->Initialize();
     vis->AddSkyBox();
     vis->AddLogo();
@@ -128,8 +128,8 @@ int main(int argc, char* argv[]) {
     while (vis->Run()) {
         double time = vehicle.GetChTime();
 
-        const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 

@@ -65,7 +65,7 @@ void DataWriter::UseFilteredAccData(bool val, double window) {
     m_filter_window_acc = window;
 }
 
-void DataWriter::SetSamplingVolume(const ChVector<>& offset, const ChVector2<>& size) {
+void DataWriter::SetSamplingVolume(const ChVector3d& offset, const ChVector2<>& size) {
     m_box_size.x() = size.x();
     m_box_size.y() = size.y();
     m_box_offset = offset;
@@ -262,7 +262,7 @@ DataWriterVehicle::DataWriterVehicle(ChSystemFsi& sysFSI, std::shared_ptr<Wheele
     m_box_size.z() = 0.2;
 
     // Set default offset of sampling box
-    m_box_offset = ChVector<>(0.15, 0.0, 0.0);
+    m_box_offset = ChVector3d(0.15, 0.0, 0.0);
 
     m_vel_channels = {
         7,  8,  9,  10, 11, 12,  // chassis
@@ -296,13 +296,13 @@ void DataWriterVehicle::CollectDataMBS() {
     m_mbs_outputs[start + 3] = v_rot.e3();
     start += 4;
 
-    auto v_vel = m_vehicle->GetPointVelocity(ChVector<>(0, 0, 0));
+    auto v_vel = m_vehicle->GetPointVelocity(ChVector3d(0, 0, 0));
     m_mbs_outputs[start + 0] = v_vel.x();
     m_mbs_outputs[start + 1] = v_vel.y();
     m_mbs_outputs[start + 2] = v_vel.z();
     start += 3;
 
-    auto v_omg = m_vehicle->GetChassisBody()->GetWvel_par();
+    auto v_omg = m_vehicle->GetChassisBody()->GetAngVelParent();
     m_mbs_outputs[start + 0] = v_omg.x();
     m_mbs_outputs[start + 1] = v_omg.y();
     m_mbs_outputs[start + 2] = v_omg.z();
@@ -385,18 +385,18 @@ ChFrame<> DataWriterVehicle::GetSampleBoxFrame(int box_id) const {
     auto wheel_normal = m_wheels[box_id]->GetSpindle()->GetRot().GetYaxis();
     auto tire_radius = m_wheels[box_id]->GetTire()->GetRadius();
 
-    ChVector<> Z_dir(0, 0, 1);
-    ChVector<> X_dir = Vcross(wheel_normal, ChVector<>(0, 0, 1)).GetNormalized();
-    ChVector<> Y_dir = Vcross(Z_dir, X_dir);
+    ChVector3d Z_dir(0, 0, 1);
+    ChVector3d X_dir = Vcross(wheel_normal, ChVector3d(0, 0, 1)).GetNormalized();
+    ChVector3d Y_dir = Vcross(Z_dir, X_dir);
     ChMatrix33<> box_rot(X_dir, Y_dir, Z_dir);
-    ChVector<> box_pos = wheel_pos + box_rot * (m_box_offset - ChVector<>(0, 0, tire_radius));
+    ChVector3d box_pos = wheel_pos + box_rot * (m_box_offset - ChVector3d(0, 0, tire_radius));
 
     return ChFrame<>(box_pos, box_rot);
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 
-DataWriterObject::DataWriterObject(ChSystemFsi& sysFSI, std::shared_ptr<ChBody> body, const ChVector<>& body_size)
+DataWriterObject::DataWriterObject(ChSystemFsi& sysFSI, std::shared_ptr<ChBody> body, const ChVector3d& body_size)
     : DataWriter(sysFSI, 1), m_body(body), m_body_size(body_size) {
     m_box_size = 2.0 * body_size;
     m_box_offset = VNULL;
@@ -421,13 +421,13 @@ void DataWriterObject::CollectDataMBS() {
     m_mbs_outputs[start + 3] = v_rot.e3();
     start += 4;
 
-    auto v_vel = m_body->GetPos_dt();
+    auto v_vel = m_body->GetPosDt();
     m_mbs_outputs[start + 0] = v_vel.x();
     m_mbs_outputs[start + 1] = v_vel.y();
     m_mbs_outputs[start + 2] = v_vel.z();
     start += 3;
 
-    auto v_omg = m_body->GetWvel_par();
+    auto v_omg = m_body->GetAngVelParent();
     m_mbs_outputs[start + 0] = v_omg.x();
     m_mbs_outputs[start + 1] = v_omg.y();
     m_mbs_outputs[start + 2] = v_omg.z();
@@ -473,11 +473,11 @@ ChFrame<> DataWriterObject::GetSampleBoxFrame(int box_id) const {
     auto normal = m_body->GetRot().GetYaxis();
     auto hheight = m_body_size.z() / 2;
 
-    ChVector<> Z_dir(0, 0, 1);
-    ChVector<> X_dir = Vcross(normal, ChVector<>(0, 0, 1)).GetNormalized();
-    ChVector<> Y_dir = Vcross(Z_dir, X_dir);
+    ChVector3d Z_dir(0, 0, 1);
+    ChVector3d X_dir = Vcross(normal, ChVector3d(0, 0, 1)).GetNormalized();
+    ChVector3d Y_dir = Vcross(Z_dir, X_dir);
     ChMatrix33<> box_rot(X_dir, Y_dir, Z_dir);
-    ChVector<> box_pos = pos + box_rot * (m_box_offset - ChVector<>(0, 0, hheight));
+    ChVector3d box_pos = pos + box_rot * (m_box_offset - ChVector3d(0, 0, hheight));
 
     return ChFrame<>(box_pos, box_rot);
 }

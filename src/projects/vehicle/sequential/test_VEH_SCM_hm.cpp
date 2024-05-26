@@ -29,43 +29,41 @@ using namespace chrono;
 using namespace chrono::irrlicht;
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // Global parameter for tire:
     double tire_rad = 0.8;
-    ChVector<> tire_center(-4.0, 0, 0.02 + tire_rad);
+    ChVector3d tire_center(-4.0, 0, 0.02 + tire_rad);
 
     ChSystemSMC my_system;
-    my_system.Set_G_acc(ChVector<>(0., 0, -9.8));
+    my_system.SetGravitationalAcceleration(ChVector3d(0., 0, -9.8));
 
     std::shared_ptr<ChBody> mtruss(new ChBody);
-    mtruss->SetBodyFixed(true);
+    mtruss->SetFixed(true);
     my_system.Add(mtruss);
 
     // Create a rigid body with a cylinder collision shape
     std::shared_ptr<ChBody> mrigidbody(new ChBody);
     my_system.Add(mrigidbody);
     mrigidbody->SetMass(500);
-    mrigidbody->SetInertiaXX(ChVector<>(20, 20, 20));
-    mrigidbody->SetPos(tire_center + ChVector<>(0, 0, 0.3));
+    mrigidbody->SetInertiaXX(ChVector3d(20, 20, 20));
+    mrigidbody->SetPos(tire_center + ChVector3d(0, 0, 0.3));
 
     double radius = 0.5;
     double width = 0.4;
 
-    auto material = chrono_types::make_shared<ChMaterialSurfaceSMC>();
-    mrigidbody->GetCollisionModel()->ClearModel();
+    auto material = chrono_types::make_shared<ChContactMaterialSMC>();
     mrigidbody->GetCollisionModel()->AddCylinder(material, radius, radius, width / 2);
-    mrigidbody->GetCollisionModel()->BuildModel();
-    mrigidbody->SetCollide(true);
+    mrigidbody->EnableCollision(true);
 
-    auto cyl_shape = chrono_types::make_shared<ChCylinderShape>(radius, width);
+    auto cyl_shape = chrono_types::make_shared<ChVisualShapeCylinder>(radius, width);
     cyl_shape->SetColor(ChColor(0.3f, 0.3f, 0.3f));
-    mrigidbody->AddVisualShape(cyl_shape, ChFrame<>(VNULL, Q_from_AngX(CH_C_PI_2)));
+    mrigidbody->AddVisualShape(cyl_shape, ChFrame<>(VNULL, QuatFromAngleX(CH_PI_2)));
 
     auto motor = chrono_types::make_shared<ChLinkMotorRotationAngle>();
     motor->SetSpindleConstraint(ChLinkMotorRotation::SpindleConstraint::OLDHAM);
-    motor->SetAngleFunction(chrono_types::make_shared<ChFunction_Ramp>(0, CH_C_PI / 4.0));
-    motor->Initialize(mrigidbody, mtruss, ChFrame<>(tire_center, Q_from_AngX(-CH_C_PI_2)));
+    motor->SetAngleFunction(chrono_types::make_shared<ChFunctionRamp>(0, CH_PI / 4.0));
+    motor->Initialize(mrigidbody, mtruss, ChFrame<>(tire_center, QuatFromAngleX(-CH_PI_2)));
     my_system.Add(motor);
 
     // Create the 'deformable terrain' object
@@ -100,14 +98,14 @@ int main(int argc, char* argv[]) {
     vis->Initialize();
     vis->AddLogo();
     vis->AddSkyBox();
-    vis->AddCamera(ChVector<>(2, 2, 2.5));
+    vis->AddCamera(ChVector3d(2, 2, 2.5));
     vis->AddTypicalLights();
     vis->AttachSystem(&my_system);
 
     while (vis->Run()) {
         vis->BeginScene();
         vis->GetActiveCamera()->setTarget(irr::core::vector3dfCH(mrigidbody->GetPos()));
-        vis->GetActiveCamera()->setPosition(irr::core::vector3dfCH(mrigidbody->GetPos() + ChVector<>(0, 2, 0)));
+        vis->GetActiveCamera()->setPosition(irr::core::vector3dfCH(mrigidbody->GetPos() + ChVector3d(0, 2, 0)));
         vis->Render();
         vis->EndScene();
         my_system.DoStepDynamics(2e-3);

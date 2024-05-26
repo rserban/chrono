@@ -66,7 +66,7 @@ std::shared_ptr<Viper> CreateViper(ChSystem& sys) {
     auto driver = chrono_types::make_shared<ViperSpeedDriver>(time_ramp_Wy, Wy);
     viper->SetDriver(driver);
 
-    viper->Initialize(ChFrame<>(ChVector<>(-5, 0, -0.2), QUNIT));
+    viper->Initialize(ChFrame<>(ChVector3d(-5, 0, -0.2), QUNIT));
 
     return viper;
 }
@@ -75,7 +75,7 @@ std::shared_ptr<vehicle::SCMTerrain> CreateTerrain(double resolution, bool enabl
     auto terrain = chrono_types::make_shared<vehicle::SCMTerrain>(&sys);
 
     // Displace/rotate the terrain reference plane
-    terrain->SetPlane(ChCoordsys<>(ChVector<>(0, 0, -0.5)));
+    terrain->SetPlane(ChCoordsys<>(ChVector3d(0, 0, -0.5)));
 
     // Initialize a rectangular pacth
     double length = 14;
@@ -133,10 +133,10 @@ std::shared_ptr<ChVisualSystem> CreateVisualization(ChVisualSystem::Type vis_typ
             vis_irr->Initialize();
             vis_irr->AddLogo();
             vis_irr->AddSkyBox();
-            vis_irr->AddCamera(ChVector<>(1.0, 2.0, 1.4), VNULL);
+            vis_irr->AddCamera(ChVector3d(1.0, 2.0, 1.4), VNULL);
             vis_irr->AddTypicalLights();
             if (add_grid)
-                vis_irr->AddGrid(0.2, 0.2, 80, 20, ChCoordsys<>(ChVector<>(0, 0, -0.5), QUNIT));
+                vis_irr->AddGrid(0.2, 0.2, 80, 20, ChCoordsys<>(ChVector3d(0, 0, -0.5), QUNIT));
             vis_irr->EnableShadows();
 
             vis = vis_irr;
@@ -150,9 +150,9 @@ std::shared_ptr<ChVisualSystem> CreateVisualization(ChVisualSystem::Type vis_typ
             vis_vsg->AttachSystem(&sys);
             vis_vsg->SetWindowSize(800, 600);
             vis_vsg->SetWindowTitle("Viper SCM test (SAVE)");
-            vis_vsg->AddCamera(ChVector<>(1.0, 2.0, 1.4), VNULL);
+            vis_vsg->AddCamera(ChVector3d(1.0, 2.0, 1.4), VNULL);
             if (add_grid)
-                vis_vsg->AddGrid(0.2, 0.2, 80, 20, ChCoordsys<>(ChVector<>(0, 0, -0.5), QUNIT));
+                vis_vsg->AddGrid(0.2, 0.2, 80, 20, ChCoordsys<>(ChVector3d(0, 0, -0.5), QUNIT));
             vis_vsg->Initialize();
 
             vis = vis_vsg;

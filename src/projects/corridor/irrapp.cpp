@@ -80,7 +80,7 @@ void IrrApp::ChangeVehicle(int index) {
     // Update the embedded chase cam
     m_camera->SetChassis(m_framework->m_ego_vehicle->GetVehicle().GetChassisBody());
     m_camera->Initialize(
-        ChVector<>(0.0, 0.0, .75),                                                        // point on chassis
+        ChVector3d(0.0, 0.0, .75),                                                        // point on chassis
         m_framework->m_ego_vehicle->GetVehicle().GetChassis()->GetLocalDriverCoordsys(),  // driver position
         6.0,                                                                              // chase distance
         0.5                                                                               // chase height

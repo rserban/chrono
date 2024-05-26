@@ -51,8 +51,8 @@ class Vehicle : public Agent {
     virtual chrono::vehicle::ChWheeledVehicle& GetVehicle() const = 0;
 
     virtual double GetLookAheadDistance() const = 0;
-    virtual chrono::ChVector<> GetSteeringGainsPID() const = 0;
-    virtual chrono::ChVector<> GetSpeedGainsPID() const = 0;
+    virtual chrono::ChVector3d GetSteeringGainsPID() const = 0;
+    virtual chrono::ChVector3d GetSpeedGainsPID() const = 0;
 
     virtual chrono::ChCoordsys<> GetLidarPosition() const = 0;
 

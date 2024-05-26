@@ -7,6 +7,8 @@
 #include "chrono/physics/ChSystemSMC.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/core/ChGlobal.h"
+#include "chrono/utils/ChUtils.h"
+
 #include "chrono_opengl/ChVisualSystemOpenGL.h"
 
 #include "chrono_thirdparty/filesystem/path.h"
@@ -68,10 +70,10 @@ struct CoordHash {
 };
 
 // Calculate barycentric coordinates of point'v'
-bool calcBarycentricCoordinates(const ChVector<>& v1,
-                                const ChVector<>& v2,
-                                const ChVector<>& v3,
-                                const ChVector<>& v,
+bool calcBarycentricCoordinates(const ChVector3d& v1,
+                                const ChVector3d& v2,
+                                const ChVector3d& v3,
+                                const ChVector3d& v,
                                 double& a1,
                                 double& a2,
                                 double& a3) {
@@ -96,19 +98,19 @@ int main(int argc, char* argv[]) {
     }
 
     // Load triangular mesh
-    geometry::ChTriangleMeshConnected trimesh;
+    ChTriangleMeshConnected trimesh;
     trimesh.LoadWavefrontMesh(GetChronoDataFile(obj_file), false, false);
 
-    const auto& vertices = trimesh.getCoordsVertices();
-    const auto& faces = trimesh.getIndicesVertexes();
+    const auto& vertices = trimesh.GetCoordsVertices();
+    const auto& faces = trimesh.GetIndicesVertexes();
 
     // Find x, y, and z ranges of vertex data
     auto minmaxX = std::minmax_element(begin(vertices), end(vertices),
-                                       [](const ChVector<>& v1, const ChVector<>& v2) { return v1.x() < v2.x(); });
+                                       [](const ChVector3d& v1, const ChVector3d& v2) { return v1.x() < v2.x(); });
     auto minmaxY = std::minmax_element(begin(vertices), end(vertices),
-                                       [](const ChVector<>& v1, const ChVector<>& v2) { return v1.y() < v2.y(); });
+                                       [](const ChVector3d& v1, const ChVector3d& v2) { return v1.y() < v2.y(); });
     auto minmaxZ = std::minmax_element(begin(vertices), end(vertices),
-                                       [](const ChVector<>& v1, const ChVector<>& v2) { return v1.z() < v2.z(); });
+                                       [](const ChVector3d& v1, const ChVector3d& v2) { return v1.z() < v2.z(); });
     auto minX = minmaxX.first->x() + delta;
     auto maxX = minmaxX.second->x() - delta;
     auto minY = minmaxY.first->y() + delta;
@@ -119,7 +121,7 @@ int main(int argc, char* argv[]) {
     auto sizeX = (maxX - minX);
     auto sizeY = (maxY - minY);
     auto sizeZ = (maxZ - minZ);
-    ChVector<> center((maxX + minX) / 2, (maxY + minY) / 2, 0);
+    ChVector3d center((maxX + minX) / 2, (maxY + minY) / 2, 0);
 
     int nx = static_cast<int>(std::ceil((sizeX / 2) / delta));  // half number of divisions in X direction
     int ny = static_cast<int>(std::ceil((sizeY / 2) / delta));  // number of divisions in Y direction
@@ -135,10 +137,10 @@ int main(int argc, char* argv[]) {
         const auto& v1 = vertices[f[0]] - center;
         const auto& v2 = vertices[f[1]] - center;
         const auto& v3 = vertices[f[2]] - center;
-        auto x_min = ChMin(ChMin(v1.x(), v2.x()), v3.x());
-        auto x_max = ChMax(ChMax(v1.x(), v2.x()), v3.x());
-        auto y_min = ChMin(ChMin(v1.y(), v2.y()), v3.y());
-        auto y_max = ChMax(ChMax(v1.y(), v2.y()), v3.y());
+        auto x_min = std::min(std::min(v1.x(), v2.x()), v3.x());
+        auto x_max = std::max(std::max(v1.x(), v2.x()), v3.x());
+        auto y_min = std::min(std::min(v1.y(), v2.y()), v3.y());
+        auto y_max = std::max(std::max(v1.y(), v2.y()), v3.y());
         int i_min = static_cast<int>(std::floor(x_min / delta));
         int j_min = static_cast<int>(std::floor(y_min / delta));
         int i_max = static_cast<int>(std::ceil(x_max / delta));
@@ -150,7 +152,7 @@ int main(int argc, char* argv[]) {
         // Loop over all grid nodes within bounds
         for (int i = i_min; i <= i_max; i++) {
             for (int j = j_min; j <= j_max; j++) {
-                ChVector<> v(i * delta, j * delta, 0);
+                ChVector3d v(i * delta, j * delta, 0);
                 if (calcBarycentricCoordinates(v1, v2, v3, v, a1, a2, a3)) {
                     double h = minZ + a1 * v1.z() + a2 * v2.z() + a3 * v3.z();
                     h_map.insert({ChVector2<int>(i, j), h});
@@ -193,23 +195,23 @@ int main(int argc, char* argv[]) {
 
     // Create a Chrono system
     ChSystemSMC sys;
-    sys.Set_G_acc(VNULL);
+    sys.SetGravitationalAcceleration(VNULL);
 
     double radius = delta / 2;
     double side = 0.9 * delta;
 
     // Parse the hash map and create points & bce markers in the corresponding vertical segment
-    std::vector<ChVector<>> points;
-    std::vector<ChVector<>> bce;
+    std::vector<ChVector3d> points;
+    std::vector<ChVector3d> bce;
     for (const auto& p : h_map) {
         const auto& ij = p.first;
-        auto v = ChVector<>(ij.x() * delta, ij.y() * delta, 0) + center;
+        auto v = ChVector3d(ij.x() * delta, ij.y() * delta, 0) + center;
         double h;
 
         // SPH markers
         h = flat_bottom ? -min_depth : p.second - min_depth;
         while (h <= p.second) {
-            auto w = v + ChVector<>(0, 0, h);
+            auto w = v + ChVector3d(0, 0, h);
             // Cache the point
             points.push_back(w);
             // Create and add a body for each marker
@@ -223,7 +225,7 @@ int main(int argc, char* argv[]) {
         // BCE markers (bottom)
         h = (flat_bottom ? -min_depth : p.second - min_depth) - delta;
         for (int i = 0; i < num_bce; i++, h -= delta) {
-            auto w = v + ChVector<>(0, 0, h);
+            auto w = v + ChVector3d(0, 0, h);
             // Cache the point
             bce.push_back(w);
             // Create and add a body for each marker
@@ -236,13 +238,13 @@ int main(int argc, char* argv[]) {
     // Parse the side map and create bce markers in the corresponding vertical segment
     for (const auto& p : s_map) {
         const auto& ij = p.first;
-        auto v = ChVector<>(ij.x() * delta, ij.y() * delta, 0) + center;
+        auto v = ChVector3d(ij.x() * delta, ij.y() * delta, 0) + center;
         double h = (flat_bottom ? -min_depth : p.second - min_depth) - num_bce * delta;
         double h_max = (flat_top ? sizeZ : p.second) + num_bce * delta;
 
         // BCE markers (sides)
         while (h <= h_max) {
-            auto w = v + ChVector<>(0, 0, h);
+            auto w = v + ChVector3d(0, 0, h);
             // Cache the point
             bce.push_back(w);
             // Create and add a body for each marker
@@ -265,7 +267,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(maxX, maxY, maxZ) + ChVector<>(3), ChVector<>(0));
+    vis.AddCamera(ChVector3d(maxX, maxY, maxZ) + ChVector3d(3), ChVector3d(0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     while (vis.Run()) {

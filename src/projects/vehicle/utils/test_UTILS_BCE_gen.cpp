@@ -293,11 +293,11 @@ int main(int argc, char* argv[]) {
 
     // Create a Chrono system
     ChSystemSMC sys;
-    sys.Set_G_acc(VNULL);
+    sys.SetGravitationalAcceleration(VNULL);
     double radius = delta;
     for (const auto& v : point_cloud) {
         auto body = chrono_types::make_shared<ChBodyEasySphere>(radius, 1, true, false);
-        body->SetPos(ChVector<>(v.x, v.y, v.z));
+        body->SetPos(ChVector3d(v.x, v.y, v.z));
         sys.AddBody(body);
     }
 
@@ -308,7 +308,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(ChVector<>(-1, -1, 0.75), ChVector<>(0, 0, 0.5));
+    vis.AddCamera(ChVector3d(-1, -1, 0.75), ChVector3d(0, 0, 0.5));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     while (vis.Run()) {

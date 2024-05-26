@@ -90,9 +90,9 @@ class MechanismISO {
     class Terrain : public ChTerrain {
       public:
         Terrain() {}
-        virtual double GetHeight(const ChVector<>& loc) const override { return 0; }
-        virtual ChVector<> GetNormal(const ChVector<>& loc) const override { return ChVector<>(0, 0, 1); }
-        virtual float GetCoefficientFriction(const ChVector<>& loc) const override { return 0.8f; }
+        virtual double GetHeight(const ChVector3d& loc) const override { return 0; }
+        virtual ChVector3d GetNormal(const ChVector3d& loc) const override { return ChVector3d(0, 0, 1); }
+        virtual float GetCoefficientFriction(const ChVector3d& loc) const override { return 0.8f; }
     };
 
     ChSystem* m_sys;
@@ -105,29 +105,29 @@ class MechanismISO {
 };
 
 MechanismISO::MechanismISO(ChSystem* sys) : m_sys(sys) {
-    auto ground = std::shared_ptr<ChBody>(m_sys->NewBody());
+    auto ground = chrono_types::make_shared<ChBody>();
     m_sys->AddBody(ground);
-    ground->SetBodyFixed(true);
+    ground->SetFixed(true);
     {
-        auto box = chrono_types::make_shared<ChBoxShape>(20, 4, 0.4);
-        ground->AddVisualShape(box, ChFrame<>(ChVector<>(0, 0, -0.1)));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(20, 4, 0.4);
+        ground->AddVisualShape(box, ChFrame<>(ChVector3d(0, 0, -0.1)));
     }
 
     // Create the spindle body (the wheel and tire objects will add to its mass and inertia).
-    m_spindle = std::shared_ptr<ChBody>(m_sys->NewBody());
+    m_spindle = chrono_types::make_shared<ChBody>();
     m_sys->AddBody(m_spindle);
     m_spindle->SetMass(spindle_mass);
-    m_spindle->SetInertiaXX(ChVector<>(spindle_I2, spindle_I1, spindle_I2));
-    m_spindle->SetPos(ChVector<>(0, 0, wheel_init_height));
-    m_spindle->SetWvel_loc(ChVector<>(0, +wheel_init_omega, 0));  // for the wheel to move in positive X
+    m_spindle->SetInertiaXX(ChVector3d(spindle_I2, spindle_I1, spindle_I2));
+    m_spindle->SetPos(ChVector3d(0, 0, wheel_init_height));
+    m_spindle->SetAngVelLocal(ChVector3d(0, +wheel_init_omega, 0));  // for the wheel to move in positive X
     {
-        auto cyl = chrono_types::make_shared<ChCylinderShape>(0.1, 0.2);
-        m_spindle->AddVisualShape(cyl, ChFrame<>(VNULL, Q_from_AngX(CH_C_PI_2)));
+        auto cyl = chrono_types::make_shared<ChVisualShapeCylinder>(0.1, 0.2);
+        m_spindle->AddVisualShape(cyl, ChFrame<>(VNULL, QuatFromAngleX(CH_PI_2)));
     }
 
     // Connect spindle to ground.
     auto link = chrono_types::make_shared<ChLinkLockPlanePlane>();
-    link->Initialize(ground, m_spindle, ChCoordsys<>(VNULL, Q_from_AngX(CH_C_PI_2)));
+    link->Initialize(ground, m_spindle, ChCoordsys<>(VNULL, QuatFromAngleX(CH_PI_2)));
     m_sys->AddLink(link);
 
     // Create a wheel object and associate it with the spindle body.
@@ -160,9 +160,9 @@ void MechanismISO::Advance(double step) {
 
     // Apply tire forces to spindle body
     // (we could simply call m_wheel->Synchronize which does precisely this)
-    m_spindle->Empty_forces_accumulators();
-    m_spindle->Accumulate_force(m_tireforce.force, m_tireforce.point, false);
-    m_spindle->Accumulate_torque(m_tireforce.moment, false);
+    m_spindle->EmptyAccumulators();
+    m_spindle->AccumulateForce(m_tireforce.force, m_tireforce.point, false);
+    m_spindle->AccumulateTorque(m_tireforce.moment, false);
 
     m_tire->Advance(step);
     m_sys->DoStepDynamics(step);
@@ -172,7 +172,7 @@ void MechanismISO::Advance(double step) {
 
 WheelState ConvertState_YUP_to_ISO(const WheelState& ws_YUP) {
     // Coordinate transforms
-    ChFrame<> iso_X_yup(VNULL, Q_from_AngX(CH_C_PI_2));           // YUP -> ISO
+    ChFrame<> iso_X_yup(VNULL, QuatFromAngleX(CH_PI_2));          // YUP -> ISO
     ChFrame<> wiso_X_wyup = iso_X_yup;                            // Wheel_YUP -> Wheel_ISO
     ChFrame<> wyup_X_wiso = wiso_X_wyup.GetInverse();             // Wheel_ISO -> Wheel_YUP
     ChFrame<> yup_X_wyup(ws_YUP.pos, ws_YUP.rot);                 // Wheel_YUP -> YUP
@@ -192,7 +192,7 @@ WheelState ConvertState_YUP_to_ISO(const WheelState& ws_YUP) {
 
 TerrainForce ConvertForce_ISO_to_YUP(const TerrainForce& tf_ISO) {
     // Coordinate transforms
-    ChFrame<> yup_X_iso(VNULL, Q_from_AngX(-CH_C_PI_2));  // ISO -> YUP
+    ChFrame<> yup_X_iso(VNULL, QuatFromAngleX(-CH_PI_2));  // ISO -> YUP
 
     // Terrain force in YUP frame
     TerrainForce tf_YUP;
@@ -204,7 +204,7 @@ TerrainForce ConvertForce_ISO_to_YUP(const TerrainForce& tf_ISO) {
 
     /*
     // Alternatively, using the iso_X_yup transform...
-    ChFrame<> iso_X_yup(VNULL, Q_from_AngX(CH_C_PI_2));
+    ChFrame<> iso_X_yup(VNULL, QuatFromAngleX(CH_PI_2));
     TerrainForce tf_YUP;
     tf_YUP.point = iso_X_yup.TransformPointParentToLocal(tf_ISO.point);
     tf_YUP.force = iso_X_yup.TransformDirectionParentToLocal(tf_ISO.force);
@@ -214,28 +214,28 @@ TerrainForce ConvertForce_ISO_to_YUP(const TerrainForce& tf_ISO) {
     */
 }
 
-ChVector<> ConvertInertia_ISO_to_YUP(const ChVector<>& inertia_ISO) {
+ChVector3d ConvertInertia_ISO_to_YUP(const ChVector3d& inertia_ISO) {
     // Coordinate transforms
-    ChMatrix33<> iso_R_yup(Q_from_AngX(+CH_C_PI_2));
-    ChMatrix33<> yup_R_iso(Q_from_AngX(-CH_C_PI_2));
+    ChMatrix33<> iso_R_yup(QuatFromAngleX(+CH_PI_2));
+    ChMatrix33<> yup_R_iso(QuatFromAngleX(-CH_PI_2));
 
     // Moments of inertia in YUP frame
     ChMatrix33<> J_ISO(inertia_ISO);
     ChMatrix33<> J_YUP = yup_R_iso * J_ISO * iso_R_yup;
-    ChVector<> inertia_YUP = J_YUP.diagonal();
+    ChVector3d inertia_YUP = J_YUP.diagonal();
 
     /*
     // Alternatively, using the iso_X_yup transform...
-    ChFrame<> iso_X_yup(VNULL, Q_from_AngX(CH_C_PI_2));
+    ChFrame<> iso_X_yup(VNULL, QuatFromAngleX(CH_PI_2));
     ChFrame<> yup_X_iso = iso_X_yup.inverse();
     ChMatrix33<> J_ISO(inertia_ISO);
-    ChMatrix33<> J_YUP = (yup_X_iso.GetA() * J_ISO) * iso_X_yup.GetA();
-    ChVector<> inertia_YUP = J_YUP.digonal();
+    ChMatrix33<> J_YUP = (yup_X_iso.GetRotMat() * J_ISO) * iso_X_yup.GetRotMat();
+    ChVector3d inertia_YUP = J_YUP.digonal();
     */
 
     /*
     // Alternatively, just flip elements (for the particular case of YUP frame)
-    ChVector<> inertia_YUP(inertia_ISO.x(), inertia_ISO.z(), inertia_ISO.y());
+    ChVector3d inertia_YUP(inertia_ISO.x(), inertia_ISO.z(), inertia_ISO.y());
     */
 
     return inertia_YUP;
@@ -256,9 +256,9 @@ class MechanismYUP {
     class Terrain : public ChTerrain {
       public:
         Terrain() {}
-        virtual double GetHeight(const ChVector<>& loc) const override { return 0; }
-        virtual ChVector<> GetNormal(const ChVector<>& loc) const override { return ChVector<>(0, 0, 1); }
-        virtual float GetCoefficientFriction(const ChVector<>& loc) const override { return 0.8f; }
+        virtual double GetHeight(const ChVector3d& loc) const override { return 0; }
+        virtual ChVector3d GetNormal(const ChVector3d& loc) const override { return ChVector3d(0, 0, 1); }
+        virtual float GetCoefficientFriction(const ChVector3d& loc) const override { return 0.8f; }
     };
 
     ChSystem* m_sys;
@@ -272,21 +272,21 @@ class MechanismYUP {
 };
 
 MechanismYUP::MechanismYUP(ChSystem* sys) : m_sys(sys) {
-    auto ground = std::shared_ptr<ChBody>(m_sys->NewBody());
+    auto ground = chrono_types::make_shared<ChBody>();
     m_sys->AddBody(ground);
-    ground->SetBodyFixed(true);
+    ground->SetFixed(true);
     {
-        auto box = chrono_types::make_shared<ChBoxShape>(20, 0.4, 4);
-        ground->AddVisualShape(box, ChFrame<>(ChVector<>(0, -0.1, 0)));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(20, 0.4, 4);
+        ground->AddVisualShape(box, ChFrame<>(ChVector3d(0, -0.1, 0)));
     }
 
     // Create the spindle body (mass and inertia properly set below).
-    m_spindle = std::shared_ptr<ChBody>(m_sys->NewBody());
+    m_spindle = chrono_types::make_shared<ChBody>();
     m_sys->AddBody(m_spindle);
-    m_spindle->SetPos(ChVector<>(0, wheel_init_height, 0));
-    m_spindle->SetWvel_loc(ChVector<>(0, 0, -wheel_init_omega));  // for the wheel to move in positive X
+    m_spindle->SetPos(ChVector3d(0, wheel_init_height, 0));
+    m_spindle->SetAngVelLocal(ChVector3d(0, 0, -wheel_init_omega));  // for the wheel to move in positive X
     {
-        auto cyl = chrono_types::make_shared<ChCylinderShape>(0.1, 0.2);
+        auto cyl = chrono_types::make_shared<ChVisualShapeCylinder>(0.1, 0.2);
         m_spindle->AddVisualShape(cyl);
     }
 
@@ -297,9 +297,9 @@ MechanismYUP::MechanismYUP(ChSystem* sys) : m_sys(sys) {
 
     // Create the "dummy" spindle body, used to provide wheel state information to the tire in an ISO frame.
     // We will manually overwrite the state of this body (in MechanismYUP::Advance).
-    m_spindle_dummy = std::shared_ptr<ChBody>(m_sys->NewBody());
+    m_spindle_dummy = chrono_types::make_shared<ChBody>();
     m_sys->AddBody(m_spindle_dummy);
-    m_spindle_dummy->SetBodyFixed(true);
+    m_spindle_dummy->SetFixed(true);
 
     // Create a wheel object and associate it with the "dummy" spindle body.
     m_wheel = chrono_types::make_shared<hmmwv::HMMWV_Wheel>("Wheel");
@@ -317,19 +317,19 @@ MechanismYUP::MechanismYUP(ChSystem* sys) : m_sys(sys) {
     // IMPORTANT: override spindle body mass and inertia!
     // This must be done manually here because the wheel and tire objects append to the spindle's properties (but
     // assuming an ISO frame)
-    ChVector<> spindle_Ixx(spindle_I2, spindle_I2, spindle_I1);
-    ChVector<> wheel_Ixx = ConvertInertia_ISO_to_YUP(m_wheel->GetInertia().diagonal());
-    ChVector<> tire_Ixx = ConvertInertia_ISO_to_YUP(m_tire->GetInertia().diagonal());
+    ChVector3d spindle_Ixx(spindle_I2, spindle_I2, spindle_I1);
+    ChVector3d wheel_Ixx = ConvertInertia_ISO_to_YUP(m_wheel->GetInertia().diagonal());
+    ChVector3d tire_Ixx = ConvertInertia_ISO_to_YUP(m_tire->GetInertia().diagonal());
     m_spindle->SetMass(spindle_mass + m_wheel->GetMass() + m_tire->GetMass());
     m_spindle->SetInertiaXX(spindle_Ixx + wheel_Ixx + tire_Ixx);
 
     // Cannot directly use tire visualization (incorrect rotation).
     m_tire->SetVisualizationType(VisualizationType::NONE);
     {
-        auto trimesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
+        auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
         trimesh->LoadWavefrontMesh(vehicle::GetDataFile("hmmwv/hmmwv_tire_left.obj"), false, false);
-        trimesh->Transform(VNULL, ChMatrix33<>(Q_from_AngX(-CH_C_PI_2)));
-        auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+        trimesh->Transform(VNULL, ChMatrix33<>(QuatFromAngleX(-CH_PI_2)));
+        auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh);
         trimesh_shape->SetName("hmmwv_tire_geom");
         trimesh_shape->SetMutable(false);
@@ -344,8 +344,8 @@ void MechanismYUP::Advance(double step) {
     // Wheel (spindle) body state in YUP frame
     m_wheelstate.pos = m_spindle->GetPos();
     m_wheelstate.rot = m_spindle->GetRot();
-    m_wheelstate.lin_vel = m_spindle->GetPos_dt();
-    m_wheelstate.ang_vel = m_spindle->GetWvel_par();
+    m_wheelstate.lin_vel = m_spindle->GetPosDt();
+    m_wheelstate.ang_vel = m_spindle->GetAngVelParent();
     auto ang_vel_loc = m_wheelstate.rot.RotateBack(m_wheelstate.ang_vel);
     m_wheelstate.omega = ang_vel_loc.z();
 
@@ -355,8 +355,8 @@ void MechanismYUP::Advance(double step) {
     // Overwrite state of "dummy" spindle body
     m_spindle_dummy->SetPos(ws_ISO.pos);
     m_spindle_dummy->SetRot(ws_ISO.rot);
-    m_spindle_dummy->SetPos_dt(ws_ISO.lin_vel);
-    m_spindle_dummy->SetWvel_par(ws_ISO.ang_vel);
+    m_spindle_dummy->SetPosDt(ws_ISO.lin_vel);
+    m_spindle_dummy->SetAngVelParent(ws_ISO.ang_vel);
 
     // Get tire forces in ISO frame and convert to YUP frame
     auto tf_ISO = m_tire->ReportTireForce(&m_terrain);
@@ -368,9 +368,9 @@ void MechanismYUP::Advance(double step) {
     m_tire->Synchronize(time, m_terrain);
 
     // Apply tire forces to spindle body
-    m_spindle->Empty_forces_accumulators();
-    m_spindle->Accumulate_force(m_tireforce.force, m_tireforce.point, false);
-    m_spindle->Accumulate_torque(m_tireforce.moment, false);
+    m_spindle->EmptyAccumulators();
+    m_spindle->AccumulateForce(m_tireforce.force, m_tireforce.point, false);
+    m_spindle->AccumulateTorque(m_tireforce.moment, false);
 
     m_tire->Advance(step);
     m_sys->DoStepDynamics(step);
@@ -383,8 +383,8 @@ void MechanismYUP::Advance(double step, const WheelState& ws_ISO) {
     // Overwrite state of "dummy" spindle body
     m_spindle_dummy->SetPos(ws_ISO.pos);
     m_spindle_dummy->SetRot(ws_ISO.rot);
-    m_spindle_dummy->SetPos_dt(ws_ISO.lin_vel);
-    m_spindle_dummy->SetWvel_par(ws_ISO.ang_vel);
+    m_spindle_dummy->SetPosDt(ws_ISO.lin_vel);
+    m_spindle_dummy->SetAngVelParent(ws_ISO.ang_vel);
 
     // Get tire forces in ISO frame and convert to YUP frame
     auto tf_ISO = m_tire->ReportTireForce(&m_terrain);
@@ -396,9 +396,9 @@ void MechanismYUP::Advance(double step, const WheelState& ws_ISO) {
     m_tire->Synchronize(time, m_terrain);
 
     // Apply tire forces to spindle body
-    m_spindle->Empty_forces_accumulators();
-    m_spindle->Accumulate_force(m_tireforce.force, m_tireforce.point, false);
-    m_spindle->Accumulate_torque(m_tireforce.moment, false);
+    m_spindle->EmptyAccumulators();
+    m_spindle->AccumulateForce(m_tireforce.force, m_tireforce.point, false);
+    m_spindle->AccumulateTorque(m_tireforce.moment, false);
 
     m_tire->Advance(step);
     m_sys->DoStepDynamics(step);
@@ -408,10 +408,10 @@ void MechanismYUP::Advance(double step, const WheelState& ws_ISO) {
 
 void TestConversions() {
     WheelState ws_YUP;
-    ws_YUP.pos = ChVector<>(1, 2, 3);
-    ws_YUP.rot = Q_from_AngZ(CH_C_PI / 6);
-    ws_YUP.lin_vel = ChVector<>(0.1, 0.2, 0.3);
-    ws_YUP.ang_vel = ChVector<>(0, 0, 10);
+    ws_YUP.pos = ChVector3d(1, 2, 3);
+    ws_YUP.rot = QuatFromAngleZ(CH_PI / 6);
+    ws_YUP.lin_vel = ChVector3d(0.1, 0.2, 0.3);
+    ws_YUP.ang_vel = ChVector3d(0, 0, 10);
     auto ang_vel_loc = ws_YUP.rot.RotateBack(ws_YUP.ang_vel);
     ws_YUP.omega = ang_vel_loc.z();
     ChMatrix33<> R_YUP(ws_YUP.rot);
@@ -420,9 +420,9 @@ void TestConversions() {
     ChMatrix33<> R_ISO(ws_ISO.rot);
 
     TerrainForce tf_ISO;
-    tf_ISO.point = ChVector<>(1, 2, 3);
-    tf_ISO.force = ChVector<>(0.1, 0.2, 0.3);
-    tf_ISO.moment = ChVector<>(10, 20, 30);
+    tf_ISO.point = ChVector3d(1, 2, 3);
+    tf_ISO.force = ChVector3d(0.1, 0.2, 0.3);
+    tf_ISO.moment = ChVector3d(10, 20, 30);
 
     TerrainForce tf_YUP = ConvertForce_ISO_to_YUP(tf_ISO);
 }
@@ -433,16 +433,16 @@ int main(int argc, char* argv[]) {
     ////TestConversions();
 
     ChSystemNSC sysISO;
-    sysISO.Set_G_acc(ChVector<>(0, 0, -grav));
-    sysISO.SetSolverMaxIterations(150);
+    sysISO.SetGravitationalAcceleration(ChVector3d(0, 0, -grav));
+    sysISO.GetSolver()->AsIterative()->SetMaxIterations(150);
     sysISO.SetMaxPenetrationRecoverySpeed(4.0);
     sysISO.SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
     MechanismISO mISO(&sysISO);
 
     ChSystemNSC sysYUP;
-    sysYUP.Set_G_acc(ChVector<>(0, -grav, 0));
-    sysYUP.SetSolverMaxIterations(150);
+    sysYUP.SetGravitationalAcceleration(ChVector3d(0, -grav, 0));
+    sysYUP.GetSolver()->AsIterative()->SetMaxIterations(150);
     sysYUP.SetMaxPenetrationRecoverySpeed(4.0);
     sysYUP.SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
@@ -454,7 +454,7 @@ int main(int argc, char* argv[]) {
     visISO->Initialize();
     visISO->AddLogo();
     visISO->AddSkyBox();
-    visISO->AddCamera(ChVector<>(1, 1, 3));
+    visISO->AddCamera(ChVector3d(1, 1, 3));
     visISO->AddTypicalLights();
     visISO->AttachSystem(&sysISO);
 
@@ -464,7 +464,7 @@ int main(int argc, char* argv[]) {
     visYUP->Initialize();
     visYUP->AddLogo();
     visYUP->AddSkyBox();
-    visYUP->AddCamera(ChVector<>(1, 1, 3));
+    visYUP->AddCamera(ChVector3d(1, 1, 3));
     visYUP->AddTypicalLights();
     visYUP->AttachSystem(&sysYUP);
 

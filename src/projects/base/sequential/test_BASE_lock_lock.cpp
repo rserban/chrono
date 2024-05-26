@@ -13,7 +13,7 @@
 // =============================================================================
 //
 // Mechanism sent by Dmitry (Isymtec).
-// Badly sclaed (very large "articulated inertia" due to extreme joint poisition)
+// Badly scaled (very large "articulated inertia" due to extreme joint poisition)
 // Default solver (with default settings) for SMC systems has convergence issues.
 // Solutions:
 //    - switch to NSC (default solver a bit more robust)
@@ -33,14 +33,14 @@ using namespace chrono;
 std::shared_ptr<ChLinkLockLock> model1(std::shared_ptr<ChSystem> sys) {
     // Create the ground body
     auto m_Ground = chrono_types::make_shared<ChBodyAuxRef>();
-    m_Ground->SetBodyFixed(true);
-    auto box = chrono_types::make_shared<ChBoxShape>(2, 0.2, 2);
+    m_Ground->SetFixed(true);
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(2, 0.2, 2);
     box->SetColor(ChColor(0.0f, 0.0f, 1.0f));
     m_Ground->AddVisualShape(box);
     sys->AddBody(m_Ground);
 
     auto m_Body = chrono_types::make_shared<chrono::ChBodyAuxRef>();
-    auto sphere = chrono_types::make_shared<ChSphereShape>(0.2);
+    auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(0.2);
     m_Body->AddVisualShape(sphere);
     sys->AddBody(m_Body);
 
@@ -52,10 +52,10 @@ std::shared_ptr<ChLinkLockLock> model1(std::shared_ptr<ChSystem> sys) {
     auto m_MarkerLinkGround = chrono_types::make_shared<chrono::ChMarker>();
     m_Ground->AddMarker(m_MarkerLinkGround);
 
-    ChVector<> markerCoorAbs{0., 0., 100.};
-    Coordsys markerAbsCoor{markerCoorAbs};
-    m_MarkerLinkBody->Impose_Abs_Coord(markerAbsCoor);
-    m_MarkerLinkGround->Impose_Abs_Coord(markerAbsCoor);
+    ChVector3d markerLocAbs{0., 0., 100.};
+    ChFramed markerAbsCoor{markerLocAbs};
+    m_MarkerLinkBody->ImposeAbsoluteTransform(markerAbsCoor);
+    m_MarkerLinkGround->ImposeAbsoluteTransform(markerAbsCoor);
 
     m_Link->Initialize(m_MarkerLinkGround, m_MarkerLinkBody);
     sys->AddLink(m_Link);
@@ -70,10 +70,10 @@ int main(int argc, char* argv[]) {
     // Create system
     auto sys = chrono_types::make_shared<ChSystemSMC>();
     ////auto sys = chrono_types::make_shared<ChSystemNSC>();
-    sys->Set_G_acc(ChVector<>(0.0, -10., 0.));
+    sys->SetGravitationalAcceleration(ChVector3d(0.0, -10., 0.));
 
     ////sys->SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
-    ////sys->SetSolverMaxIterations(200);
+    ////sys->GetSolver()->AsIterative()->SetMaxIterations(200);
 
     auto m_Link = model1(sys);
 
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0, 1, 2));
+    vis->AddCamera(ChVector3d(0, 1, 2));
     vis->AttachSystem(sys.get());
 
     // Run simulation for specified time
@@ -95,18 +95,18 @@ int main(int argc, char* argv[]) {
         irrlicht::tools::drawAllCOGs(vis.get(), 0.5);
         vis->EndScene();
 
-        GetLog() << "Time: " << sys->GetChTime();
+        std::cout << "Time: " << sys->GetChTime();
 
         auto cnstr = m_Link->GetConstraintViolation();
         for (int i = 0; i < 6; i++) {
-            GetLog() << "  " << cnstr(i);
+            std::cout << "  " << cnstr(i);
         }
 
-        auto mpos = m_Link->GetMarker2()->GetAbsCoord().pos;
-        GetLog() << "  X: " << mpos.x() << "  Y: " << mpos.y() << "  Z: " << mpos.z() << "\n";
+        auto mpos = m_Link->GetMarker2()->GetAbsCoordsys().pos;
+        std::cout << "  X: " << mpos.x() << "  Y: " << mpos.y() << "  Z: " << mpos.z() << "\n";
 
         auto bpos = m_Link->GetBody2()->GetPos();
-        GetLog() << "  X: " << bpos.x() << "  Y: " << bpos.y() << "  Z: " << bpos.z() << "\n";
+        std::cout << "  X: " << bpos.x() << "  Y: " << bpos.y() << "  Z: " << bpos.z() << "\n";
 
         sys->DoStepDynamics(1e-3);
     }

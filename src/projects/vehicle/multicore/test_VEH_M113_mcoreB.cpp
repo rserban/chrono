@@ -42,7 +42,6 @@
 #include "chrono_thirdparty/filesystem/path.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::m113;
 
@@ -70,8 +69,8 @@ double hthick = 0.25;
 // -----------------------------------------------------------------------------
 
 // Initial vehicle position and orientation
-ChVector<> initLoc(-hdimX + 8, 0, 1);
-// ChVector<> initLoc(0, 0, 1);
+ChVector3d initLoc(-hdimX + 8, 0, 1);
+// ChVector3d initLoc(0, 0, 1);
 ChQuaternion<> initRot(1, 0, 0, 0);
 
 // -----------------------------------------------------------------------------
@@ -129,7 +128,7 @@ void progressbar(unsigned int x, unsigned int n, unsigned int w = 50) {
 
 // =============================================================================
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // --------------
     // Create system.
@@ -143,7 +142,7 @@ int main(int argc, char* argv[]) {
     ChSystemMulticoreNSC* system = new ChSystemMulticoreNSC();
 #endif
 
-    system->Set_G_acc(ChVector<>(0, 0, -9.81));
+    system->SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
     // ---------------------
     // Edit system settings.
@@ -180,28 +179,25 @@ int main(int argc, char* argv[]) {
     float mu_g = 0.8f;
 
 #ifdef USE_SMC
-    auto mat_g = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto mat_g = chrono_types::make_shared<ChContactMaterialSMC>();
     mat_g->SetYoungModulus(1e8f);
     mat_g->SetFriction(mu_g);
     mat_g->SetRestitution(0.4f);
 #else
-    auto mat_g = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto mat_g = chrono_types::make_shared<ChContactMaterialNSC>();
     mat_g->SetFriction(mu_g);
 #endif
 
     // Ground body
-    auto ground = std::shared_ptr<ChBody>(system->NewBody());
-    ground->SetIdentifier(-1);
-    ground->SetBodyFixed(true);
-    ground->SetCollide(true);
+    auto ground = chrono_types::make_shared<ChBody>();
+    ground->SetFixed(true);
+    ground->EnableCollision(true);
 
-    ground->GetCollisionModel()->ClearModel();
     chrono::utils::AddBoxGeometry(ground.get(),                                           //
                                   mat_g,                                                  //
-                                  ChVector<>(hdimX, hdimY, hthick),                       //
-                                  ChVector<>(0, 0, -hthick), ChQuaternion<>(1, 0, 0, 0),  //
+                                  ChVector3d(hdimX, hdimY, hthick),                       //
+                                  ChVector3d(0, 0, -hthick), ChQuaternion<>(1, 0, 0, 0),  //
                                   true);
-    ground->GetCollisionModel()->BuildModel();
 
     system->AddBody(ground);
 
@@ -218,7 +214,7 @@ int main(int argc, char* argv[]) {
     m113.SetDrivelineType(DrivelineTypeTV::SIMPLE);
     m113.SetBrakeType(BrakeType::SIMPLE);
     m113.SetEngineType(EngineModelType::SIMPLE_MAP);
-    m113.SetTransmissionType(TransmissionModelType::SIMPLE_MAP);
+    m113.SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_MAP);
     m113.SetChassisCollisionType(CollisionType::NONE);
 
     m113.SetChassisFixed(fix_chassis);
@@ -235,9 +231,9 @@ int main(int argc, char* argv[]) {
     m113.SetRoadWheelVisualizationType(VisualizationType::MESH);
     m113.SetTrackShoeVisualizationType(VisualizationType::MESH);
 
-    ////m113.GetVehicle().SetCollide(TrackCollide::NONE);
-    ////m113.GetVehicle().SetCollide(TrackCollide::WHEELS_LEFT | TrackCollide::WHEELS_RIGHT);
-    ////m113.GetVehicle().SetCollide(TrackCollide::ALL & (~TrackCollide::SPROCKET_LEFT) &
+    ////m113.GetVehicle().EnableCollision(TrackCollide::NONE);
+    ////m113.GetVehicle().EnableCollision(TrackCollide::WHEELS_LEFT | TrackCollide::WHEELS_RIGHT);
+    ////m113.GetVehicle().EnableCollision(TrackCollide::ALL & (~TrackCollide::SPROCKET_LEFT) &
     ///(~TrackCollide::SPROCKET_RIGHT));
 
     // Create the driver system
@@ -264,7 +260,7 @@ int main(int argc, char* argv[]) {
     vis.SetWindowSize(1280, 720);
     vis.SetRenderMode(opengl::WIREFRAME);
     vis.Initialize();
-    vis.AddCamera(initLoc - ChVector<>(3.5, 4, 0), initLoc - ChVector<>(3.5, 0, 0));
+    vis.AddCamera(initLoc - ChVector3d(3.5, 4, 0), initLoc - ChVector3d(3.5, 0, 0));
     vis.SetCameraVertical(CameraVerticalDir::Z);
 
     // Number of simulation steps between two 3D view render frames
@@ -333,7 +329,7 @@ int main(int argc, char* argv[]) {
         time += time_step;
         sim_frame++;
         exec_time += system->GetTimerStep();
-        num_contacts += system->GetNcontacts();
+        num_contacts += system->GetNumContacts();
     }
 
     // Final stats

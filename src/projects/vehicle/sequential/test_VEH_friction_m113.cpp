@@ -58,8 +58,8 @@ const std::string out_dir = "../M113_FRICTION";
 int main(int argc, char* argv[]) {
     // Chrono system
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
-    sys.SetSolverMaxIterations(150);
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
+    sys.GetSolver()->AsIterative()->SetMaxIterations(150);
     sys.SetMaxPenetrationRecoverySpeed(4.0);
     sys.SetSolverType(ChSolver::Type::BARZILAIBORWEIN);
 
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
     // Create and initialize the first vehicle
     M113_Vehicle_SinglePin vehicle_1(false, DrivelineTypeTV::SIMPLE, BrakeType::SIMPLE, false, false, false, &sys,
                                      CollisionType::NONE);
-    vehicle_1.Initialize(ChCoordsys<>(ChVector<>(-90.0, -5.5, 1.0), QUNIT));
+    vehicle_1.Initialize(ChCoordsys<>(ChVector3d(-90.0, -5.5, 1.0), QUNIT));
     vehicle_1.SetChassisVisualizationType(VisualizationType::NONE);
     vehicle_1.SetSprocketVisualizationType(VisualizationType::PRIMITIVES);
     vehicle_1.SetIdlerVisualizationType(VisualizationType::PRIMITIVES);
@@ -89,11 +89,11 @@ int main(int argc, char* argv[]) {
     minfo_1.cr = 0.01f;
     minfo_1.Y = 2e7f;
     auto mat_1 = minfo_1.CreateMaterial(sys.GetContactMethod());
-    auto patch_1 = terrain.AddPatch(mat_1, ChCoordsys<>(ChVector<>(0, -5.5, 0), QUNIT), 200, 10);
+    auto patch_1 = terrain.AddPatch(mat_1, ChCoordsys<>(ChVector3d(0, -5.5, 0), QUNIT), 200, 10);
     patch_1->SetColor(ChColor(0.8f, 0.8f, 1.0f));
     patch_1->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 10);
 
-    auto path_1 = StraightLinePath(ChVector<>(-90, -5.5, 0.1), ChVector<>(+90, -5.5, 0.1));
+    auto path_1 = StraightLinePath(ChVector3d(-90, -5.5, 0.1), ChVector3d(+90, -5.5, 0.1));
     ChPathFollowerDriver driver_1(vehicle_1, path_1, "path_1", 10.0);
     driver_1.GetSteeringController().SetLookAheadDistance(5);
     driver_1.GetSteeringController().SetGains(0.5, 0, 0);
@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
     // Create and initialize the second vehicle
     M113_Vehicle_SinglePin vehicle_2(false, DrivelineTypeTV::SIMPLE, BrakeType::SIMPLE, false, false, false, &sys,
                                      CollisionType::NONE);
-    vehicle_2.Initialize(ChCoordsys<>(ChVector<>(-90.0, +5.5, 1.0), QUNIT));
+    vehicle_2.Initialize(ChCoordsys<>(ChVector3d(-90.0, +5.5, 1.0), QUNIT));
     vehicle_2.SetChassisVisualizationType(VisualizationType::NONE);
     vehicle_2.SetSprocketVisualizationType(VisualizationType::PRIMITIVES);
     vehicle_2.SetIdlerVisualizationType(VisualizationType::PRIMITIVES);
@@ -123,11 +123,11 @@ int main(int argc, char* argv[]) {
     minfo_2.cr = 0.01f;
     minfo_2.Y = 2e7f;
     auto mat_2 = minfo_2.CreateMaterial(sys.GetContactMethod());
-    auto patch_2 = terrain.AddPatch(mat_2, ChCoordsys<>(ChVector<>(0, +5.5, 0), QUNIT), 200, 10);
+    auto patch_2 = terrain.AddPatch(mat_2, ChCoordsys<>(ChVector3d(0, +5.5, 0), QUNIT), 200, 10);
     patch_2->SetColor(ChColor(1.0f, 0.8f, 0.8f));
     patch_2->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 10);
 
-    auto path_2 = StraightLinePath(ChVector<>(-90, +5.5, 0.1), ChVector<>(+90, +5.5, 0.1));
+    auto path_2 = StraightLinePath(ChVector3d(-90, +5.5, 0.1), ChVector3d(+90, +5.5, 0.1));
     ChPathFollowerDriver driver_2(vehicle_2, path_2, "path_2", 0.0);
     driver_2.GetSteeringController().SetLookAheadDistance(5);
     driver_2.GetSteeringController().SetGains(0.5, 0, 0);
@@ -139,9 +139,9 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht interface (associated with 2nd vehicle)
     auto vis = chrono_types::make_shared<ChTrackedVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Terrain friction test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, .75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, .75), 6.0, 0.5);
     vis->SetChaseCameraState(utils::ChChaseCamera::Track);
-    vis->SetChaseCameraPosition(ChVector<>(-50, -10, 2.0));
+    vis->SetChaseCameraPosition(ChVector3d(-50, -10, 2.0));
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -156,9 +156,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     // ---------------
     // Simulation loop
@@ -252,7 +252,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (output) {
-        csv.write_to_file(out_dir + "/m113.out");
+        csv.WriteToFile(out_dir + "/m113.out");
     }
 
     return 0;

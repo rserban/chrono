@@ -20,7 +20,6 @@
 
 #define USE_IRRLICHT
 
-#include "chrono/core/ChStream.h"
 #include "chrono/utils/ChFilters.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
@@ -49,7 +48,7 @@ using namespace chrono::vehicle::mrole;
 // =============================================================================
 
 // Initial vehicle location and orientation
-ChVector<> initLoc(-100, 0, 0.8);
+ChVector3d initLoc(-100, 0, 0.8);
 ChQuaternion<> initRot(1, 0, 0, 0);
 
 // Visualization type for vehicle parts (PRIMITIVES, MESH, or NONE)
@@ -66,9 +65,9 @@ RandomSurfaceTerrain::VisualisationType visType = RandomSurfaceTerrain::Visualis
 TireModelType tire_model = TireModelType::TMEASY;
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 0.0, 1.75);
+ChVector3d trackPoint(0.0, 0.0, 1.75);
 
-ChVector<> vehCOM(-1.933, 0.014, 0.495);
+ChVector3d vehCOM(-1.933, 0.014, 0.495);
 
 // Simulation step sizes
 double step_size = 1e-3;
@@ -131,78 +130,78 @@ int main(int argc, char* argv[]) {
     switch (terrainCode) {
         case 1:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_A_NOCORR;
-            GetLog() << "ISO8608 track A without correlation.\n";
+            std::cout << "ISO8608 track A without correlation.\n";
             break;
         case 2:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_B_NOCORR;
-            GetLog() << "ISO8608 track B without correlation.\n";
+            std::cout << "ISO8608 track B without correlation.\n";
             break;
         case 3:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_C_NOCORR;
-            GetLog() << "ISO8608 track C without correlation.\n";
+            std::cout << "ISO8608 track C without correlation.\n";
             break;
         case 4:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_D_NOCORR;
-            GetLog() << "ISO8608 track D without correlation.\n";
+            std::cout << "ISO8608 track D without correlation.\n";
             break;
         case 5:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_E_NOCORR;
-            GetLog() << "ISO8608 track E without correlation.\n";
+            std::cout << "ISO8608 track E without correlation.\n";
             break;
         case 6:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_F_NOCORR;
-            GetLog() << "ISO8608 track F without correlation.\n";
+            std::cout << "ISO8608 track F without correlation.\n";
             break;
         case 7:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_G_NOCORR;
-            GetLog() << "ISO8608 track G without correlation.\n";
+            std::cout << "ISO8608 track G without correlation.\n";
             break;
         case 8:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_H_NOCORR;
-            GetLog() << "ISO8608 track H without correlation.\n";
+            std::cout << "ISO8608 track H without correlation.\n";
             break;
         case 11:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_A_CORR;
-            GetLog() << "ISO8608 track A with correlation.\n";
+            std::cout << "ISO8608 track A with correlation.\n";
             break;
         case 12:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_B_CORR;
-            GetLog() << "ISO8608 track B with correlation.\n";
+            std::cout << "ISO8608 track B with correlation.\n";
             break;
         case 13:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_C_CORR;
-            GetLog() << "ISO8608 track C with correlation.\n";
+            std::cout << "ISO8608 track C with correlation.\n";
             break;
         case 14:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_D_CORR;
-            GetLog() << "ISO8608 track D with correlation.\n";
+            std::cout << "ISO8608 track D with correlation.\n";
             break;
         case 15:
             surface = RandomSurfaceTerrain::SurfaceType::ISO8608_E_CORR;
-            GetLog() << "ISO8608 track E with correlation.\n";
+            std::cout << "ISO8608 track E with correlation.\n";
             break;
         case 21:
             surface = RandomSurfaceTerrain::SurfaceType::MAJOR_ROAD_CONCRETE;
-            GetLog() << "Concrete Major Road with correlation.\n";
+            std::cout << "Concrete Major Road with correlation.\n";
             break;
         case 22:
             surface = RandomSurfaceTerrain::SurfaceType::MAJOR_ROAD_ASPHALTIC_CONCRETE;
-            GetLog() << "Asphaltic Concrete Major Road with correlation.\n";
+            std::cout << "Asphaltic Concrete Major Road with correlation.\n";
             break;
         case 23:
             surface = RandomSurfaceTerrain::SurfaceType::MAIN_ROAD_ASPHALTIC_CONCRETE_ON_PAVEMENT;
-            GetLog() << "Asphaltic Concrete Covered Pavement Main Road with correlation.\n";
+            std::cout << "Asphaltic Concrete Covered Pavement Main Road with correlation.\n";
             break;
         case 24:
             surface = RandomSurfaceTerrain::SurfaceType::MAIN_ROAD_ASPHALTIC_CONCRETE;
-            GetLog() << "Asphaltic Concrete  Main Road with correlation.\n";
+            std::cout << "Asphaltic Concrete  Main Road with correlation.\n";
             break;
         case 25:
             surface = RandomSurfaceTerrain::SurfaceType::TRACK_TILED_CONCRETE_PAVEMENT;
-            GetLog() << "Tiled Concrete Pavement Track with correlation.\n";
+            std::cout << "Tiled Concrete Pavement Track with correlation.\n";
             break;
         default:
-            GetLog()
+            std::cout
                 << "Invalid Terrain Code - (1-8 uncorrelated) or (11-15 correlated) or (21-25 Literature Examples)\n";
             return -1;
     }
@@ -253,11 +252,11 @@ int main(int argc, char* argv[]) {
     // ------------------
     RandomSurfaceTerrain terrain(mrole.GetSystem(), xmax);
     terrain.Initialize(surface, 2, visType);
-    GetLog() << "RMS = " << (1000.0 * terrain.GetRMS()) << " mm\n";
-    GetLog() << "IRI = " << terrain.GetIRI() << " mm/m\n";
+    std::cout << "RMS = " << (1000.0 * terrain.GetRMS()) << " mm\n";
+    std::cout << "IRI = " << terrain.GetIRI() << " mm/m\n";
 
     // create the driver
-    auto path = ChBezierCurve::read(vehicle::GetDataFile(path_file));
+    auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
     ChPathFollowerDriver driver(mrole.GetVehicle(), vehicle::GetDataFile(steering_controller_file),
                                 vehicle::GetDataFile(speed_controller_file), path, "my_path", target_speed);
     driver.Initialize();
@@ -308,9 +307,9 @@ int main(int argc, char* argv[]) {
         driver.ExportPathPovray(out_dir);
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     // Number of simulation steps between two 3D view render frames
     int render_steps = (int)std::ceil(render_step_size / step_size);
@@ -390,15 +389,15 @@ int main(int argc, char* argv[]) {
         double xpos = mrole.GetVehicle().GetPos().x();
         if (xpos >= sensor_start_x) {
             double speed = mrole.GetVehicle().GetSpeed();
-            ChVector<> seat_acc = mrole.GetVehicle().GetPointAcceleration(
+            ChVector3d seat_acc = mrole.GetVehicle().GetPointAcceleration(
                 mrole.GetVehicle().GetChassis()->GetLocalDriverCoordsys().pos);
             seat_logger.AddData(speed, seat_acc);
         }
 
 #ifdef USE_IRRLICHT
         // path visualization
-        const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 
@@ -481,7 +480,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (data_output) {
-        csv.write_to_file(out_dir + "/" + output_file_name + ".dat");
+        csv.WriteToFile(out_dir + "/" + output_file_name + ".dat");
     }
 
     double ride_limit = 2.0;
@@ -493,34 +492,34 @@ int main(int argc, char* argv[]) {
     double ap = seat_logger.GetAbsorbedPowerVertical();
     double rmsVal = terrain.GetRMS();
     double rmsValIn = rmsVal * m_to_in;
-    GetLog() << "Ride Quality Results #1 (ISO 2631-1):\n";
-    GetLog() << "  Root Mean Square of the Road = " << rmsVal << " m\n";
-    GetLog() << "  Average Speed                = " << avg_speed << " m/s\n";
-    GetLog() << "  Weighted Acceleration        = " << awv << " m/s^2\n";
-    GetLog() << "  Vibration Dose Value         = " << vdv << " m/s^1.75\n";
-    GetLog() << "  Vibration Exposure Time      = " << seat_logger.GetExposureTime() << " s\n";
-    GetLog() << "  Crest Factor                 = " << cf << "\n";
-    GetLog() << "  VDV based Severity Criterion = " << svdv << "\n";
+    std::cout << "Ride Quality Results #1 (ISO 2631-1):\n";
+    std::cout << "  Root Mean Square of the Road = " << rmsVal << " m\n";
+    std::cout << "  Average Speed                = " << avg_speed << " m/s\n";
+    std::cout << "  Weighted Acceleration        = " << awv << " m/s^2\n";
+    std::cout << "  Vibration Dose Value         = " << vdv << " m/s^1.75\n";
+    std::cout << "  Vibration Exposure Time      = " << seat_logger.GetExposureTime() << " s\n";
+    std::cout << "  Crest Factor                 = " << cf << "\n";
+    std::cout << "  VDV based Severity Criterion = " << svdv << "\n";
     if (svdv < 1.75) {
-        GetLog() << "\nVDV Severitiy < 1.75: the Weighted Acceleration AWV ist the prefered result\n";
+        std::cout << "\nVDV Severitiy < 1.75: the Weighted Acceleration AWV ist the prefered result\n";
         if (awv <= ride_limit) {
-            GetLog() << "  AWV <= " << ride_limit << "m/s^2 (ok)\n";
+            std::cout << "  AWV <= " << ride_limit << "m/s^2 (ok)\n";
         } else {
-            GetLog() << "  AWV > " << ride_limit << "m/s^2 (above limit)\n";
+            std::cout << "  AWV > " << ride_limit << "m/s^2 (above limit)\n";
         }
     } else {
-        GetLog() << "\nVDV Severitiy >= 1.75: the Vibration Dose Value VDV ist the prefered result\n";
+        std::cout << "\nVDV Severitiy >= 1.75: the Vibration Dose Value VDV ist the prefered result\n";
         if (vdv <= ride_limit) {
-            GetLog() << "  VDV <= " << ride_limit << "m/s^1.75 (ok)\n";
+            std::cout << "  VDV <= " << ride_limit << "m/s^1.75 (ok)\n";
         } else {
-            GetLog() << "  VDV > " << ride_limit << "m/s^1.75 (above limit)\n";
+            std::cout << "  VDV > " << ride_limit << "m/s^1.75 (above limit)\n";
         }
     }
-    GetLog() << "\nRide Quality Results #2 (Absorbed Power Method):\n";
-    GetLog() << "  Speed                         = " << avg_speed * ms_to_mph << " mph = " << avg_speed * 3.6
+    std::cout << "\nRide Quality Results #2 (Absorbed Power Method):\n";
+    std::cout << "  Speed                         = " << avg_speed * ms_to_mph << " mph = " << avg_speed * 3.6
              << " km/h\n";
-    GetLog() << "  RMS                           = " << rmsValIn << " in\n";
-    GetLog() << "  Absorbed Power                = " << ap << " W\n";
+    std::cout << "  RMS                           = " << rmsValIn << " in\n";
+    std::cout << "  Absorbed Power                = " << ap << " W\n";
 
     return 0;
 }

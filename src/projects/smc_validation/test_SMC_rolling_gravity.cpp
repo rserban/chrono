@@ -39,8 +39,8 @@ std::ofstream CreateDataFile() {
 }
 
 void WriteData(std::ofstream& dat, ChSystemMulticoreSMC* msystem, const std::string& str) {
-    for (int i = 0; i < msystem->Get_bodylist().size(); ++i) {
-        const std::shared_ptr<ChBody> body = msystem->Get_bodylist().at(i);
+    for (int i = 0; i < msystem->GetBodies().size(); ++i) {
+        const std::shared_ptr<ChBody> body = msystem->GetBodies().at(i);
 
         // Get the radius of the object
         auto shape = std::static_pointer_cast<ChCollisionShapeChrono>(body->GetCollisionModel()->GetShape(0));
@@ -62,10 +62,10 @@ void WriteData(std::ofstream& dat, ChSystemMulticoreSMC* msystem, const std::str
         dat << str.c_str() << "," << body->GetIdentifier() << "," << msystem->GetChTime() << "," << radius << ","
             << msystem->data_manager->host_data.ct_body_map[i] << "," << body->GetPos().x() << "," << body->GetPos().y()
             << "," << body->GetPos().z() << "," << body->GetRot().e0() << "," << body->GetRot().e1() << ","
-            << body->GetRot().e2() << "," << body->GetRot().e3() << "," << body->GetPos_dt().x() << ","
-            << body->GetPos_dt().y() << "," << body->GetPos_dt().z() << "," << body->GetWvel_par().x() << ","
-            << body->GetWvel_par().y() << "," << body->GetWvel_par().z() << "," << body->GetPos_dtdt().x() << ","
-            << body->GetPos_dtdt().y() << "," << body->GetPos_dtdt().z() << "," << body->GetWacc_par().x() << ","
+            << body->GetRot().e2() << "," << body->GetRot().e3() << "," << body->GetPosDt().x() << ","
+            << body->GetPosDt().y() << "," << body->GetPosDt().z() << "," << body->GetAngVelParent().x() << ","
+            << body->GetAngVelParent().y() << "," << body->GetAngVelParent().z() << "," << body->GetPosDt2().x() << ","
+            << body->GetPosDt2().y() << "," << body->GetPosDt2().z() << "," << body->GetWacc_par().x() << ","
             << body->GetWacc_par().y() << "," << body->GetWacc_par().z() << "," << msystem->GetBodyContactForce(body).x
             << "," << msystem->GetBodyContactForce(body).y << "," << msystem->GetBodyContactForce(body).z << ","
             << msystem->GetBodyContactTorque(body).x << "," << msystem->GetBodyContactTorque(body).y << ","
@@ -85,8 +85,8 @@ int main(int argc, char* argv[]) {
     auto dat = CreateDataFile();
 
     // Print the sim set - up parameters to userlog
-    GetLog() << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n";
-    GetLog() << "\nTesting SMC multicore rolling with gravity behavior....\n";
+    std::cout << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n";
+    std::cout << "\nTesting SMC multicore rolling with gravity behavior....\n";
 
     // Execute test for each force model
     std::vector<std::string> fmodels = {"hooke", "hertz", "plaincoulomb", "flores"};
@@ -103,11 +103,11 @@ int main(int argc, char* argv[]) {
         float adDMT = 0.0f;        /// Magnitude of the adhesion in the DMT adhesion model
         float adSPerko = 0.0f;     /// Magnitude of the adhesion in the SPerko adhesion model
 
-        auto mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+        auto mat = chrono_types::make_shared<ChContactMaterialSMC>();
         mat->SetYoungModulus(y_modulus);
         mat->SetPoissonRatio(p_ratio);
-        mat->SetSfriction(s_frict);
-        mat->SetKfriction(k_frict);
+        mat->SetStaticFriction(s_frict);
+        mat->SetSlidingFriction(k_frict);
         mat->SetRollingFriction(roll_frict);
         mat->SetSpinningFriction(spin_frict);
         mat->SetRestitution(cor_in);
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
         double out_step = 1.0E-2;
         double time_sim = 1.0;
 
-        ChVector<> gravity(0, -9.81, 0);
+        ChVector3d gravity(0, -9.81, 0);
 
         ChSystemMulticoreSMC msystem;
         SetSimParameters(&msystem, gravity, force_to_enum(fmodels[f]));
@@ -129,16 +129,16 @@ int main(int argc, char* argv[]) {
         // Add the wall to the system
         int id = -1;
         double wmass = 10.0;
-        ChVector<> wsize(4, 1, 4);
-        ChVector<> wpos(0, -wsize.y() / 2, 0);
+        ChVector3d wsize(4, 1, 4);
+        ChVector3d wpos(0, -wsize.y() / 2, 0);
 
-        auto wall = AddWall(id, &msystem, mat, wsize, wmass, wpos, ChVector<>(0, 0, 0), true);
+        auto wall = AddWall(id, &msystem, mat, wsize, wmass, wpos, ChVector3d(0, 0, 0), true);
 
         // Add the sphere to the system
         double srad = 0.5;
         double smass = 1.0;
-        ChVector<> spos(0, srad + 1e-2, 0);
-        ChVector<> init_v(0, -0.1, 0);
+        ChVector3d spos(0, srad + 1e-2, 0);
+        ChVector3d init_v(0, -0.1, 0);
 
         auto body1 = AddSphere(++id, &msystem, mat, srad, smass, spos, init_v);
 
@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
 
         // Print the sim set - up parameters to userlog once
         if (f == 0) {
-            GetLog() << "\ntime_step, " << time_step << "\nout_step, " << out_step << "\ntotal_sim_time, " << time_sim
+            std::cout << "\ntime_step, " << time_step << "\nout_step, " << out_step << "\ntotal_sim_time, " << time_sim
                      << "\nadhesion_model, " << static_cast<int>(msystem.GetSettings()->solver.adhesion_force_model)
                      << "\ntangential_displ_model, "
                      << static_cast<int>(msystem.GetSettings()->solver.tangential_displ_mode) << "\ntimestepper, "
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
                      << "\nspinning_friction, " << spin_frict << "\ncor, " << cor_in << "\nconstant_adhesion, " << ad
                      << "\nDMT_adhesion_multiplier, " << adDMT << "\nperko_adhesion_multiplier, " << adSPerko << "\n";
         }
-        GetLog() << "\nModel #" << f << " (" << fmodels[f].c_str() << ")\n";
+        std::cout << "\nModel #" << f << " (" << fmodels[f].c_str() << ")\n";
 
         // Set the soft-real-time cycle parameters
         double time = 0.0;
@@ -177,15 +177,15 @@ int main(int argc, char* argv[]) {
 
             bool KEthresh = CalcKE(&msystem, 1.0E-9);
             if (KEthresh) {
-                GetLog() << "[settling] KE exceeds threshold at t = " << time << "\n";
+                std::cout << "[settling] KE exceeds threshold at t = " << time << "\n";
                 break;
             }
         }
 
         // Write the initial state date and give the sphere an initial spin
         WriteData(dat, &msystem, fmodels[f].c_str());
-        init_v = ChVector<>(1, 0, 0);
-        body1->SetPos_dt(init_v);
+        init_v = ChVector3d(1, 0, 0);
+        body1->SetPosDt(init_v);
 
         // Re-set the clock
         time_sim = time + 1.0;
@@ -212,13 +212,13 @@ int main(int argc, char* argv[]) {
 
             bool KEthresh = CalcKE(&msystem, 1.0E-9);
             if (KEthresh) {
-                GetLog() << "[simulation] KE exceeds threshold at t = " << time << "\n";
+                std::cout << "[simulation] KE exceeds threshold at t = " << time << "\n";
                 break;
             }
         }
 
         // Check results. The sphere's rotational velocity should be < 1e-3.
-        double wvel_body1 = body1->GetWvel_par().Length();
+        double wvel_body1 = body1->GetAngVelParent().Length();
     }
 
     dat.close();

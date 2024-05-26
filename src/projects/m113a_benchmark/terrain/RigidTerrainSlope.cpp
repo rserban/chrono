@@ -19,10 +19,10 @@
 #include <cmath>
 #include <cstdlib>
 
-#include "chrono/assets/ChBoxShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/assets/ChTexture.h"
-#include "chrono/physics/ChMaterialSurfaceNSC.h"
-#include "chrono/physics/ChMaterialSurfaceSMC.h"
+#include "chrono/physics/ChContactMaterialNSC.h"
+#include "chrono/physics/ChContactMaterialSMC.h"
 
 #include "RigidTerrainSlope.h"
 
@@ -34,12 +34,11 @@ namespace vehicle {
 // -----------------------------------------------------------------------------
 RigidTerrainSlope::RigidTerrainSlope(ChSystem* system) : m_friction(0.8f) {
     // Create the ground body and add it to the system.
-    m_ground = std::shared_ptr<ChBody>(system->NewBody());
-    m_ground->SetIdentifier(-1);
+    m_ground = chrono_types::make_shared<ChBody>();
     m_ground->SetName("ground");
-    m_ground->SetPos(ChVector<>(0, 0, 0));
-    m_ground->SetBodyFixed(true);
-    m_ground->SetCollide(true);
+    m_ground->SetPos(ChVector3d(0, 0, 0));
+    m_ground->SetFixed(true);
+    m_ground->EnableCollision(true);
     system->AddBody(m_ground);
 }
 
@@ -53,7 +52,7 @@ void RigidTerrainSlope::SetTexture(const std::string tex_file, float tex_scale_x
 // -----------------------------------------------------------------------------
 // Initialize the terrain as a rigid box
 // -----------------------------------------------------------------------------
-void RigidTerrainSlope::Initialize(std::shared_ptr<ChMaterialSurface> mat,
+void RigidTerrainSlope::Initialize(std::shared_ptr<ChContactMaterial> mat,
                                    double height1,
                                    double height2,
                                    double grade,
@@ -70,13 +69,11 @@ void RigidTerrainSlope::Initialize(std::shared_ptr<ChMaterialSurface> mat,
 
     double depth = 10;  // thickness of each contact box
 
-    m_ground->GetCollisionModel()->ClearModel();
-
     {
         m_ground->GetCollisionModel()->AddBox(mat, sizeX, sizeY, depth,
-                                              ChVector<>(-sizeX / 2, 0, height1 - depth / 2));
-        auto box = chrono_types::make_shared<ChBoxShape>(sizeX, sizeY, depth);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(-sizeX / 2, 0, height1 - depth / 2)));
+                                              ChVector3d(-sizeX / 2, 0, height1 - depth / 2));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX, sizeY, depth);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(-sizeX / 2, 0, height1 - depth / 2)));
     }
 
     {
@@ -88,28 +85,26 @@ void RigidTerrainSlope::Initialize(std::shared_ptr<ChMaterialSurface> mat,
         double y = 0;
         double z = (m_height1 + m_height2 - depth * std::cos(m_angle)) / 2;
 
-        ChMatrix33<> rot(-m_angle, ChVector<>(0, 1, 0));
+        ChMatrix33<> rot(-m_angle, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector<>(x, y, z), rot);
+        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
 
-        auto box = chrono_types::make_shared<ChBoxShape>(dim_x, dim_y, dim_z);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(x, y, z), rot));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
     }
 
     {
         m_ground->GetCollisionModel()->AddBox(mat, sizeX, sizeY, depth,
-                                              ChVector<>(m_run + sizeX / 2, 0, height2 - depth / 2));
-        auto box = chrono_types::make_shared<ChBoxShape>(sizeX, sizeY, depth);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector<>(m_run + sizeX / 2, 0, height2 - depth / 2)));
+                                              ChVector3d(m_run + sizeX / 2, 0, height2 - depth / 2));
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX, sizeY, depth);
+        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(m_run + sizeX / 2, 0, height2 - depth / 2)));
     }
-
-    m_ground->GetCollisionModel()->BuildModel();
 }
 
 // -----------------------------------------------------------------------------
 // Return the terrain height at the specified location
 // -----------------------------------------------------------------------------
-double RigidTerrainSlope::GetHeight(const ChVector<>& loc) const {
+double RigidTerrainSlope::GetHeight(const ChVector3d& loc) const {
     if (loc.x() <= 0)
         return m_height1;
 
@@ -122,11 +117,11 @@ double RigidTerrainSlope::GetHeight(const ChVector<>& loc) const {
 // -----------------------------------------------------------------------------
 // Return the terrain normal at the specified location
 // -----------------------------------------------------------------------------
-ChVector<> RigidTerrainSlope::GetNormal(const ChVector<>& loc) const {
+ChVector3d RigidTerrainSlope::GetNormal(const ChVector3d& loc) const {
     if (loc.x() < 0 || loc.x() > m_run)
-        return ChVector<>(0, 0, 1);
+        return ChVector3d(0, 0, 1);
 
-    return ChVector<>(-std::sin(m_angle), 0, std::cos(m_angle));
+    return ChVector3d(-std::sin(m_angle), 0, std::cos(m_angle));
 }
 
 }  // end namespace vehicle

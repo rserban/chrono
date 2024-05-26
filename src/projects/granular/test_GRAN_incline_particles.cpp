@@ -24,7 +24,6 @@
 #include <cmath>
 
 #include "chrono/ChConfig.h"
-#include "chrono/core/ChStream.h"
 #include "chrono/utils/ChUtilsGeometry.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
@@ -41,7 +40,6 @@
 #endif
 
 using namespace chrono;
-using namespace chrono::collision;
 
 using std::cout;
 using std::endl;
@@ -72,7 +70,7 @@ double compliance = 1e-9;  // compliance
 int coh_pressure_kpa = 1;  // cohesion pressure (kPa)
 
 int slope_deg = 30;                          // terrain slope (degrees)
-double slope = (CH_C_PI / 180) * slope_deg;  // terrain slope (radians)
+double slope = (CH_PI / 180) * slope_deg;  // terrain slope (radians)
 
 // -----------------------------------------------------------------------------
 // Timed events
@@ -114,7 +112,7 @@ std::shared_ptr<ChParticleContainer> particle_container;
 
 // =============================================================================
 // Custom material composition laws
-class CustomCompositionStrategy : public ChMaterialCompositionStrategy {
+class CustomCompositionStrategy : public ChContactMaterialCompositionStrategy {
   public:
     virtual float CombineFriction(float a1, float a2) const override { return std::max<float>(a1, a2); }
 };
@@ -131,13 +129,13 @@ static inline void TimingOutput(chrono::ChSystem* mSys, chrono::ChStreamOutAscii
     double UPDT = mSys->GetTimerUpdate();
     double RESID = 0;
     int REQ_ITS = 0;
-    int BODS = mSys->GetNbodies();
-    int CNTC = mSys->GetNcontacts();
+    int BODS = mSys->GetNumBodies();
+    int CNTC = mSys->GetNumContacts();
     if (chrono::ChSystemMulticore* mc_sys = dynamic_cast<chrono::ChSystemMulticore*>(mSys)) {
         RESID = std::static_pointer_cast<chrono::ChIterativeSolverMulticore>(mSys->GetSolver())->GetResidual();
         REQ_ITS = std::static_pointer_cast<chrono::ChIterativeSolverMulticore>(mSys->GetSolver())->GetIterations();
-        BODS = mc_sys->GetNbodies();
-        CNTC = mc_sys->GetNcontacts();
+        BODS = mc_sys->GetNumBodies();
+        CNTC = mc_sys->GetNumContacts();
     }
 
     if (ofile) {
@@ -160,35 +158,33 @@ double CreateContainer(ChSystem* system,  // containing system
                        ) {
     bool visible_walls = false;
 
-    auto material = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto material = chrono_types::make_shared<ChContactMaterialNSC>();
     material->SetFriction((float)mu);
     material->SetCohesion((float)coh);
     material->SetCompliance((float)compliance);
 
-    auto ground = chrono_types::make_shared<ChBody>(ChCollisionSystemType::CHRONO);
-    ground->SetIdentifier(-1);
+    auto ground = chrono_types::make_shared<ChBody>();
+    ground->SetTag(-1);
     ground->SetMass(1000);
-    ground->SetBodyFixed(true);
-    ground->SetCollide(true);
-
-    ground->GetCollisionModel()->ClearModel();
+    ground->SetFixed(true);
+    ground->EnableCollision(true);
 
     // Bottom box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hdimX, hdimY, hthick), ChVector<>(0, 0, -hthick),
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hdimX, hdimY, hthick), ChVector3d(0, 0, -hthick),
                           ChQuaternion<>(1, 0, 0, 0), true);
     // Left box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hdimX, hthick, hdimZ + hthick),
-                          ChVector<>(0, hdimY + hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hdimX, hthick, hdimZ + hthick),
+                          ChVector3d(0, hdimY + hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
     // Right box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hdimX, hthick, hdimZ + hthick),
-                          ChVector<>(0, -hdimY - hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hdimX, hthick, hdimZ + hthick),
+                          ChVector3d(0, -hdimY - hthick, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
 
     // Front box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hthick, hdimY, hdimZ + hthick),
-                          ChVector<>(hdimX + hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hthick, hdimY, hdimZ + hthick),
+                          ChVector3d(hdimX + hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
     // Rear box
-    utils::AddBoxGeometry(ground.get(), material, ChVector<>(hthick, hdimY, hdimZ + hthick),
-                          ChVector<>(-hdimX - hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
+    utils::AddBoxGeometry(ground.get(), material, ChVector3d(hthick, hdimY, hdimZ + hthick),
+                          ChVector3d(-hdimX - hthick, 0, hdimZ - hthick), ChQuaternion<>(1, 0, 0, 0), visible_walls);
 
     // If a positive radius was provided, create a "rough" surface
     if (radius > 0) {
@@ -197,12 +193,10 @@ double CreateContainer(ChSystem* system,  // containing system
         int ny = (int)std::floor(hdimY / d);
         for (int ix = -nx; ix <= nx; ix++) {
             for (int iy = -ny; iy <= ny; iy++) {
-                utils::AddSphereGeometry(ground.get(), material, radius, ChVector<>(ix * d, iy * d, radius));
+                utils::AddSphereGeometry(ground.get(), material, radius, ChVector3d(ix * d, iy * d, radius));
             }
         }
     }
-
-    ground->GetCollisionModel()->BuildModel();
 
     system->AddBody(ground);
 
@@ -225,7 +219,7 @@ unsigned int CreateParticles(ChSystemMulticoreNSC* system,  // containing system
         system->Add3DOFContainer(particle_container);
 
         particle_container->kernel_radius = 2 * radius;
-        particle_container->mass = rho * (4 * CH_C_PI / 3) * std::pow(radius, 3);
+        particle_container->mass = rho * (4 * CH_PI / 3) * std::pow(radius, 3);
 
         particle_container->contact_mu = mu;
         particle_container->contact_cohesion = coh;
@@ -244,12 +238,12 @@ unsigned int CreateParticles(ChSystemMulticoreNSC* system,  // containing system
         std::vector<real3> vel;
 
         double r = 1.01 * radius;
-        ChVector<> hdims(hdimX - r, hdimY - r, 0);
-        ChVector<> center(0, 0, top_height + 2 * r);
+        ChVector3d hdims(hdimX - r, hdimY - r, 0);
+        ChVector3d center(0, 0, top_height + 2 * r);
 
-        utils::PDSampler<> sampler(2 * r);
+        utils::ChPDSampler<> sampler(2 * r);
         for (int il = 0; il < num_layers; il++) {
-            utils::Generator::PointVector points = sampler.SampleBox(center, hdims);
+            utils::ChGenerator::PointVector points = sampler.SampleBox(center, hdims);
             center.z() += 2 * r;
             for (int i = 0; i < points.size(); i++) {
                 pos.push_back(real3(points[i].x(), points[i].y(), points[i].z()));
@@ -263,33 +257,33 @@ unsigned int CreateParticles(ChSystemMulticoreNSC* system,  // containing system
         num_particles = (unsigned int)pos.size();
     } else {
         // Create a material
-        auto mat_g = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+        auto mat_g = chrono_types::make_shared<ChContactMaterialNSC>();
         mat_g->SetFriction((float)mu);
         mat_g->SetCohesion((float)coh);
         mat_g->SetCompliance(1e-9f);
 
         // Create a particle generator and a mixture entirely made out of spheres
         double r = 1.01 * radius;
-        utils::PDSampler<double> sampler(2 * r);
-        utils::Generator gen(system);
-        std::shared_ptr<utils::MixtureIngredient> m1 = gen.AddMixtureIngredient(utils::MixtureType::SPHERE, 1.0);
-        m1->setDefaultMaterial(mat_g);
-        m1->setDefaultDensity(rho);
-        m1->setDefaultSize(radius);
+        utils::ChPDSampler<double> sampler(2 * r);
+        utils::ChGenerator gen(system);
+        std::shared_ptr<utils::ChMixtureIngredient> m1 = gen.AddMixtureIngredient(utils::MixtureType::SPHERE, 1.0);
+        m1->SetDefaultMaterial(mat_g);
+        m1->SetDefaultDensity(rho);
+        m1->SetDefaultSize(radius);
 
         // Set starting value for body identifiers
-        gen.setBodyIdentifier(1);
+        gen.SetStartTag(1);
 
         // Create particles in layers until reaching the desired number of particles
-        ChVector<> hdims(hdimX - r, hdimY - r, 0);
-        ChVector<> center(0, 0, top_height + 2 * r);
+        ChVector3d hdims(hdimX - r, hdimY - r, 0);
+        ChVector3d center(0, 0, top_height + 2 * r);
 
         for (int il = 0; il < num_layers; il++) {
             gen.CreateObjectsBox(sampler, center, hdims);
             center.z() += 2 * r;
         }
 
-        num_particles = gen.getTotalNumBodies();
+        num_particles = gen.GetTotalNumBodies();
     }
 
     return num_particles;
@@ -297,19 +291,19 @@ unsigned int CreateParticles(ChSystemMulticoreNSC* system,  // containing system
 
 // =============================================================================
 
-ChVector<> CalculateCOM(ChSystem* system) {
-    ChVector<> com(0, 0, 0);
+ChVector3d CalculateCOM(ChSystem* system) {
+    ChVector3d com(0, 0, 0);
     unsigned int count = 0;
 
     if (use_particles) {
         count = particle_container->GetNumParticles();
         for (uint i = 0; i < count; i++) {
             real3 pos = particle_container->GetPos(i);
-            com += ChVector<>(pos.x, pos.y, pos.z);
+            com += ChVector3d(pos.x, pos.y, pos.z);
         }
     } else {
-        for (auto body : system->Get_bodylist()) {
-            if (body->GetIdentifier()) {
+        for (auto body : system->GetBodies()) {
+            if (body->GetTag()) {
                 com += body->GetPos();
                 count++;
             }
@@ -323,7 +317,7 @@ ChVector<> CalculateCOM(ChSystem* system) {
 
 int main(int argc, char* argv[]) {
     double radius = radius_mm / 1.0e3;                   // particle radius (m)
-    double area = CH_C_PI * radius * radius;             // cross-section area (m2)
+    double area = CH_PI * radius * radius;             // cross-section area (m2)
     double coh_force = area * (coh_pressure_kpa * 1e3);  // cohesion force (N)
     double cohesion = coh_force * time_step;             // cohesion impulse (Ns)
 
@@ -354,11 +348,12 @@ int main(int argc, char* argv[]) {
     // -------------
     // Create system
     // -------------
-    ChVector<> gravity(0, 0, -9.81);
-    ChVector<> gravityR = ChMatrix33<>(slope, ChVector<>(0, 1, 0)) * gravity;
+    ChVector3d gravity(0, 0, -9.81);
+    ChVector3d gravityR = ChMatrix33<>(slope, ChVector3d(0, 1, 0)) * gravity;
 
     ChSystemMulticoreNSC* system = new ChSystemMulticoreNSC();
-    system->Set_G_acc(gravity);
+    system->SetGravitationalAcceleration(gravity);
+    system->SetCollisionSystemType(ChCollisionSystem::Type::MULTICORE);
 
     // Test using a custom material property composition strategy
     ////std::unique_ptr<CustomCompositionStrategy> strategy(new CustomCompositionStrategy);
@@ -424,7 +419,7 @@ int main(int argc, char* argv[]) {
         vis.SetWindowSize(1280, 720);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.AddCamera(ChVector<>(0, -hdimY - 1, 0), ChVector<>(0, 0, 0));
+        vis.AddCamera(ChVector3d(0, -hdimY - 1, 0), ChVector3d(0, 0, 0));
         vis.SetCameraVertical(CameraVerticalDir::Z);
     }
 #endif
@@ -443,7 +438,7 @@ int main(int argc, char* argv[]) {
         // Rotate gravity vector
         if (!is_pitched && time > time_pitch) {
             cout << time << "    Pitch: " << gravityR.x() << " " << gravityR.y() << " " << gravityR.z() << endl;
-            system->Set_G_acc(gravityR);
+            system->SetGravitationalAcceleration(gravityR);
             is_pitched = true;
         }
 
@@ -451,7 +446,7 @@ int main(int argc, char* argv[]) {
         system->DoStepDynamics(time_step);
 
         if (output) {
-            ChVector<> com = CalculateCOM(system);
+            ChVector3d com = CalculateCOM(system);
             outf << time << " " << com.x() << " " << com.y() << " " << com.z() << "\n";
         }
 

@@ -121,7 +121,7 @@ void LoadCheckpoint(const std::string& filename, ChVehicle& vehicle, DriverInput
 }
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // Create the vehicle, set parameters, and initialize
     /*
@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
     veh.SetContactMethod(ChContactMethod::NSC);
     veh.SetChassisFixed(false);
     veh.SetChassisCollisionType(CollisionType::NONE);
-    veh.SetInitPosition(ChCoordsys<>(ChVector<>(0, 0, 1.0), QUNIT));
+    veh.SetInitPosition(ChCoordsys<>(ChVector3d(0, 0, 1.0), QUNIT));
     veh.SetPowertrainType(PowertrainModelType::SHAFTS);
     veh.SetDriveType(DrivelineTypeWV::AWD);
     veh.SetSteeringType(SteeringTypeWV::PITMAN_ARM);
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
     veh.SetContactMethod(ChContactMethod::NSC);
     veh.SetChassisFixed(false);
     veh.SetChassisCollisionType(CollisionType::NONE);
-    veh.SetInitPosition(ChCoordsys<>(ChVector<>(0, 0, 1.0), QUNIT));
+    veh.SetInitPosition(ChCoordsys<>(ChVector3d(0, 0, 1.0), QUNIT));
     veh.SetEngineType(EngineModelType::SHAFTS);
     veh.SetTransmissionType(TransmissionModelType::SHAFTS);
     veh.SetTireType(TireModelType::PAC02);
@@ -158,7 +158,7 @@ int main(int argc, char* argv[]) {
 
     // Create the terrain
     RigidTerrain terrain(veh.GetSystem());
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     patch_mat->SetFriction(0.9f);
     patch_mat->SetRestitution(0.01f);
     auto patch = terrain.AddPatch(patch_mat, CSYSNORM, 200.0, 100.0);
@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Vehicle reinitialization test");
     vis->SetWindowSize(1000, 800);
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, .75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, .75), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();

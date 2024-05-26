@@ -42,7 +42,7 @@ void ChCollisionLidar::Initialize(chrono::ChCoordsys<double> offsetPose,
 	if(aboutZSamples < 1) aboutZSamples = 1;
 	if(aboutYSamples < 1) aboutYSamples = 1;
 
-	chrono::ChVector<double> start, end, axis;
+	chrono::ChVector3d start, end, axis;
 	double yawAngle, pitchAngle;
 	chrono::ChQuaternion<double> ray;
 	double yDiff = aboutYMaxAngle - aboutYMinAngle;
@@ -58,9 +58,9 @@ void ChCollisionLidar::Initialize(chrono::ChCoordsys<double> offsetPose,
 					j * pDiff / (aboutZSamples - 1) + aboutZMinAngle;
 
 			//Yaw, Roll, Pitch according to ChQuaternion.h
-			ray.Q_from_NasaAngles(chrono::ChVector<double>(yawAngle, 0.0, -pitchAngle));
+			ray.Q_from_NasaAngles(chrono::ChVector3d(yawAngle, 0.0, -pitchAngle));
 
-			axis = (offsetPose.rot * ray).Rotate(chrono::ChVector<double>(1.0,0,0));
+			axis = (offsetPose.rot * ray).Rotate(chrono::ChVector3d(1.0,0,0));
 
 			start = (axis * minRange) + offsetPose.pos;
 			end = (axis * maxRange) + offsetPose.pos;
@@ -74,8 +74,8 @@ void ChCollisionLidar::UpdateRays(){
 
 }
 
-void ChCollisionLidar::AddRay(const chrono::ChVector<double> &start,
-		const chrono::ChVector<double> &end){
+void ChCollisionLidar::AddRay(const chrono::ChVector3d &start,
+		const chrono::ChVector3d &end){
 	std::shared_ptr<ChCollisionLidarRay> ray = chrono_types::make_shared<ChCollisionLidarRay>(m_parent, m_visualize);
 
 	ray->SetPoints(start, end);

@@ -52,8 +52,8 @@ void ChCollisionLidarRay::Update(bool updateCollision){
 }
 
 // set the start and end point of the ray
-void ChCollisionLidarRay::SetPoints(const chrono::ChVector<double> &posStart,
-		const chrono::ChVector<double> &posEnd){
+void ChCollisionLidarRay::SetPoints(const chrono::ChVector3d &posStart,
+		const chrono::ChVector3d &posEnd){
 	//set the global start and end points
 	this->relativeStartPos = posStart;
 	this->relativeEndPos = posEnd;
@@ -63,14 +63,14 @@ void ChCollisionLidarRay::SetPoints(const chrono::ChVector<double> &posStart,
 	if(visualize){
 		//insert a small sphere at the end of each ray for debugging purposes
 		rayEnd = chrono_types::make_shared<chrono::ChBodyEasySphere>(.02, 3000, false, true);
-		rayEnd->SetPos(chrono::ChVector<>(this->globalEndPos));
-		rayEnd->SetBodyFixed(true);
+		rayEnd->SetPos(chrono::ChVector3d(this->globalEndPos));
+		rayEnd->SetFixed(true);
 		this->parent->GetSystem()->Add(rayEnd);
 		rayEnd->GetVisualShape(0)->SetColor(chrono::ChColor(0.1f, 1.0f, .1f));
 
 		rayStart = chrono_types::make_shared<chrono::ChBodyEasySphere>(.02, 3000, false, true);
-		rayStart->SetPos(chrono::ChVector<>(this->globalStartPos));
-		rayStart->SetBodyFixed(true);
+		rayStart->SetPos(chrono::ChVector3d(this->globalStartPos));
+		rayStart->SetFixed(true);
 		this->parent->GetSystem()->Add(rayStart);
         rayStart->GetVisualShape(0)->SetColor(chrono::ChColor(0.1f, 0.1f, 1.0f));
 	}
@@ -81,7 +81,7 @@ void ChCollisionLidarRay::SetLength(double len){
 	//set the length to the contact
 	this->contactLen = len;
 
-	chrono::ChVector<double> dir = this->relativeEndPos - this->relativeStartPos;
+	chrono::ChVector3d dir = this->relativeEndPos - this->relativeStartPos;
 	dir.Normalize();
 
 	// this was in gazebo RayShape or BulletRayShape but causes the end position to be incorrect the next time around

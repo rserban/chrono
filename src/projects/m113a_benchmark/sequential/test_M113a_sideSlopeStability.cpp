@@ -21,7 +21,6 @@
 
 #include <vector>
 
-#include "chrono/core/ChStream.h"
 #include "chrono/solver/ChIterativeSolverLS.h"
 #include "chrono/utils/ChFilters.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
@@ -48,7 +47,7 @@ using namespace chrono::vehicle::m113;
 // =============================================================================
 
 // Initial vehicle position
-ChVector<> initLoc(-125, 0, 0.65);
+ChVector3d initLoc(-125, 0, 0.65);
 
 // Initial vehicle orientation
 ChQuaternion<> initRot(1, 0, 0, 0);
@@ -60,10 +59,10 @@ ChQuaternion<> initRot(1, 0, 0, 0);
 double target_speed = 8;
 
 // Chassis Corner Point Locations
-ChVector<> FrontLeftCornerLoc(13.5 * 0.0254, 53.0 * 0.0254, 0.0);
-ChVector<> FrontRightCornerLoc(13.5 * 0.0254, -53.0 * 0.0254, 0.0);
-ChVector<> RearLeftCornerLoc(-178.2 * 0.0254, 53.0 * 0.0254, -5.9 * 0.0254);
-ChVector<> RearRightCornerLoc(-178.2 * 0.0254, -53.0 * 0.0254, -5.9 * 0.0254);
+ChVector3d FrontLeftCornerLoc(13.5 * 0.0254, 53.0 * 0.0254, 0.0);
+ChVector3d FrontRightCornerLoc(13.5 * 0.0254, -53.0 * 0.0254, 0.0);
+ChVector3d RearLeftCornerLoc(-178.2 * 0.0254, 53.0 * 0.0254, -5.9 * 0.0254);
+ChVector3d RearRightCornerLoc(-178.2 * 0.0254, -53.0 * 0.0254, -5.9 * 0.0254);
 
 // Input file names for the path-follower driver model
 std::string path_file("M113a_benchmark/paths/SideSlopeStability.txt");
@@ -85,7 +84,7 @@ double render_step_size = 1.0 / 50;  // FPS = 50
 double output_step_size = 1.0 / 100;  // once a second
 
 // Point on chassis tracked by the camera (Irrlicht only)
-ChVector<> trackPoint(0.0, 0.0, 0.0);
+ChVector3d trackPoint(0.0, 0.0, 0.0);
 
 // Simulation length (set to a negative value to disable for Irrlicht)
 double tend = -1.0;
@@ -118,7 +117,7 @@ int main(int argc, char* argv[]) {
     m113.SetTrackShoeType(TrackShoeType::SINGLE_PIN);
     m113.SetDrivelineType(DrivelineTypeTV::SIMPLE);
     m113.SetEngineType(EngineModelType::SIMPLE_MAP);
-    m113.SetTransmissionType(TransmissionModelType::SIMPLE_MAP);
+    m113.SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_MAP);
 
     m113.SetInitPosition(ChCoordsys<>(initLoc, initRot));
     m113.Initialize();
@@ -145,7 +144,7 @@ int main(int argc, char* argv[]) {
     // Create the terrain
     // ------------------
 
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialSMC>();
     patch_mat->SetFriction(0.8f);
     patch_mat->SetRestitution(0.01f);
     patch_mat->SetYoungModulus(2e7f);
@@ -155,8 +154,8 @@ int main(int argc, char* argv[]) {
     ////RigidTerrain terrain(m113.GetSystem(), vehicle::GetDataFile("terrain/RigidSlope30.json"));
 
     ////RigidTerrain terrain(m113.GetSystem());
-    ////auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(ChVector<>(0, 0, terrainHeight - 5), QUNIT),
-    ////                              ChVector<>(terrainLength, terrainWidth, 10));
+    ////auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(ChVector3d(0, 0, terrainHeight - 5), QUNIT),
+    ////                              ChVector3d(terrainLength, terrainWidth, 10));
     ////patch->SetColor(ChColor(0.8f, 0.8f, 0.5f));
     ////patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
     ////terrain.Initialize();
@@ -174,7 +173,7 @@ int main(int argc, char* argv[]) {
     // Create the path and the driver system
     // -------------------------------------
 
-    auto path = ChBezierCurve::read(vehicle::GetDataFile(path_file));
+    auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
     ChPathFollowerDriver driver(vehicle, vehicle::GetDataFile(steering_controller_file),
                                 vehicle::GetDataFile(speed_controller_file), path, "my_path", target_speed);
     driver.Initialize();
@@ -223,9 +222,9 @@ int main(int argc, char* argv[]) {
         driver.ExportPathPovray(out_dir);
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     utils::ChRunningAverage fwd_acc_GC_filter(filter_window_size);
     utils::ChRunningAverage lat_acc_GC_filter(filter_window_size);
@@ -234,7 +233,7 @@ int main(int argc, char* argv[]) {
     utils::ChRunningAverage lat_acc_driver_filter(filter_window_size);
 
     // Driver location in vehicle local frame
-    ChVector<> driver_pos = m113.GetChassis()->GetLocalDriverCoordsys().pos;
+    ChVector3d driver_pos = m113.GetChassis()->GetLocalDriverCoordsys().pos;
 
     // ---------------
     // Simulation loop
@@ -269,28 +268,24 @@ int main(int argc, char* argv[]) {
             break;
 
         // Extract system state
-        ChVector<> vel_CG = m113.GetChassisBody()->GetPos_dt();
-        ChVector<> acc_CG = m113.GetChassisBody()->GetPos_dtdt();
-        acc_CG = m113.GetChassisBody()->GetCoord().TransformDirectionParentToLocal(acc_CG);
-        ChVector<> acc_driver = vehicle.GetPointAcceleration(driver_pos);
+        ChVector3d vel_CG = m113.GetChassisBody()->GetPosDt();
+        ChVector3d acc_CG = m113.GetChassisBody()->GetPosDt2();
+        acc_CG = m113.GetChassisBody()->TransformDirectionParentToLocal(acc_CG);
+        ChVector3d acc_driver = vehicle.GetPointAcceleration(driver_pos);
         double fwd_acc_CG = fwd_acc_GC_filter.Add(acc_CG.x());
         double lat_acc_CG = lat_acc_GC_filter.Add(acc_CG.y());
         double fwd_acc_driver = fwd_acc_driver_filter.Add(acc_driver.x());
         double lat_acc_driver = lat_acc_driver_filter.Add(acc_driver.y());
 
-        ChVector<> FrontLeftCornerPos =
-            m113.GetChassisBody()->GetCoord().TransformPointLocalToParent(FrontLeftCornerLoc);
-        ChVector<> FrontRightCornerPos =
-            m113.GetChassisBody()->GetCoord().TransformPointLocalToParent(FrontRightCornerLoc);
-        ChVector<> RearLeftCornerPos =
-            m113.GetChassisBody()->GetCoord().TransformPointLocalToParent(RearLeftCornerLoc);
-        ChVector<> RearRightCornerPos =
-            m113.GetChassisBody()->GetCoord().TransformPointLocalToParent(RearRightCornerLoc);
+        ChVector3d FrontLeftCornerPos = m113.GetChassisBody()->TransformPointLocalToParent(FrontLeftCornerLoc);
+        ChVector3d FrontRightCornerPos = m113.GetChassisBody()->TransformPointLocalToParent(FrontRightCornerLoc);
+        ChVector3d RearLeftCornerPos = m113.GetChassisBody()->TransformPointLocalToParent(RearLeftCornerLoc);
+        ChVector3d RearRightCornerPos = m113.GetChassisBody()->TransformPointLocalToParent(RearRightCornerLoc);
 
         // Update sentinel and target location markers for the path-follower controller.
         // Note that we do this whether or not we are currently using the path-follower driver.
-        const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 
@@ -315,10 +310,10 @@ int main(int argc, char* argv[]) {
                 csv << vel_CG.x() << vel_CG.y() << vel_CG.z();
                 csv << m113.GetChassis()->GetPos().x() << m113.GetChassis()->GetPos().y()
                     << m113.GetChassis()->GetPos().z();
-                csv << 180.0 * theta / CH_C_PI;                                                        // ground angle
-                csv << 180.0 * (theta - m113.GetChassisBody()->GetA().Get_A_Rxyz().x()) / CH_C_PI;  // vehicle roll
-                csv << 180.0 * (m113.GetChassisBody()->GetA().Get_A_Rxyz().y()) / CH_C_PI;          // vehicle pitch
-                csv << 180.0 * (m113.GetChassisBody()->GetA().Get_A_Rxyz().z()) / CH_C_PI;          // vehicle yaw
+                csv << 180.0 * theta / CH_PI;                                                        // ground angle
+                csv << 180.0 * (theta - m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().x()) / CH_PI;  // vehicle roll
+                csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().y()) / CH_PI;          // vehicle pitch
+                csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().z()) / CH_PI;          // vehicle yaw
                 csv << FrontLeftCornerPos.x() << FrontLeftCornerPos.y() << FrontLeftCornerPos.z();
                 csv << FrontRightCornerPos.x() << FrontRightCornerPos.y() << FrontRightCornerPos.z();
                 csv << RearLeftCornerPos.x() << RearLeftCornerPos.y() << RearLeftCornerPos.z();
@@ -354,23 +349,19 @@ int main(int argc, char* argv[]) {
 
     while (time <= tend) {
         // Extract system state
-        ChVector<> vel_CG = m113.GetChassisBody()->GetPos_dt();
-        ChVector<> acc_CG = m113.GetChassisBody()->GetPos_dtdt();
-        acc_CG = m113.GetChassisBody()->GetCoord().TransformDirectionParentToLocal(acc_CG);
-        ChVector<> acc_driver = vehicle.GetPointAcceleration(driver_pos);
+        ChVector3d vel_CG = m113.GetChassisBody()->GetPosDt();
+        ChVector3d acc_CG = m113.GetChassisBody()->GetPosDt2();
+        acc_CG = m113.GetChassisBody()->TransformDirectionParentToLocal(acc_CG);
+        ChVector3d acc_driver = vehicle.GetPointAcceleration(driver_pos);
         double fwd_acc_CG = fwd_acc_GC_filter.Add(acc_CG.x());
         double lat_acc_CG = lat_acc_GC_filter.Add(acc_CG.y());
         double fwd_acc_driver = fwd_acc_driver_filter.Add(acc_driver.x());
         double lat_acc_driver = lat_acc_driver_filter.Add(acc_driver.y());
 
-        ChVector<> FrontLeftCornerPos =
-            m113.GetChassisBody()->GetCoord().TransformPointLocalToParent(FrontLeftCornerLoc);
-        ChVector<> FrontRightCornerPos =
-            m113.GetChassisBody()->GetCoord().TransformPointLocalToParent(FrontRightCornerLoc);
-        ChVector<> RearLeftCornerPos =
-            m113.GetChassisBody()->GetCoord().TransformPointLocalToParent(RearLeftCornerLoc);
-        ChVector<> RearRightCornerPos =
-            m113.GetChassisBody()->GetCoord().TransformPointLocalToParent(RearRightCornerLoc);
+        ChVector3d FrontLeftCornerPos = m113.GetChassisBody()->TransformPointLocalToParent(FrontLeftCornerLoc);
+        ChVector3d FrontRightCornerPos = m113.GetChassisBody()->TransformPointLocalToParent(FrontRightCornerLoc);
+        ChVector3d RearLeftCornerPos = m113.GetChassisBody()->TransformPointLocalToParent(RearLeftCornerLoc);
+        ChVector3d RearRightCornerPos = m113.GetChassisBody()->TransformPointLocalToParent(RearRightCornerLoc);
 
         //        if (step_number % output_steps == 0)
         //            std::cout << "Time = " << time << "   % Complete = " << time / tend * 100.0 << std::endl;
@@ -402,10 +393,10 @@ int main(int argc, char* argv[]) {
                 csv << vel_CG.x() << vel_CG.y() << vel_CG.z();
                 csv << m113.GetChassis()->GetPos().x() << m113.GetChassis()->GetPos().y()
                     << m113.GetChassis()->GetPos().z();
-                csv << 180.0 * theta / CH_C_PI;                                                    // ground angle
-                csv << 180.0 * (theta - m113.GetChassisBody()->GetA().Get_A_Rxyz().x()) / CH_C_PI;  // vehicle roll
-                csv << 180.0 * (m113.GetChassisBody()->GetA().Get_A_Rxyz().y()) / CH_C_PI;          // vehicle pitch
-                csv << 180.0 * (m113.GetChassisBody()->GetA().Get_A_Rxyz().z()) / CH_C_PI;      // vehicle yaw
+                csv << 180.0 * theta / CH_PI;                                                    // ground angle
+                csv << 180.0 * (theta - m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().x()) / CH_PI;  // vehicle roll
+                csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().y()) / CH_PI;          // vehicle pitch
+                csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().z()) / CH_PI;      // vehicle yaw
                 csv << FrontLeftCornerPos.x() << FrontLeftCornerPos.y() << FrontLeftCornerPos.z();
                 csv << FrontRightCornerPos.x() << FrontRightCornerPos.y() << FrontRightCornerPos.z();
                 csv << RearLeftCornerPos.x() << RearLeftCornerPos.y() << RearLeftCornerPos.z();
@@ -439,7 +430,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     if (state_output) {
-        csv.write_to_file(out_dir + "/output.dat");
+        csv.WriteToFile(out_dir + "/output.dat");
     }
 
     return 0;

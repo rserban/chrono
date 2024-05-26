@@ -31,7 +31,7 @@ using std::endl;
 int main(int argc, char* argv[]) {
     // Create system
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(-9.8, 0, 0));
+    sys.SetGravitationalAcceleration(ChVector3d(-9.8, 0, 0));
 
     // FEA mesh
     auto section = chrono_types::make_shared<chrono::fea::ChBeamSectionCable>();
@@ -40,8 +40,8 @@ int main(int argc, char* argv[]) {
     section->SetArea(1);
     section->SetI(1e-20);
 
-    auto new_node_0 = chrono_types::make_shared<chrono::fea::ChNodeFEAxyzD>(chrono::ChVector<>(0, 0, 0));
-    auto new_node_1 = chrono_types::make_shared<chrono::fea::ChNodeFEAxyzD>(chrono::ChVector<>(-1, 0, 0));
+    auto new_node_0 = chrono_types::make_shared<chrono::fea::ChNodeFEAxyzD>(chrono::ChVector3d(0, 0, 0));
+    auto new_node_1 = chrono_types::make_shared<chrono::fea::ChNodeFEAxyzD>(chrono::ChVector3d(-1, 0, 0));
     
     auto new_element = chrono_types::make_shared<chrono::fea::ChElementCableANCF>();
     new_element->SetNodes(new_node_0, new_node_1);
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0.05, -0.3, 0.05), ChVector<>(0.05, 0.0, 0.0));
+    vis->AddCamera(ChVector3d(0.05, -0.3, 0.05), ChVector3d(0.05, 0.0, 0.0));
     vis->AttachSystem(&sys);
 
     // Solver settings
@@ -87,10 +87,8 @@ int main(int argc, char* argv[]) {
     sys.SetTimestepperType(ChTimestepper::Type::HHT);
     auto stepper = std::dynamic_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
     stepper->SetAlpha(-0.1);
-    stepper->SetMaxiters(100);
+    stepper->SetMaxIters(100);
     stepper->SetAbsTolerances(1e-10, 1e-10);
-    stepper->SetMode(ChTimestepperHHT::ACCELERATION);
-    stepper->SetScaling(true);
     stepper->SetStepControl(false);
     stepper->SetModifiedNewton(true);
     stepper->SetVerbose(false);

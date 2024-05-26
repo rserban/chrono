@@ -23,10 +23,10 @@
 #include "chrono/utils/ChUtilsGenerators.h"
 #include "chrono/utils/ChUtilsGeometry.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
-#include "chrono/assets/ChBoxShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChInertiaUtils.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
 #include "chrono_vehicle/utils/ChVehiclePath.h"
@@ -66,18 +66,18 @@ float render_fps = 100;
 
 // ----------------------------------------------------------------------------------------
 
-void CreateMeshMarkers(std::shared_ptr<geometry::ChTriangleMeshConnected> mesh,
+void CreateMeshMarkers(std::shared_ptr<ChTriangleMeshConnected> mesh,
                        double delta,
-                       std::vector<ChVector<>>& point_cloud);
+                       std::vector<ChVector3d>& point_cloud);
 
-std::shared_ptr<ChMaterialSurface> CustomWheelMaterial(ChContactMethod contact_method);
+std::shared_ptr<ChContactMaterial> CustomWheelMaterial(ChContactMethod contact_method);
 
 void AddWall(std::shared_ptr<ChBody> body,
-             const ChVector<>& dim,
-             std::shared_ptr<ChMaterialSurface> mat,
-             const ChVector<>& loc);
+             const ChVector3d& dim,
+             std::shared_ptr<ChContactMaterial> mat,
+             const ChVector3d& loc);
 
-void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector<>& box_dims);
+void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector3d& box_dims);
 
 // ----------------------------------------------------------------------------------------
 
@@ -86,9 +86,9 @@ int main(int argc, char* argv[]) {
     ChSystemNSC sysMBS;
     ChSystemFsi sysFSI(&sysMBS);
 
-    ChVector<> gravity = ChVector<>(0, 0, -9.81);
-    sysMBS.Set_G_acc(gravity);
-    sysFSI.Set_G_acc(gravity);
+    ChVector3d gravity = ChVector3d(0, 0, -9.81);
+    sysMBS.SetGravitationalAcceleration(gravity);
+    sysFSI.SetGravitationalAcceleration(gravity);
 
     /// Read parameters from JSON file
     std::string inputJson = GetChronoDataFile("fsi/input_json/test_VEH_SPH_M113.json");
@@ -111,14 +111,14 @@ int main(int argc, char* argv[]) {
     sysFSI.SetStepSize(dT);
 
     // Set the periodic boundary condition
-    ChVector<> box_dims(10, 10, 0.24);
+    ChVector3d box_dims(10, 10, 0.24);
     double bxDim = box_dims.x();
     double byDim = box_dims.y();
     double bzDim = box_dims.z();
 
     double initSpace0 = sysFSI.GetInitialSpacing();
-    ChVector<> cMin(-bxDim / 2 * 1.5, -byDim / 2 * 1.5, -bzDim * 20);
-    ChVector<> cMax(bxDim / 2 * 1.5, byDim / 2 * 1.5, bzDim * 20);
+    ChVector3d cMin(-bxDim / 2 * 1.5, -byDim / 2 * 1.5, -bzDim * 20);
+    ChVector3d cMax(bxDim / 2 * 1.5, byDim / 2 * 1.5, bzDim * 20);
     sysFSI.SetBoundaries(cMin, cMax);
 
     // Setup the output directory for FSI data
@@ -126,17 +126,17 @@ int main(int argc, char* argv[]) {
 
     // Create an initial box for the terrain patch
     chrono::utils::GridSampler<> sampler(initSpace0);
-    ChVector<> boxCenter(0, 0, bzDim / 2);
-    ChVector<> boxHalfDim(bxDim / 2, byDim / 2, bzDim / 2);
-    std::vector<ChVector<>> points = sampler.SampleBox(boxCenter, boxHalfDim);
+    ChVector3d boxCenter(0, 0, bzDim / 2);
+    ChVector3d boxHalfDim(bxDim / 2, byDim / 2, bzDim / 2);
+    std::vector<ChVector3d> points = sampler.SampleBox(boxCenter, boxHalfDim);
     /// Add SPH particles from the sampler points to the FSI system
     int numPart = (int)points.size();
     for (int i = 0; i < numPart; i++) {
         double pre_ini = sysFSI.GetDensity() * abs(gravity.z()) * (-points[i].z() + bzDim);
         sysFSI.AddSPHParticle(points[i], sysFSI.GetDensity(), 0, sysFSI.GetViscosity(),
-                              ChVector<>(0),         // initial velocity
-                              ChVector<>(-pre_ini),  // tauxxyyzz
-                              ChVector<>(0)          // tauxyxzyz
+                              ChVector3d(0),         // initial velocity
+                              ChVector3d(-pre_ini),  // tauxxyyzz
+                              ChVector3d(0)          // tauxyxzyz
         );
     }
 
@@ -155,8 +155,8 @@ int main(int argc, char* argv[]) {
     }
 
     std::vector<std::ofstream> outfiles;
-    for (int i = 0; i < sysMBS.Get_bodylist().size(); i++) {
-        std::cout << "Body " << i << ": " << sysMBS.Get_bodylist()[i]->GetName() << std::endl;
+    for (int i = 0; i < sysMBS.GetBodies().size(); i++) {
+        std::cout << "Body " << i << ": " << sysMBS.GetBodies()[i]->GetName() << std::endl;
 
         std::string filename = out_dir + "/body" + std::to_string(i) + ".csv";
         outfiles.push_back(std::ofstream(filename));
@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
     // Add a force to the chassis to push the vehicle
     std::shared_ptr<ChBody> m113_chassis = track->GetVehicle().GetChassisBody();
     double force_base = 5000;
-    ChVector<> force_on_chassis(force_base * cos(0.25 * CH_C_PI), force_base * sin(0.25 * CH_C_PI), 0);
+    ChVector3d force_on_chassis(force_base * cos(0.25 * CH_PI), force_base * sin(0.25 * CH_PI), 0);
 
     // Simulation loop
     double time = 0.0;
@@ -190,11 +190,11 @@ int main(int argc, char* argv[]) {
 
             sysFSI.PrintParticleToFile(out_dir);
 
-            for (int i = 1; i < sysMBS.Get_bodylist().size(); i++) {
-                auto body = sysMBS.Get_bodylist()[i];
-                ChFrame<> ref_frame = body->GetFrame_REF_to_abs();
-                ChVector<> pos = ref_frame.GetPos();
-                ChVector<> vel = body->GetPos_dt();
+            for (int i = 1; i < sysMBS.GetBodies().size(); i++) {
+                auto body = sysMBS.GetBodies()[i];
+                ChFrame<> ref_frame = body->GetFrameRefToAbs();
+                ChVector3d pos = ref_frame.GetPos();
+                ChVector3d vel = body->GetPosDt();
                 ChQuaternion<> rot = ref_frame.GetRot();
 
                 outfiles[i] << sysMBS.GetChTime() << delim << pos.x() << delim << pos.y() << delim << pos.z() << delim
@@ -204,11 +204,11 @@ int main(int argc, char* argv[]) {
         }
 
         // output inf to screen
-        auto bbody = sysMBS.Get_bodylist()[0];
-        auto vbody = sysMBS.Get_bodylist()[1];
+        auto bbody = sysMBS.GetBodies()[0];
+        auto vbody = sysMBS.GetBodies()[1];
         printf("bin=%f,%f,%f\n", bbody->GetPos().x(), bbody->GetPos().y(), bbody->GetPos().z());
         printf("M113 pos = %f,%f,%f\n", vbody->GetPos().x(), vbody->GetPos().y(), vbody->GetPos().z());
-        printf("M113 vel = %f,%f,%f\n", vbody->GetPos_dt().x(), vbody->GetPos_dt().y(), vbody->GetPos_dt().z());
+        printf("M113 vel = %f,%f,%f\n", vbody->GetPosDt().x(), vbody->GetPosDt().y(), vbody->GetPosDt().z());
 
         DriverInputs driver_inputs = driver.GetInputs();
 
@@ -231,7 +231,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "\nSimulation time: " << timer() << " seconds\n" << std::endl;
 
-    for (int i = 0; i < sysMBS.Get_bodylist().size(); i++) {
+    for (int i = 0; i < sysMBS.GetBodies().size(); i++) {
         outfiles[i].close();
     }
 
@@ -242,22 +242,22 @@ int main(int argc, char* argv[]) {
 // Create the objects of the MBD system. Rigid bodies, and if fsi,
 // their BCE representation are created and added to the systems
 //------------------------------------------------------------------
-void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector<>& box_dims) {
+void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector3d& box_dims) {
     // Set common material Properties
-    auto cmaterial = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto cmaterial = chrono_types::make_shared<ChContactMaterialNSC>();
     cmaterial->SetFriction(0.9);
     cmaterial->SetRestitution(0.4);
-    collision::ChCollisionModel::SetDefaultSuggestedEnvelope(0.0025);
-    collision::ChCollisionModel::SetDefaultSuggestedMargin(0.0025);
+    ChCollisionModel::SetDefaultSuggestedEnvelope(0.0025);
+    ChCollisionModel::SetDefaultSuggestedMargin(0.0025);
 
     // Create a body for the rigid soil container
     auto box = chrono_types::make_shared<ChBodyEasyBox>(100, 100, 0.02, 1000, false, true, cmaterial);
-    box->SetPos(ChVector<>(0, 0, 0));
-    box->SetBodyFixed(true);
+    box->SetPos(ChVector3d(0, 0, 0));
+    box->SetFixed(true);
     sysMBS.Add(box);
 
     // Fluid-Solid Coupling at the walls via BCE particles
-    sysFSI.AddBoxContainerBCE(box, ChFrame<>(), 2.0 * box_dims + ChVector<>(0, 0, 2.0 * box_dims.z()), ChVector<int>(2, 0, -1));
+    sysFSI.AddBoxContainerBCE(box, ChFrame<>(), 2.0 * box_dims + ChVector3d(0, 0, 2.0 * box_dims.z()), ChVector3<int>(2, 0, -1));
 
     // --------------------------
     // Construct the M113 vehicle
@@ -268,12 +268,12 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector<>
     track->SetBrakeType(BrakeType::SIMPLE);
     // track->SetDrivelineType(DrivelineTypeTV::BDS);
     track->SetEngineType(EngineModelType::SIMPLE_MAP);
-    track->SetTransmissionType(TransmissionModelType::SIMPLE_MAP);
+    track->SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_MAP);
     track->SetChassisCollisionType(CollisionType::NONE);
 
     // Initialize the vehicle at the specified position
-    ChVector<> initLoc(-1, -1, 1.2);
-    ChQuaternion<> initRot = Q_from_Euler123(ChVector<double>(0, 0, 0.25 * CH_C_PI));
+    ChVector3d initLoc(-1, -1, 1.2);
+    ChQuaternion<> initRot = Q_from_Euler123(ChVector3d(0, 0, 0.25 * CH_PI));
     track->SetInitPosition(ChCoordsys<>(initLoc, initRot));
     track->Initialize();
 
@@ -288,17 +288,17 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector<>
         auto track_L = track->GetVehicle().GetTrackAssembly(LEFT);
         auto shoe_body = track_L->GetTrackShoe(i)->GetShoeBody();
         sysFSI.AddFsiBody(shoe_body);
-        sysFSI.AddBoxBCE(shoe_body, ChFrame<>(VNULL, QUNIT), ChVector<>(0.06, 0.18, 0.04), true);
+        sysFSI.AddBoxBCE(shoe_body, ChFrame<>(VNULL, QUNIT), ChVector3d(0.06, 0.18, 0.04), true);
     }
     for (int i = 0; i < num_shoe_R; i++) {
         auto track_R = track->GetVehicle().GetTrackAssembly(RIGHT);
         auto shoe_body = track_R->GetTrackShoe(i)->GetShoeBody();
         sysFSI.AddFsiBody(shoe_body);
-        sysFSI.AddBoxBCE(shoe_body, ChFrame<>(VNULL, QUNIT), ChVector<>(0.06, 0.18, 0.04), true);
+        sysFSI.AddBoxBCE(shoe_body, ChFrame<>(VNULL, QUNIT), ChVector3d(0.06, 0.18, 0.04), true);
     }
 
     /// Add some rocks on the terrain
-    /*std::vector<ChVector<>> BCE_par_rock;
+    /*std::vector<ChVector3d> BCE_par_rock;
     int n_r = 0;
     for (int i = 0; i < 5; i++) {
     for (int j = 0; j < 5; j++) {
@@ -308,34 +308,34 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector<>
         std::string obj_path = "./rock3.obj";
         trimesh->LoadWavefrontMesh(obj_path, true, true);
         double scale_ratio = rock_scale;
-        // trimesh->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(body_rot));    // rotate the mesh if needed
-        trimesh->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(scale_ratio));    // scale to a different size
+        // trimesh->Transform(ChVector3d(0, 0, 0), ChMatrix33<>(body_rot));    // rotate the mesh if needed
+        trimesh->Transform(ChVector3d(0, 0, 0), ChMatrix33<>(scale_ratio));    // scale to a different size
         // trimesh->RepairDuplicateVertexes(1e-9);                             // if meshes are not watertight
 
         // Compute mass inertia from mesh
         double mmass;// = 5.0;
         double mdensity = paramsH->bodyDensity;
-        ChVector<> mcog;// = ChVector<>(0.0, 0.0, 0.0);
+        ChVector3d mcog;// = ChVector3d(0.0, 0.0, 0.0);
         ChMatrix33<> minertia;
         trimesh->ComputeMassProperties(true, mmass, mcog, minertia);
-        ChVector<> principal_I;// = ChVector<>(1.0, 1.0, 1.0);
+        ChVector3d principal_I;// = ChVector3d(1.0, 1.0, 1.0);
         ChMatrix33<> principal_inertia_rot;// = ChMatrix33<>(1.0);
         ChInertiaUtils::PrincipalInertia(minertia, principal_I, principal_inertia_rot);
 
         // Set the abs orientation, position
         auto rock_body = chrono_types::make_shared<ChBodyAuxRef>();
-        rock_body->SetNameString(rock_name);
+        rock_body->SetName(rock_name);
         double rot_ang_x, rot_ang_y, rot_ang_z;
-        ChVector<> rock_rel_pos;
+        ChVector3d rock_rel_pos;
 
         // Set initial pos and rot
-        rot_ang_x = i * 30.0 / 180.0 * CH_C_PI;
-        rot_ang_y = j * 45.0 / 180.0 * CH_C_PI;
-        rot_ang_z = i * 60.0 / 180.0 * CH_C_PI;
+        rot_ang_x = i * 30.0 / 180.0 * CH_PI;
+        rot_ang_y = j * 45.0 / 180.0 * CH_PI;
+        rot_ang_z = i * 60.0 / 180.0 * CH_PI;
         double det_x = 0.1 * pow(-1.0, i + j);
         double det_y = 0.1 * pow(-1.0, i + j + 1);
-        ChVector<> rock_pos = ChVector<>(-2.0 + i * 1.0 + det_x, -2.0 + j * 1.0 + det_y, 0.8);
-        ChQuaternion<> rock_rot = Q_from_Euler123(ChVector<double>(rot_ang_x, rot_ang_y, rot_ang_z));
+        ChVector3d rock_pos = ChVector3d(-2.0 + i * 1.0 + det_x, -2.0 + j * 1.0 + det_y, 0.8);
+        ChQuaternion<> rock_rot = Q_from_Euler123(ChVector3d(rot_ang_x, rot_ang_y, rot_ang_z));
 
         // Set the COG coordinates to barycenter, without displacing the REF reference.
         // Make the COG frame a principal frame.
@@ -347,21 +347,20 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector<>
         rock_body->SetInertiaXX(mdensity * principal_I);
 
         // Set the absolute position of the body:
-        rock_body->SetFrame_REF_to_abs(ChFrame<>(ChVector<>(rock_pos),ChQuaternion<>(rock_rot)));
+        rock_body->SetFrame_REF_to_abs(ChFrame<>(ChVector3d(rock_pos),ChQuaternion<>(rock_rot)));
         sysMBS.Add(rock_body);
 
         // Set collision
-        rock_body->SetBodyFixed(false);
-        rock_body->GetCollisionModel()->ClearModel();
+        rock_body->SetFixed(false);
         rock_body->GetCollisionModel()->AddTriangleMesh(cmaterial, trimesh, false, false, VNULL, ChMatrix33<>(1),
-    0.005); rock_body->GetCollisionModel()->BuildModel(); rock_body->SetCollide(true);
+    0.005); rock_body->EnableCollision(true);
 
         // Create BCE particles associated with mesh
         if(i==0){
             CreateMeshMarkers(trimesh, (double)initSpace0, BCE_par_rock);
         }
         sysFSI.AddFsiBody(rock_body);
-        sysFSI.AddBceFromPoints(paramsH, rock_body, BCE_par_rock, ChVector<>(0.0), QUNIT);
+        sysFSI.AddBceFromPoints(paramsH, rock_body, BCE_par_rock, ChVector3d(0.0), QUNIT);
         n_r++;
     }
     }*/
@@ -370,22 +369,22 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector<>
 //------------------------------------------------------------------
 
 void AddWall(std::shared_ptr<ChBody> body,
-             const ChVector<>& dim,
-             std::shared_ptr<ChMaterialSurface> mat,
-             const ChVector<>& loc) {
+             const ChVector3d& dim,
+             std::shared_ptr<ChContactMaterial> mat,
+             const ChVector3d& loc) {
     body->GetCollisionModel()->AddBox(mat, 2 * dim.x(), 2 * dim.y(), 2 * dim.z(), loc);
-    auto box = chrono_types::make_shared<ChBoxShape>(2 * dim.x(), 2 * dim.y(), 2 * dim.z());
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(2 * dim.x(), 2 * dim.y(), 2 * dim.z());
     body->AddVisualShape(box, ChFrame<>(loc));
 }
 
-void CreateMeshMarkers(std::shared_ptr<geometry::ChTriangleMeshConnected> mesh,
+void CreateMeshMarkers(std::shared_ptr<ChTriangleMeshConnected> mesh,
                        double delta,
-                       std::vector<ChVector<>>& point_cloud) {
+                       std::vector<ChVector3d>& point_cloud) {
     mesh->RepairDuplicateVertexes(1e-9);  // if meshes are not watertight
 
-    ChVector<> minV = mesh->m_vertices[0];
-    ChVector<> maxV = mesh->m_vertices[0];
-    ChVector<> currV = mesh->m_vertices[0];
+    ChVector3d minV = mesh->m_vertices[0];
+    ChVector3d maxV = mesh->m_vertices[0];
+    ChVector3d currV = mesh->m_vertices[0];
     for (unsigned int i = 1; i < mesh->m_vertices.size(); ++i) {
         currV = mesh->m_vertices[i];
         if (minV.x() > currV.x())
@@ -406,7 +405,7 @@ void CreateMeshMarkers(std::shared_ptr<geometry::ChTriangleMeshConnected> mesh,
 
     const double EPSI = 1e-6;
 
-    ChVector<> ray_origin;
+    ChVector3d ray_origin;
     for (double x = minV.x(); x < maxV.x(); x += delta) {
         ray_origin.x() = x + 1e-9;
         for (double y = minV.y(); y < maxV.y(); y += delta) {
@@ -414,7 +413,7 @@ void CreateMeshMarkers(std::shared_ptr<geometry::ChTriangleMeshConnected> mesh,
             for (double z = minV.z(); z < maxV.z(); z += delta) {
                 ray_origin.z() = z + 1e-9;
 
-                ChVector<> ray_dir[2] = {ChVector<>(5, 0.5, 0.25), ChVector<>(-3, 0.7, 10)};
+                ChVector3d ray_dir[2] = {ChVector3d(5, 0.5, 0.25), ChVector3d(-3, 0.7, 10)};
                 int intersectCounter[2] = {0, 0};
 
                 for (unsigned int i = 0; i < mesh->m_face_v_indices.size(); ++i) {
@@ -478,13 +477,13 @@ void CreateMeshMarkers(std::shared_ptr<geometry::ChTriangleMeshConnected> mesh,
                 }
 
                 if (((intersectCounter[0] % 2) == 1) && ((intersectCounter[1] % 2) == 1))  // inside mesh
-                    point_cloud.push_back(ChVector<>(x, y, z));
+                    point_cloud.push_back(ChVector3d(x, y, z));
             }
         }
     }
 }
 
-std::shared_ptr<ChMaterialSurface> CustomWheelMaterial(ChContactMethod contact_method) {
+std::shared_ptr<ChContactMaterial> CustomWheelMaterial(ChContactMethod contact_method) {
     float mu = 0.9f;   // coefficient of friction
     float cr = 0.4f;   // coefficient of restitution
     float Y = 2e7f;    // Young's modulus
@@ -496,13 +495,13 @@ std::shared_ptr<ChMaterialSurface> CustomWheelMaterial(ChContactMethod contact_m
 
     switch (contact_method) {
         case ChContactMethod::NSC: {
-            auto matNSC = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+            auto matNSC = chrono_types::make_shared<ChContactMaterialNSC>();
             matNSC->SetFriction(mu);
             matNSC->SetRestitution(cr);
             return matNSC;
         }
         case ChContactMethod::SMC: {
-            auto matSMC = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+            auto matSMC = chrono_types::make_shared<ChContactMaterialSMC>();
             matSMC->SetFriction(mu);
             matSMC->SetRestitution(cr);
             matSMC->SetYoungModulus(Y);
@@ -514,6 +513,6 @@ std::shared_ptr<ChMaterialSurface> CustomWheelMaterial(ChContactMethod contact_m
             return matSMC;
         }
         default:
-            return std::shared_ptr<ChMaterialSurface>();
+            return std::shared_ptr<ChContactMaterial>();
     }
 }

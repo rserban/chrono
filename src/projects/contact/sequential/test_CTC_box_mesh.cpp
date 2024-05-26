@@ -29,20 +29,20 @@ using namespace chrono::irrlicht;
 class ContactManager : public ChContactContainer::ReportContactCallback {
   public:
     ContactManager() {}
-    virtual bool OnReportContact(const ChVector<>& pA,
-                                 const ChVector<>& pB,
+    virtual bool OnReportContact(const ChVector3d& pA,
+                                 const ChVector3d& pB,
                                  const ChMatrix33<>& plane_coord,
                                  const double& distance,
                                  const double& eff_radius,
-                                 const ChVector<>& cforce,
-                                 const ChVector<>& ctorque,
+                                 const ChVector3d& cforce,
+                                 const ChVector3d& ctorque,
                                  ChContactable* modA,
                                  ChContactable* modB) override;
 };
 
 // ====================================================================================
 
-std::shared_ptr<geometry::ChTriangleMeshConnected> GroundMesh(double hx, double hy);
+std::shared_ptr<ChTriangleMeshConnected> GroundMesh(double hx, double hy);
 
 // ====================================================================================
 
@@ -51,7 +51,8 @@ int main(int argc, char* argv[]) {
     // Collision settings
     // ------------------
 
-    collision::ChCollisionSystemType collsys_type = collision::ChCollisionSystemType::CHRONO;
+    auto collsys_type = ChCollisionSystem::Type::MULTICORE;
+
     double mesh_swept_sphere_radius = 0.005;
 
     // ---------------------------
@@ -86,10 +87,10 @@ int main(int argc, char* argv[]) {
     // ---------------------------------
 
     double init_height = 0.75;
-    double init_roll = 0 * CH_C_DEG_TO_RAD;
+    double init_roll = 0 * CH_DEG_TO_RAD;
 
-    ChVector<> init_vel(0, 0, 0);
-    ChVector<> init_omg(0, 0, 0);
+    ChVector3d init_vel(0, 0, 0);
+    ChVector3d init_omg(0, 0, 0);
 
     // ---------
     // Step size
@@ -113,39 +114,43 @@ int main(int argc, char* argv[]) {
     ChSystem* system;
 
     switch (contact_method) {
-        case ChContactMethod::NSC:
-            system = new ChSystemNSC();
+        case ChContactMethod::NSC: {
+            auto systemNSC = new ChSystemNSC;
+            system = systemNSC;
             break;
-        case ChContactMethod::SMC:
-            system = new ChSystemSMC(use_mat_properties);
+        }
+        case ChContactMethod::SMC: {
+            auto systemSMC = new ChSystemSMC;
+            systemSMC->UseMaterialProperties(use_mat_properties);
             break;
+        }
     }
 
-    system->Set_G_acc(ChVector<>(0, -9.81, 0));
+    system->SetGravitationalAcceleration(ChVector3d(0, -9.81, 0));
     system->SetCollisionSystemType(collsys_type);
 
     // Rotation Z->Y (because meshes used here assume Z up)
-    ChQuaternion<> z2y = Q_from_AngX(-CH_C_PI_2);
+    ChQuaternion<> z2y = QuatFromAngleX(-CH_PI_2);
 
     // Create the falling object
-    auto object = std::shared_ptr<ChBody>(system->NewBody());
+    auto object = chrono_types::make_shared<ChBody>();
     system->AddBody(object);
 
     object->SetName("object");
     object->SetMass(200);
-    object->SetInertiaXX(40.0 * ChVector<>(1, 1, 0.2));
-    object->SetPos(ChVector<>(0, init_height, 0));
-    object->SetRot(z2y * Q_from_AngX(init_roll));
-    object->SetPos_dt(init_vel);
-    object->SetWvel_par(init_omg);
-    object->SetCollide(true);
-    object->SetBodyFixed(false);
+    object->SetInertiaXX(40.0 * ChVector3d(1, 1, 0.2));
+    object->SetPos(ChVector3d(0, init_height, 0));
+    object->SetRot(z2y * QuatFromAngleX(init_roll));
+    object->SetPosDt(init_vel);
+    object->SetAngVelParent(init_omg);
+    object->EnableCollision(true);
+    object->SetFixed(false);
 
-    auto object_mat = ChMaterialSurface::DefaultMaterial(contact_method);
+    auto object_mat = ChContactMaterial::DefaultMaterial(contact_method);
     object_mat->SetFriction(object_friction);
     object_mat->SetRestitution(object_restitution);
     if (contact_method == ChContactMethod::SMC) {
-        auto matSMC = std::static_pointer_cast<ChMaterialSurfaceSMC>(object_mat);
+        auto matSMC = std::static_pointer_cast<ChContactMaterialSMC>(object_mat);
         matSMC->SetYoungModulus(object_young_modulus);
         matSMC->SetPoissonRatio(object_poisson_ratio);
         matSMC->SetKn(object_kn);
@@ -154,32 +159,30 @@ int main(int argc, char* argv[]) {
         matSMC->SetGt(object_gt);
     }
 
-    ChVector<> box_size(1.0, 0.5, 0.5);
-    ChVector<> box_pos(0, 0, 0);
+    ChVector3d box_size(1.0, 0.5, 0.5);
+    ChVector3d box_pos(0, 0, 0);
     ChQuaternion<> box_rot(1, 0, 0, 0);
 
-    object->GetCollisionModel()->ClearModel();
     utils::AddBoxGeometry(object.get(), object_mat, box_size, box_pos, box_rot);
-    object->GetCollisionModel()->BuildModel();
 
     object->GetVisualShape(0)->SetColor(ChColor(0.3f, 0.3f, 0.3f));
 
     // Create ground body
-    auto ground = std::shared_ptr<ChBody>(system->NewBody());
+    auto ground = chrono_types::make_shared<ChBody>();
     system->AddBody(ground);
 
     ground->SetName("ground");
     ground->SetMass(1);
-    ground->SetPos(ChVector<>(0, 0, 0));
+    ground->SetPos(ChVector3d(0, 0, 0));
     ground->SetRot(z2y);
-    ground->SetCollide(true);
-    ground->SetBodyFixed(true);
+    ground->EnableCollision(true);
+    ground->SetFixed(true);
 
-    auto ground_mat = ChMaterialSurface::DefaultMaterial(contact_method);
+    auto ground_mat = ChContactMaterial::DefaultMaterial(contact_method);
     ground_mat->SetFriction(ground_friction);
     ground_mat->SetRestitution(ground_restitution);
     if (contact_method == ChContactMethod::SMC) {
-        auto matSMC = std::static_pointer_cast<ChMaterialSurfaceSMC>(ground_mat);
+        auto matSMC = std::static_pointer_cast<ChContactMaterialSMC>(ground_mat);
         matSMC->SetYoungModulus(ground_young_modulus);
         matSMC->SetPoissonRatio(ground_poisson_ratio);
         matSMC->SetKn(ground_kn);
@@ -193,12 +196,10 @@ int main(int argc, char* argv[]) {
 
     auto trimesh = GroundMesh(hx, hy);
 
-    ground->GetCollisionModel()->ClearModel();
-    ground->GetCollisionModel()->AddTriangleMesh(ground_mat, trimesh, false, false, ChVector<>(0), ChMatrix33<>(1),
+    ground->GetCollisionModel()->AddTriangleMesh(ground_mat, trimesh, false, false, ChVector3d(0), ChMatrix33<>(1),
                                                  mesh_swept_sphere_radius);
-    ground->GetCollisionModel()->BuildModel();
 
-    auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+    auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     trimesh_shape->SetMesh(trimesh);
     trimesh_shape->SetTexture(GetChronoDataFile("textures/checker2.png"));
     ground->AddVisualShape(trimesh_shape);
@@ -211,7 +212,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0.5, 1, -2));
+    vis->AddCamera(ChVector3d(0.5, 1, -2));
     vis->SetSymbolScale(5e-3);
     vis->EnableContactDrawing(ContactsDrawMode::CONTACT_FORCES);
     vis->AttachSystem(system);
@@ -228,7 +229,7 @@ int main(int argc, char* argv[]) {
 
         system->DoStepDynamics(time_step);
 
-        ////std::cout << system->GetChTime() << "  " << system->GetNcontacts() << std::endl;
+        ////std::cout << system->GetChTime() << "  " << system->GetNumContacts() << std::endl;
         ////system->GetContactContainer()->ReportAllContacts(cmanager);
     }
 
@@ -237,13 +238,13 @@ int main(int argc, char* argv[]) {
 
 // ====================================================================================
 
-std::shared_ptr<geometry::ChTriangleMeshConnected> GroundMesh(double hx, double hy) {
-    auto trimesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
-    std::vector<ChVector<>>& v = trimesh->getCoordsVertices();
-    std::vector<ChVector<>>& n = trimesh->getCoordsNormals();
-    std::vector<ChVector2<>>& uv = trimesh->getCoordsUV();
-    std::vector<ChVector<int>>& iv = trimesh->getIndicesVertexes();
-    std::vector<ChVector<int>>& in = trimesh->getIndicesNormals();
+std::shared_ptr<ChTriangleMeshConnected> GroundMesh(double hx, double hy) {
+    auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
+    std::vector<ChVector3d>& v = trimesh->GetCoordsVertices();
+    std::vector<ChVector3d>& n = trimesh->GetCoordsNormals();
+    std::vector<ChVector2<>>& uv = trimesh->GetCoordsUV();
+    std::vector<ChVector3<int>>& iv = trimesh->GetIndicesVertexes();
+    std::vector<ChVector3<int>>& in = trimesh->GetIndicesNormals();
 
     v.resize(4);
     n.resize(4);
@@ -252,39 +253,39 @@ std::shared_ptr<geometry::ChTriangleMeshConnected> GroundMesh(double hx, double 
     iv.resize(2);
     in.resize(2);
 
-    v[0] = ChVector<>(+hx, +hy, 0);
-    v[1] = ChVector<>(-hx, +hy, 0);
-    v[2] = ChVector<>(-hx, -hy, 0);
-    v[3] = ChVector<>(+hx, -hy, 0);
+    v[0] = ChVector3d(+hx, +hy, 0);
+    v[1] = ChVector3d(-hx, +hy, 0);
+    v[2] = ChVector3d(-hx, -hy, 0);
+    v[3] = ChVector3d(+hx, -hy, 0);
 
-    n[0] = ChVector<>(0, 0, 1);
-    n[1] = ChVector<>(0, 0, 1);
-    n[2] = ChVector<>(0, 0, 1);
-    n[3] = ChVector<>(0, 0, 1);
+    n[0] = ChVector3d(0, 0, 1);
+    n[1] = ChVector3d(0, 0, 1);
+    n[2] = ChVector3d(0, 0, 1);
+    n[3] = ChVector3d(0, 0, 1);
 
     uv[0] = ChVector2<>(1, 1);
     uv[1] = ChVector2<>(0, 1);
     uv[2] = ChVector2<>(0, 0);
     uv[3] = ChVector2<>(1, 0);
 
-    iv[0] = ChVector<int>(0, 1, 2);
-    iv[1] = ChVector<int>(0, 2, 3);
+    iv[0] = ChVector3<int>(0, 1, 2);
+    iv[1] = ChVector3<int>(0, 2, 3);
 
-    in[0] = ChVector<int>(0, 1, 2);
-    in[1] = ChVector<int>(0, 2, 3);
+    in[0] = ChVector3<int>(0, 1, 2);
+    in[1] = ChVector3<int>(0, 2, 3);
 
     return trimesh;
 }
 
 // ====================================================================================
 
-bool ContactManager::OnReportContact(const ChVector<>& pA,
-                                     const ChVector<>& pB,
+bool ContactManager::OnReportContact(const ChVector3d& pA,
+                                     const ChVector3d& pB,
                                      const ChMatrix33<>& plane_coord,
                                      const double& distance,
                                      const double& eff_radius,
-                                     const ChVector<>& cforce,
-                                     const ChVector<>& ctorque,
+                                     const ChVector3d& cforce,
+                                     const ChVector3d& ctorque,
                                      ChContactable* modA,
                                      ChContactable* modB) {
     auto bodyA = static_cast<ChBody*>(modA);
@@ -292,7 +293,7 @@ bool ContactManager::OnReportContact(const ChVector<>& pA,
 
     std::cout << "  " << bodyA->GetName() << "  " << bodyB->GetName() << std::endl;
     std::cout << "  " << pA << "    " << pB << std::endl;
-    std::cout << "  " << plane_coord.Get_A_Xaxis() << std::endl;
+    std::cout << "  " << plane_coord.GetAxisX() << std::endl;
     std::cout << std::endl;
 
     return true;

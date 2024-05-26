@@ -46,7 +46,7 @@ class MessageSPAT : public Message {
 
 class MessageVEH : public Message {
   public:
-    chrono::ChVector<> location;
+    chrono::ChVector3d location;
 };
 
 }  // end namespace av

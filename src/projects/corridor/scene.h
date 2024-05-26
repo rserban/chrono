@@ -27,11 +27,11 @@ typedef chrono::ChVector2<> GPScoord;
 
 ////class Area {
 ////  public:
-////    Area(const chrono::ChFrame<>& frame, const chrono::ChVector<>& dims);
+////    Area(const chrono::ChFrame<>& frame, const chrono::ChVector3d& dims);
 ////
 ////  private:
 ////    chrono::ChFrame<> m_frame;
-////    chrono::ChVector<> m_dims;
+////    chrono::ChVector3d m_dims;
 ////
 ////  public:
 ////    EIGEN_MAKE_ALIGNED_OPERATOR_NEW

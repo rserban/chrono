@@ -33,7 +33,7 @@ Path::Path(Framework* framework, std::shared_ptr<chrono::ChBezierCurve> curve)
 Path::Path(Framework* framework, const std::vector<GPScoord>& gps_points, double v_offset, bool closed)
     : m_color(0.0f, 0.8f, 0.0f) {
 
-    std::vector<ChVector<>> pp;
+    std::vector<ChVector3d> pp;
     for (const auto& p : gps_points) {
         auto point = framework->GetLocation(p);
         point.z() += v_offset;
@@ -46,11 +46,11 @@ Path::Path(Framework* framework, const std::vector<GPScoord>& gps_points, double
     m_curve = chrono_types::make_shared<ChBezierCurve>(pp, closed);
 }
 
-Path::Path(Framework* framework, const std::vector<ChVector<>>& points, double v_offset, bool closed)
+Path::Path(Framework* framework, const std::vector<ChVector3d>& points, double v_offset, bool closed)
     : m_color(0.0f, 0.8f, 0.0f) {
-    std::vector<ChVector<>> pp;
+    std::vector<ChVector3d> pp;
     for (const auto& p : points) {
-        pp.push_back(p + ChVector<>(0, 0, v_offset));
+        pp.push_back(p + ChVector3d(0, 0, v_offset));
     }
     if (closed && (points.back() - points.front()).Length() > 1e-6) {
         pp.push_back(pp.front());

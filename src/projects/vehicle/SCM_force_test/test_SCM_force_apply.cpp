@@ -39,8 +39,8 @@ class TerrainForceLoader : public ChLoadContainer {
         std::string line;
         while (std::getline(m_fstream, line)) {
             std::istringstream sstream(line);
-            std::array<ChVector<>, 4> force;
-            std::array<ChVector<>, 4> torque;
+            std::array<ChVector3d, 4> force;
+            std::array<ChVector3d, 4> torque;
             sstream >> time;
             for (int i = 0; i < 4; i++) {
                 sstream >> force[i].x() >> force[i].y() >> force[i].z();
@@ -83,25 +83,25 @@ class TerrainForceLoader : public ChLoadContainer {
     int m_num_frames;
     int m_crt_frame;
     std::vector<std::shared_ptr<ChBodyAuxRef>> m_wheels;
-    std::vector<std::array<ChVector<>, 4>> m_forces;
-    std::vector<std::array<ChVector<>, 4>> m_torques;
+    std::vector<std::array<ChVector3d, 4>> m_forces;
+    std::vector<std::array<ChVector3d, 4>> m_torques;
 };
 
 // -----------------------------------------------------------------------------
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // Output directory MUST exist
     if (!filesystem::path(out_dir).exists() || !filesystem::path(out_dir).is_directory()) {
         cout << "Data directory does NOT exist!" << endl;
         return 1;
     }
-    utils::CSV_writer csv(" ");
+    utils::ChWriterCSV csv(" ");
 
     // Create the Chrono system (Z up)
     ChSystemSMC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
     // Create the rover
     auto viper = CreateViper(sys);
@@ -132,8 +132,8 @@ int main(int argc, char* argv[]) {
     }
     std::string line;
     double force_time;
-    ChVector<> abs_force;
-    ChVector<> abs_torque;
+    ChVector3d abs_force;
+    ChVector3d abs_torque;
     */
 
     // Simulation loop
@@ -157,9 +157,9 @@ int main(int argc, char* argv[]) {
             iss >> abs_force.x() >> abs_force.y() >> abs_force.z();
             iss >> abs_torque.x() >> abs_torque.y() >> abs_torque.z();
 
-            wheels[i]->Empty_forces_accumulators();
-            wheels[i]->Accumulate_force(abs_force, wheels[i]->GetPos(), false);
-            wheels[i]->Accumulate_torque(abs_torque, false);
+            wheels[i]->EmptyAccumulators();
+            wheels[i]->AccumulateForce(abs_force, wheels[i]->GetPos(), false);
+            wheels[i]->AccumulateTorque(abs_torque, false);
         }
         */
 
@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
         // Save vehicle states
         ROVER_states << time << "   ";
         for (int i = 0; i < 4; i++) {
-            ROVER_states << wheels[i]->GetPos() << "   " << wheels[i]->GetPos_dt() << "   " << wheels[i]->GetWvel_par()
+            ROVER_states << wheels[i]->GetPos() << "   " << wheels[i]->GetPosDt() << "   " << wheels[i]->GetAngVelParent()
                          << "   ";
         }
         ROVER_states << endl;

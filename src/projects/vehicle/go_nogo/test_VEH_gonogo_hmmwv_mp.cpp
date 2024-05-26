@@ -31,6 +31,7 @@
 #include "chrono/core/ChMathematics.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 #include "chrono/utils/ChFilters.h"
+#include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/utils/ChVehiclePath.h"
@@ -49,7 +50,6 @@
 #include "driver_model.h"
 
 using namespace chrono;
-using namespace chrono::collision;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::hmmwv;
 
@@ -86,7 +86,7 @@ double horizontal_offset = 2.5;
 double horizontal_pos = hdimX - horizontal_offset;
 
 // Initial vehicle position, orientation, and forward velocity
-ChVector<> initLoc(-horizontal_pos, 0, 0.6);
+ChVector3d initLoc(-horizontal_pos, 0, 0.6);
 ChQuaternion<> initRot(1, 0, 0, 0);
 double initSpeed = 0;
 
@@ -151,7 +151,7 @@ std::string out_dir = "../GONOGO_HMMWV_MP";
 
 // Custom material composition law.
 // Use the maximum coefficient of friction.
-class CustomCompositionStrategy : public ChMaterialCompositionStrategy {
+class CustomCompositionStrategy : public ChContactMaterialCompositionStrategy {
   public:
     virtual float CombineFriction(float a1, float a2) const override { return std::max<float>(a1, a2); }
 };
@@ -176,7 +176,7 @@ void TimingOutput(chrono::ChSystem* mSys, chrono::ChStreamOutAsciiFile* ofile = 
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // ----------------------------
     // Parse command line arguments
@@ -244,11 +244,11 @@ int main(int argc, char* argv[]) {
     double slope_val, r_val, rho_val, mu_val, coh_val;
     iss >> slope_val >> r_val >> rho_val >> mu_val >> coh_val;
 
-    double slope = slope_val * (CH_C_PI / 180);
+    double slope = slope_val * (CH_PI / 180);
     double r_g = r_val / 1000;
     double rho_g = rho_val;
     double mu_g = mu_val;
-    double area = CH_C_PI * r_g * r_g;
+    double area = CH_PI * r_g * r_g;
     double coh_force = area * (coh_val * 1e3);
     double coh_g = coh_force * time_step;
     double envelope = 0.1 * r_g;
@@ -310,11 +310,11 @@ int main(int argc, char* argv[]) {
     // -------------
 
     // Prepare rotated acceleration vector
-    ChVector<> gravity(0, 0, -9.81);
-    ChVector<> gravityR = ChMatrix33<>(slope, ChVector<>(0, 1, 0)) * gravity;
+    ChVector3d gravity(0, 0, -9.81);
+    ChVector3d gravityR = ChMatrix33<>(slope, ChVector3d(0, 1, 0)) * gravity;
 
     ChSystemMulticoreNSC* system = new ChSystemMulticoreNSC();
-    system->Set_G_acc(gravity);
+    system->SetGravitationalAcceleration(gravity);
 
     // Use a custom material property composition strategy.
     // This ensures that tire-terrain interaction always uses the same coefficient of friction.
@@ -362,7 +362,7 @@ int main(int argc, char* argv[]) {
     // Create the terrain
     // ------------------
 
-    auto material = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto material = chrono_types::make_shared<ChContactMaterialNSC>();
     material->SetFriction((float)mu_g);
     material->SetCohesion((float)coh_g);
     GranularTerrain terrain(system);
@@ -376,7 +376,7 @@ int main(int argc, char* argv[]) {
     terrain.EnableVisualization(true);
     terrain.EnableVerbose(true);
 
-    terrain.Initialize(ChVector<>(0, 0, 0), 2 * hdimX, 2 * hdimY, num_layers, r_g, rho_g);
+    terrain.Initialize(ChVector3d(0, 0, 0), 2 * hdimX, 2 * hdimY, num_layers, r_g, rho_g);
     uint actual_num_particles = terrain.GetNumParticles();
 
     std::cout << "Number of particles: " << actual_num_particles << std::endl;
@@ -412,7 +412,7 @@ int main(int argc, char* argv[]) {
         vis.SetWindowSize(1280, 720);
         vis.SetRenderMode(opengl::WIREFRAME);
         vis.Initialize();
-        vis.AddCamera(ChVector<>(-horizontal_pos, -5, 0), ChVector<>(-horizontal_pos, 0, 0));
+        vis.AddCamera(ChVector3d(-horizontal_pos, -5, 0), ChVector3d(-horizontal_pos, 0, 0));
         vis.SetCameraVertical(CameraVerticalDir::Z);
     }
 #endif
@@ -454,7 +454,7 @@ int main(int argc, char* argv[]) {
         if (!hmmwv && time > time_create_vehicle) {
             cout << time << "    Create vehicle" << endl;
 
-            double max_height = terrain.GetHeight(ChVector<>(0, 0, 0));
+            double max_height = terrain.GetHeight(ChVector3d(0, 0, 0));
             hmmwv = CreateVehicle(system, max_height);
             driver = CreateDriver(hmmwv->GetVehicle());
 
@@ -472,7 +472,7 @@ int main(int argc, char* argv[]) {
         // Rotate gravity vector
         if (!is_pitched && time > time_pitch) {
             cout << time << "    Pitch: " << gravityR.x() << " " << gravityR.y() << " " << gravityR.z() << endl;
-            system->Set_G_acc(gravityR);
+            system->SetGravitationalAcceleration(gravityR);
             is_pitched = true;
         }
 
@@ -492,9 +492,9 @@ int main(int argc, char* argv[]) {
             DriverInputs driver_inputs = driver->GetInputs();
 
             // Extract chassis state
-            ChVector<> pv = hmmwv->GetChassisBody()->GetFrame_REF_to_abs().GetPos();
-            ChVector<> vv = hmmwv->GetChassisBody()->GetFrame_REF_to_abs().GetPos_dt();
-            ChVector<> av = hmmwv->GetChassisBody()->GetFrame_REF_to_abs().GetPos_dtdt();
+            ChVector3d pv = hmmwv->GetChassisBody()->GetFrameRefToAbs().GetPos();
+            ChVector3d vv = hmmwv->GetChassisBody()->GetFrameRefToAbs().GetPosDt();
+            ChVector3d av = hmmwv->GetChassisBody()->GetFrameRefToAbs().GetPosDt2();
 
             // Filtered forward velocity and acceleration
             double fwd_vel_mean = fwd_vel_filter.Add(vv.x());
@@ -611,11 +611,11 @@ HMMWV_Full* CreateVehicle(ChSystem* system, double vertical_offset) {
 
     hmmwv->SetContactMethod(ChContactMethod::NSC);
     hmmwv->SetChassisFixed(false);
-    hmmwv->SetInitPosition(ChCoordsys<>(initLoc + ChVector<>(0, 0, vertical_offset), initRot));
+    hmmwv->SetInitPosition(ChCoordsys<>(initLoc + ChVector3d(0, 0, vertical_offset), initRot));
     hmmwv->SetInitFwdVel(initSpeed);
     hmmwv->SetTireType(TireModelType::RIGID);
     hmmwv->SetEngineType(EngineModelType::SIMPLE_MAP);
-    hmmwv->SetTransmissionType(TransmissionModelType::SIMPLE_MAP);
+    hmmwv->SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_MAP);
     hmmwv->SetDriveType(DrivelineTypeWV::AWD);
     hmmwv->SetTireStepSize(time_step);
 
@@ -632,7 +632,7 @@ HMMWV_Full* CreateVehicle(ChSystem* system, double vertical_offset) {
 
 GONOGO_Driver* CreateDriver(ChVehicle& vehicle) {
     double height = initLoc.z();
-    auto path = StraightLinePath(ChVector<>(-2 * hdimX, 0, height), ChVector<>(200 * hdimX, 0, height));
+    auto path = StraightLinePath(ChVector3d(-2 * hdimX, 0, height), ChVector3d(200 * hdimX, 0, height));
 
     auto driver = new GONOGO_Driver(vehicle, path, time_start_engine, time_max_throttle);
     double look_ahead_dist = 5;

@@ -41,7 +41,7 @@ class CH_MODELS_API WVP_EngineSimpleMap : public ChEngineSimpleMap {
 
     /// Set the engine speed-torque maps.
     /// A concrete class must add the speed-torque points to the provided maps,
-    /// using the ChFunction_Recorder::AddPoint() function.
+    /// using the ChFunctionInterp::AddPoint() function.
     void SetEngineTorqueMaps(ChFunctionInterp& map0,  ///< [out] engine map at zero throttle
                              ChFunctionInterp& mapF   ///< [out] engine map at full throttle
                              ) override;

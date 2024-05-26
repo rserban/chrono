@@ -32,7 +32,7 @@ class TrafficLight : public Agent {
   public:
     ~TrafficLight();
 
-    chrono::ChVector<> GetCenter() const { return m_center; }
+    chrono::ChVector3d GetCenter() const { return m_center; }
     double GetRadius() const { return m_radius; }
 
     virtual chrono::ChCoordsys<> GetPosition() const override { return m_pos; }
@@ -49,13 +49,13 @@ class TrafficLight : public Agent {
   private:
     TrafficLight(Framework* framework,
                  unsigned int id,
-                 const chrono::ChVector<>& center,
+                 const chrono::ChVector3d& center,
                  double radius,
                  const chrono::ChCoordsys<>& pos);
 
     void ProcessMessageVEH(std::shared_ptr<MessageVEH> msg);
 
-    chrono::ChVector<> m_center;
+    chrono::ChVector3d m_center;
     double m_radius;
 
     chrono::ChCoordsys<> m_pos;

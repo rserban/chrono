@@ -33,8 +33,8 @@ class TruckAV : public Vehicle {
     virtual chrono::vehicle::ChWheeledVehicle& GetVehicle() const override;
 
     virtual double GetLookAheadDistance() const override { return 5; }
-    virtual chrono::ChVector<> GetSteeringGainsPID() const override { return chrono::ChVector<>(0.8, 0, 0); }
-    virtual chrono::ChVector<> GetSpeedGainsPID() const override { return chrono::ChVector<>(0.4, 0, 0); }
+    virtual chrono::ChVector3d GetSteeringGainsPID() const override { return chrono::ChVector3d(0.8, 0, 0); }
+    virtual chrono::ChVector3d GetSpeedGainsPID() const override { return chrono::ChVector3d(0.4, 0, 0); }
 
     virtual chrono::ChCoordsys<> GetLidarPosition() const override { return chrono::ChCoordsys<>({ 2, 0, 0 }, { 1, 0, 0, 0 }); }
 

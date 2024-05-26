@@ -73,13 +73,13 @@ const double mph2ms = 0.44704;
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     unsigned int obsHeight = 4;
     // This curve let us know, which accelration distance has to be provided
     // units (m/s) rsp. (m)
     // Curve calulated with test_FEDA_accel
-    ChFunction_Recorder feda_acc_curve;
+    ChFunctionInterp feda_acc_curve;
     // AddPoint (speed,acceleration_distance)
     feda_acc_curve.AddPoint(0, 0);
     feda_acc_curve.AddPoint(5, 10);
@@ -154,22 +154,22 @@ int main(int argc, char* argv[]) {
             velmph = atof(argv[3]);
             break;
         default:
-            GetLog() << "usage form 1: test_FEDA_shock Speed_in_mph\n";
-            GetLog() << "usage form 2: test_FEDA_shock Obstacle_height_in_inch Speed_in_mph\n";
-            GetLog() << "usage form 3: test_FEDA_shock DamperMode Obstacle_height_in_inch Speed_in_mph\n\tDamperMode = "
+            std::cout << "usage form 1: test_FEDA_shock Speed_in_mph\n";
+            std::cout << "usage form 2: test_FEDA_shock Obstacle_height_in_inch Speed_in_mph\n";
+            std::cout << "usage form 3: test_FEDA_shock DamperMode Obstacle_height_in_inch Speed_in_mph\n\tDamperMode = "
                         "one of:  fsd, low or high\n";
             return 1;
     }
     target_speed = mph2ms * velmph;
 
     crg_road_file.append(std::to_string(obsHeight) + "in.crg");
-    double start_pos = -feda_acc_curve.Get_y(target_speed);
+    double start_pos = -feda_acc_curve.GetVal(target_speed);
 
     // Create the FEDA vehicle, set parameters, and initialize
     FEDA my_feda;
     my_feda.SetContactMethod(ChContactMethod::SMC);
     my_feda.SetChassisFixed(false);
-    my_feda.SetInitPosition(ChCoordsys<>(ChVector<>(start_pos + 1, 0, 0.5), QUNIT));
+    my_feda.SetInitPosition(ChCoordsys<>(ChVector3d(start_pos + 1, 0, 0.5), QUNIT));
     my_feda.SetTireType(tire_model);
     my_feda.SetTireStepSize(tire_step_size);
     my_feda.SetRideHeight_ObstacleCrossing();
@@ -194,7 +194,7 @@ int main(int argc, char* argv[]) {
     bool path_is_closed = terrain.IsPathClosed();
     double road_length = terrain.GetLength();
     double road_width = terrain.GetWidth();
-    auto path = StraightLinePath(ChVector<>(start_pos, 0, 0.5), ChVector<>(road_length + 20.0, 0, 0.5), 1);
+    auto path = StraightLinePath(ChVector3d(start_pos, 0, 0.5), ChVector3d(road_length + 20.0, 0, 0.5), 1);
 
     std::string wTitle = "FED Alpha Shock Performance: Obstacle ";
     wTitle.append(std::to_string(obsHeight) + " inch, V = " + std::to_string(int(velmph)) + " mph");
@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
 
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle(wTitle);
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->SetHUDLocation(500, 20);
     vis->Initialize();
     vis->AddTypicalLights();
@@ -266,11 +266,11 @@ int main(int argc, char* argv[]) {
     int sim_frame = 0;
     int render_frame = 0;
 
-    ChVector<> local_driver_pos = my_feda.GetChassis()->GetLocalDriverCoordsys().pos;
+    ChVector3d local_driver_pos = my_feda.GetChassis()->GetLocalDriverCoordsys().pos;
 
-    ChButterworth_Lowpass wesFilter(4, step_size, 30.0);
-    ChFunction_Recorder seatFkt;
-    ChFunction_Recorder shockVelFkt;
+    ChButterworthLowpass wesFilter(4, step_size, 30.0);
+    ChFunctionInterp seatFkt;
+    ChFunctionInterp shockVelFkt;
     std::vector<double> t, azd, azdf, shvel_exp, shvel_com;
     while (vis->Run()) {
         double time = my_feda.GetSystem()->GetChTime();
@@ -283,8 +283,8 @@ int main(int argc, char* argv[]) {
 
         // Update sentinel and target location markers for the path-follower controller.
         // Note that we do this whether or not we are currently using the path-follower driver.
-        const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 
@@ -322,7 +322,7 @@ int main(int argc, char* argv[]) {
         xpos = my_feda.GetVehicle().GetPos().x();
         if (xpos >= road_length / 2.0 - 1.0) {
             double speed = my_feda.GetVehicle().GetSpeed();
-            ChVector<> seat_acc = my_feda.GetVehicle().GetPointAcceleration(local_driver_pos);
+            ChVector3d seat_acc = my_feda.GetVehicle().GetPointAcceleration(local_driver_pos);
             t.push_back(time);
             azd.push_back(seat_acc.z() / 9.80665);
             azdf.push_back(wesFilter.Filter(seat_acc.z() / 9.80665));
@@ -347,7 +347,7 @@ int main(int argc, char* argv[]) {
             if (azdf[i] > azdfmax)
                 azdfmax = azdf[i];
         }
-        GetLog() << "Shock Performance Result Obstcle: " << obsHeight << " in, Speed = " << velmph
+        std::cout << "Shock Performance Result Obstcle: " << obsHeight << " in, Speed = " << velmph
                  << " mph,  Az maximum = " << azdfmax << " g\n";
         double shvmax = 0.0;
         double shvmin = 0.0;
@@ -359,8 +359,8 @@ int main(int argc, char* argv[]) {
                 shvmin = shvel_com[i];
             }
         }
-        GetLog() << "Max. Damper Expansion Velocity = " << shvmax << " m/s\n";
-        GetLog() << "Min. Damper Compression Velocity = " << shvmin << " m/s\n";
+        std::cout << "Max. Damper Expansion Velocity = " << shvmax << " m/s\n";
+        std::cout << "Min. Damper Compression Velocity = " << shvmin << " m/s\n";
 #ifdef CHRONO_POSTPROCESS
         std::string title =
             "Fed alpha on halfround " + std::to_string(obsHeight) + " in, V = " + std::to_string(velmph) + " mph";

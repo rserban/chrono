@@ -35,8 +35,8 @@ public:
 	void Update(bool updateCollision);
 
 	//set the ray based on starting and ending points relative to the body
-	void SetPoints(const chrono::ChVector<double> &posStart,
-		const chrono::ChVector<double> &posEnd);
+	void SetPoints(const chrono::ChVector3d &posStart,
+		const chrono::ChVector3d &posEnd);
 
 	void SetLength(double len);
 
@@ -49,14 +49,12 @@ private:
 	double contactLen;
 
 	//start position of the ray in global coordsys
-	chrono::ChVector<double> globalStartPos;
+	chrono::ChVector3d globalStartPos;
 	//end position of the ray in global coordsys
-	chrono::ChVector<double> globalEndPos;
+	chrono::ChVector3d globalEndPos;
 
-	chrono::ChVector<double> relativeStartPos;
-	chrono::ChVector<double> relativeEndPos;
-
-	chrono::collision::ChCollisionSystem::ChRayhitResult rayCollision;
+	chrono::ChVector3d relativeStartPos;
+	chrono::ChVector3d relativeEndPos;
 
 	std::shared_ptr<chrono::ChBodyEasySphere> rayEnd;
 	std::shared_ptr<chrono::ChBodyEasySphere> rayStart;

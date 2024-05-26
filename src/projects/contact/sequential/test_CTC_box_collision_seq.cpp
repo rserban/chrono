@@ -40,13 +40,13 @@ class ContactManager : public ChContactContainer::ReportContactCallback {
     ContactManager(std::shared_ptr<ChBody> box) : m_box(box) {}
 
   private:
-    virtual bool OnReportContact(const ChVector<>& pA,
-                                 const ChVector<>& pB,
+    virtual bool OnReportContact(const ChVector3d& pA,
+                                 const ChVector3d& pB,
                                  const ChMatrix33<>& plane_coord,
                                  const double& distance,
                                  const double& eff_radius,
-                                 const ChVector<>& cforce,
-                                 const ChVector<>& ctorque,
+                                 const ChVector3d& cforce,
+                                 const ChVector3d& ctorque,
                                  ChContactable* modA,
                                  ChContactable* modB) override {
         if (modA == m_box.get()) {
@@ -79,47 +79,42 @@ int main(int argc, char* argv[]) {
     // -----------------
 
     ChSystemNSC system;
-    system.Set_G_acc(ChVector<>(0, -10, 0));
+    system.SetGravitationalAcceleration(ChVector3d(0, -10, 0));
 
     // Set solver settings
     system.SetSolverType(ChSolver::Type::APGD);
-    system.SetSolverMaxIterations(100);
-    system.SetSolverTolerance(tolerance);
-    system.SetSolverForceTolerance(tolerance);
+    system.GetSolver()->AsIterative()->SetMaxIterations(100);
+    system.GetSolver()->AsIterative()->SetTolerance(tolerance);
     system.SetMaxPenetrationRecoverySpeed(contact_recovery_speed);
 
     // Shared contact material
-    auto contact_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
+    auto contact_mat = chrono_types::make_shared<ChContactMaterialNSC>();
     contact_mat->SetFriction(0.4f);
 
     // ----------
     // Add bodies
     // ----------
 
-    auto container = std::shared_ptr<ChBody>(system.NewBody());
+    auto container = chrono_types::make_shared<ChBody>();
     system.Add(container);
-    container->SetPos(ChVector<>(0, 0, 0));
-    container->SetBodyFixed(true);
-    container->SetIdentifier(-1);
+    container->SetPos(ChVector3d(0, 0, 0));
+    container->SetFixed(true);
+    container->SetTag(-1);
 
-    container->SetCollide(true);
+    container->EnableCollision(true);
     container->GetCollisionModel()->SetEnvelope(collision_envelope);
-    container->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(container.get(), contact_mat, ChVector<>(4, .5, 4), ChVector<>(0, -.5, 0));
-    container->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(container.get(), contact_mat, ChVector3d(4, .5, 4), ChVector3d(0, -.5, 0));
 
     container->GetVisualShape(0)->SetColor(ChColor(0.4f, 0.4f, 0.2f));
 
-    auto box = std::shared_ptr<ChBody>(system.NewBody());
+    auto box = chrono_types::make_shared<ChBody>();
     box->SetMass(10);
-    box->SetPos(ChVector<>(1, 2, 1));
-    box->SetInertiaXX(ChVector<>(1, 1, 1));
+    box->SetPos(ChVector3d(1, 2, 1));
+    box->SetInertiaXX(ChVector3d(1, 1, 1));
 
-    box->SetCollide(true);
+    box->EnableCollision(true);
     box->GetCollisionModel()->SetEnvelope(collision_envelope);
-    box->GetCollisionModel()->ClearModel();
-    utils::AddBoxGeometry(box.get(), contact_mat, ChVector<>(0.4, 0.2, 0.1));
-    box->GetCollisionModel()->BuildModel();
+    utils::AddBoxGeometry(box.get(), contact_mat, ChVector3d(0.4, 0.2, 0.1));
 
     box->GetVisualShape(0)->SetColor(ChColor(0.2f, 0.3f, 0.4f));
 
@@ -137,7 +132,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(6, 6, -10));
+    vis->AddCamera(ChVector3d(6, 6, -10));
     vis->AttachSystem(&system);
 
 #endif
@@ -150,7 +145,7 @@ int main(int argc, char* argv[]) {
 
     while (system.GetChTime() < time_end) {
         // Process contacts
-        std::cout << system.GetChTime() << "  " << system.GetNcontacts() << std::endl;
+        std::cout << system.GetChTime() << "  " << system.GetNumContacts() << std::endl;
         system.GetContactContainer()->ReportAllContacts(cmanager);
 
         // Advance dynamics

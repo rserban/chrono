@@ -34,7 +34,6 @@
 //
 // =============================================================================
 
-#include "chrono/core/ChStream.h"
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/utils/ChUtilsJSON.h"
 #include "chrono_vehicle/ChVehicleVisualSystemIrrlicht.h"
@@ -78,7 +77,7 @@ std::string out_dir = "../RENDER_SUSPENSION";
 
 // =============================================================================
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // Create the vehicle and the test rig
     auto vehicle = chrono_types::make_shared<WheeledVehicle>(vehicle::GetDataFile(vehicle_file), ChContactMethod::SMC);
@@ -148,9 +147,8 @@ int main(int argc, char* argv[]) {
         // Save POV-Ray file once the rig is at specified ride height
         if (ride_height < 0 || driver->Started()) {
             // Hack: create a dummy body (to render a global reference frame)
-            auto dummy = std::shared_ptr<ChBody>(vehicle->GetSystem()->NewBody());
+            auto dummy = chrono_types::make_shared<ChBody>();
             dummy->SetPos(susp_pos);
-            dummy->SetIdentifier(-1);
             vehicle->GetSystem()->AddBody(dummy);
 
             std::string filename = out_dir + "/" + susp_name + ".dat";

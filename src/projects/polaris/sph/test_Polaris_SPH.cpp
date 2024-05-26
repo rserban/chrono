@@ -24,6 +24,7 @@
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/physics/ChSystemSMC.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/utils/ChUtils.h"
 
 #include "chrono_fsi/ChSystemFsi.h"
 #include "chrono_fsi/visualization/ChFsiVisualizationGL.h"
@@ -191,9 +192,9 @@ int main(int argc, char* argv[]) {
 
     // Set SPH parameters and soil material properties
 
-    const ChVector<> gravity(0, 0, -9.81);
-    sysFSI.Set_G_acc(gravity);
-    sys.Set_G_acc(gravity);
+    const ChVector3d gravity(0, 0, -9.81);
+    sysFSI.SetGravitationalAcceleration(gravity);
+    sys.SetGravitationalAcceleration(gravity);
 
     ChSystemFsi::ElasticMaterialProperties mat_props;
     mat_props.Young_modulus = youngs_modulus;
@@ -205,8 +206,8 @@ int main(int argc, char* argv[]) {
     mat_props.mu_fric_s = friction;
     mat_props.mu_fric_2 = friction;
     mat_props.average_diam = 0.005;
-    mat_props.friction_angle = CH_C_PI / 10;  // default
-    mat_props.dilation_angle = CH_C_PI / 10;  // default
+    mat_props.friction_angle = CH_PI / 10;  // default
+    mat_props.dilation_angle = CH_PI / 10;  // default
     mat_props.cohesion_coeff = 0;             // default
     mat_props.kernel_threshold = 0.8;
 
@@ -222,7 +223,7 @@ int main(int argc, char* argv[]) {
     ////cout << "Load SPH parameter file..." << endl;
     ////sysFSI.ReadParametersFromFile(vehicle::GetDataFile(terrain_dir + "/sph_params.json"));
 
-    sysFSI.SetActiveDomain(ChVector<>(active_box_dim, active_box_dim, 1));
+    sysFSI.SetActiveDomain(ChVector3d(active_box_dim, active_box_dim, 1));
     sysFSI.SetDiscreType(false, false);
     sysFSI.SetWallBC(BceVersion::ORIGINAL);
     sysFSI.SetSPHMethod(FluidDynamics::WCSPH);
@@ -247,16 +248,16 @@ int main(int argc, char* argv[]) {
     // Create driver
     cout << "Create path..." << endl;
     auto path = CreatePath(terrain_dir, ramp_length);
-    double x_max = path->getPoint(path->getNumPoints() - 2).x() - 3.0;
+    double x_max = path->GetPoint(path->GetNumPoints() - 2).x() - 3.0;
     ChPathFollowerDriver driver(*vehicle, path, "my_path", target_speed);
     driver.GetSteeringController().SetLookAheadDistance(2.0);
     driver.GetSteeringController().SetGains(1.0, 0, 0);
     driver.GetSpeedController().SetGains(0.6, 0.05, 0);
     driver.Initialize();
 
-    cout << "  Num points: " << path->getNumPoints() << endl;
-    for (int i = 0; i < path->getNumPoints(); i++) {
-        cout << "  [" << i << "]   " << path->getPoint(i) << endl;
+    cout << "  Num points: " << path->GetNumPoints() << endl;
+    for (int i = 0; i < path->GetNumPoints(); i++) {
+        cout << "  [" << i << "]   " << path->GetPoint(i) << endl;
     }
 
 #ifdef CHRONO_OPENGL
@@ -268,8 +269,8 @@ int main(int argc, char* argv[]) {
     if (run_time_vis) {
         visFSI.SetTitle("Chrono::FSI single wheel demo");
         visFSI.SetSize(1280, 720);
-        ////visFSI.SetCameraPosition(init_pos.pos + ChVector<>(-7, 0, 6), init_pos.pos + ChVector<>(1, 0, 0.5));
-        visFSI.UpdateCamera(ChVector<>(0, 4, 1), ChVector<>(0, -1, 0));
+        ////visFSI.SetCameraPosition(init_pos.pos + ChVector3d(-7, 0, 6), init_pos.pos + ChVector3d(1, 0, 0.5));
+        visFSI.UpdateCamera(ChVector3d(0, 4, 1), ChVector3d(0, -1, 0));
         visFSI.SetCameraMoveScale(1.0f);
         visFSI.EnableFluidMarkers(run_time_vis_particles);
         visFSI.EnableRigidBodyMarkers(run_time_vis_bce);
@@ -380,8 +381,8 @@ int main(int argc, char* argv[]) {
 #ifdef CHRONO_OPENGL
         if (run_time_vis && frame % render_steps == 0) {
             if (chase_cam) {
-                ChVector<> cam_loc = veh_loc + ChVector<>(-3, 3, 2);
-                ChVector<> cam_point = veh_loc;
+                ChVector3d cam_loc = veh_loc + ChVector3d(-3, 3, 2);
+                ChVector3d cam_point = veh_loc;
                 visFSI.UpdateCamera(cam_loc, cam_point);
             }
             sentinel->SetPos(driver.GetSteeringController().GetTargetLocation());

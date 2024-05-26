@@ -46,7 +46,7 @@ public:
 	void Update();
 
 private:
-	void AddRay(const chrono::ChVector<double> &start, const chrono::ChVector<double> &end);
+	void AddRay(const chrono::ChVector3d &start, const chrono::ChVector3d &end);
 
 	std::vector<std::shared_ptr<ChCollisionLidarRay>> m_rays;
 

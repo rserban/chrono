@@ -10,7 +10,7 @@
 #include "chrono/core/ChRealtimeStep.h"
 #include "chrono/solver/ChSolverBB.h"
 #include "chrono/physics/ChSystemSMC.h"
-#include "chrono/collision/ChCollisionSystemChrono.h"
+#include "chrono/collision/multicore/ChCollisionSystemMulticore.h"
 
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
@@ -46,11 +46,13 @@ std::string terrainFile = "terrain/rms1_normalized_mod.obj";
 // Whether to use Irrlicht
 bool useIrrlicht = true;
 
-// Collision system type (BULLET or CHRONO)
-collision::ChCollisionSystemType collsys_type = collision::ChCollisionSystemType::BULLET;
+// Collision system type (BULLET or MULTICORE)
+auto collsys_type = ChCollisionSystem::Type::BULLET;
+
+
 
 // Initial vehicle position
-ChVector<> initLoc(0, 0, 0.8);
+ChVector3d initLoc(0, 0, 0.8);
 
 // Initial vehicle orientation
 ChQuaternion<> initRot(1, 0, 0, 0);
@@ -63,7 +65,7 @@ double render_step_size = 1.0 / 60;
 double output_step_size = 1.0 / 100;
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 0.0, 0.0);
+ChVector3d trackPoint(0.0, 0.0, 0.0);
 
 // =============================================================================
 int main(int argc, char* argv[]) {
@@ -72,9 +74,9 @@ int main(int argc, char* argv[]) {
     // --------------------------
     TrackedVehicle m113(vehicle::GetDataFile("M113/vehicle/M113_Vehicle_SinglePin.json"), ChContactMethod::SMC);
 
-    if (collsys_type == collision::ChCollisionSystemType::CHRONO) {
-        auto cd_chrono = chrono_types::make_shared<collision::ChCollisionSystemChrono>();
-        cd_chrono->SetBroadphaseGridResolution(ChVector<int>(1000, 20, 1));
+    if (collsys_type == ChCollisionSystem::Type::MULTICORE) {
+        auto cd_chrono = chrono_types::make_shared<ChCollisionSystemMulticore>();
+        cd_chrono->SetBroadphaseGridResolution(ChVector3<int>(1000, 20, 1));
         m113.GetSystem()->SetCollisionSystem(cd_chrono);
     }
     m113.GetSystem()->SetNumThreads(1, 8, 1);
@@ -116,14 +118,14 @@ int main(int argc, char* argv[]) {
 
     // Add the mesh
     patch = terrain.AddPatch(patch_mat,
-                             chrono::ChCoordsys<>(chrono::ChVector<>(terrainLength / 2.0 - 0.05, 0, 0), chrono::QUNIT),
+                             chrono::ChCoordsys<>(chrono::ChVector3d(terrainLength / 2.0 - 0.05, 0, 0), chrono::QUNIT),
                              vehicle::GetDataFile(terrainFile), false, 0.005);
     patch->SetColor(chrono::ChColor(0.2f, 0.2f, 0.5f));
 
     terrain.Initialize();
 
     // Driver
-    auto path = StraightLinePath(ChVector<>(0, 0, 0), ChVector<>(300, 0, 0));
+    auto path = StraightLinePath(ChVector3d(0, 0, 0), ChVector3d(300, 0, 0));
     ChPathFollowerDriver driver(m113, path, "my_path", 10.0);
     driver.GetSteeringController().SetLookAheadDistance(5.0);
     driver.GetSteeringController().SetGains(0.5, 0, 0);
@@ -164,7 +166,7 @@ int main(int argc, char* argv[]) {
     // Initialize simulation frame counter
     int step_number = 0;
 
-    utils::CSV_writer csv(" ");
+    utils::ChWriterCSV csv(" ");
 
     while (m113.GetPos().x() < 300) {
         if (useIrrlicht) {
@@ -203,7 +205,7 @@ int main(int argc, char* argv[]) {
             csv << time << step_number;
             csv << m113.GetPos().x() << m113.GetSpeed();
             csv << "    ";
-            csv << m113.GetSystem()->GetNcontacts();
+            csv << m113.GetSystem()->GetNumContacts();
             csv << "    ";
             csv << m113.GetSystem()->GetTimerStep()
                 << m113.GetSystem()->GetTimerCollisionBroad()
@@ -214,7 +216,7 @@ int main(int argc, char* argv[]) {
         step_number++;
     }
 
-    csv.write_to_file("timing.out");
+    csv.WriteToFile("timing.out");
 
     return 0;
 }

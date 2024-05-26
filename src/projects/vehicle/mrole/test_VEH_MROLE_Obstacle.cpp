@@ -53,7 +53,7 @@ using std::endl;
 // USER SETTINGS
 // =============================================================================
 // Initial vehicle position
-ChVector<> initLoc(-1, 0, 0.9);
+ChVector3d initLoc(-1, 0, 0.9);
 
 // Initial vehicle orientation
 ChQuaternion<> initRot(1, 0, 0, 0);
@@ -77,7 +77,7 @@ bool use_mkl = false;
 double render_step_size = 1.0 / 120;  // FPS = 120
 
 // Point on chassis tracked by the camera
-ChVector<> trackPoint(0.0, 2.0, 0.0);
+ChVector3d trackPoint(0.0, 2.0, 0.0);
 
 // Type of tire model (RIGID, TMEASY)
 TireModelType tire_model = TireModelType::TMEASY;
@@ -103,9 +103,9 @@ const double mph_to_ms = 0.44704;
 
 // =============================================================================
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2021 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2021 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
-    ChFunction_Recorder accTravel;
+    ChFunctionInterp accTravel;
     accTravel.AddPoint(1.0, 1.0);
     accTravel.AddPoint(5.0, 10.0);
     accTravel.AddPoint(10.0, 25.0);
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
 
     double target_speed = 2.0;
     double xpos_max = 100.0;
-    initLoc.x() = -accTravel.Get_y(target_speed);
+    initLoc.x() = -accTravel.GetVal(target_speed);
 
     // --------------------------
     // Construct the Marder vehicle
@@ -125,7 +125,7 @@ int main(int argc, char* argv[]) {
     DrivelineTypeWV driveline_type = DrivelineTypeWV::AWD8;
     BrakeType brake_type = BrakeType::SIMPLE;
     EngineModelType engine_type = EngineModelType::SIMPLE_MAP;
-    TransmissionModelType transmission_type = TransmissionModelType::SIMPLE_MAP;
+    TransmissionModelType transmission_type = TransmissionModelType::AUTOMATIC_SIMPLE_MAP;
 
     mrole_Full mrole;
     mrole.SetContactMethod(contact_method);
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
     ////mrole.CreateTrack(false);
 
     // Disable gravity in this simulation
-    ////mrole.GetSystem()->Set_G_acc(ChVector<>(0, 0, 0));
+    ////mrole.GetSystem()->SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
     // Control steering type (enable crossdrive capability)
     ////mrole.GetDriveline()->SetGyrationMode(true);
@@ -164,10 +164,10 @@ int main(int argc, char* argv[]) {
     // --------------------------------------------------
 
     // Enable contact on all tracked vehicle parts, except the left sprocket
-    ////mrole.GetVehicle().SetCollide(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
+    ////mrole.GetVehicle().EnableCollision(TrackedCollisionFlag::ALL & (~TrackedCollisionFlag::SPROCKET_LEFT));
 
     // Disable contact for all tracked vehicle parts
-    ////mrole.GetVehicle().SetCollide(TrackedCollisionFlag::NONE);
+    ////mrole.GetVehicle().EnableCollision(TrackedCollisionFlag::NONE);
 
     // Disable all contacts for vehicle chassis (if chassis collision was defined)
     ////mrole.GetVehicle().SetChassisCollide(false);
@@ -188,18 +188,18 @@ int main(int argc, char* argv[]) {
     ////mrole.GetVehicle().SetContactCollection(true);
 
     // under belly points to estimate vehicle/ground interference
-    std::vector<ChVector<double> > bellyPts;
-    bellyPts.push_back(ChVector<>(1.6, 0, 1.3 - 0.1));
-    bellyPts.push_back(ChVector<>(0.7, 0, -0.1));
-    bellyPts.push_back(ChVector<>(0, 0, -0.1));
-    bellyPts.push_back(ChVector<>(-1.55, 0, -0.1));
-    bellyPts.push_back(ChVector<>((-1.55 - 3.45) / 2, 0, -0.1));
-    bellyPts.push_back(ChVector<>(-3.45, 0, -0.1));
-    bellyPts.push_back(ChVector<>((-3.45 - 5) / 2, 0, -0.1));
-    bellyPts.push_back(ChVector<>(-5, 0, -0.1));
-    bellyPts.push_back(ChVector<>(-5.7, 0, -0.1));
-    bellyPts.push_back(ChVector<>(-6.0, 0, 0.3 - 0.1));
-    std::vector<ChFunction_Recorder> clearance;
+    std::vector<ChVector3d > bellyPts;
+    bellyPts.push_back(ChVector3d(1.6, 0, 1.3 - 0.1));
+    bellyPts.push_back(ChVector3d(0.7, 0, -0.1));
+    bellyPts.push_back(ChVector3d(0, 0, -0.1));
+    bellyPts.push_back(ChVector3d(-1.55, 0, -0.1));
+    bellyPts.push_back(ChVector3d((-1.55 - 3.45) / 2, 0, -0.1));
+    bellyPts.push_back(ChVector3d(-3.45, 0, -0.1));
+    bellyPts.push_back(ChVector3d((-3.45 - 5) / 2, 0, -0.1));
+    bellyPts.push_back(ChVector3d(-5, 0, -0.1));
+    bellyPts.push_back(ChVector3d(-5.7, 0, -0.1));
+    bellyPts.push_back(ChVector3d(-6.0, 0, 0.3 - 0.1));
+    std::vector<ChFunctionInterp> clearance;
     clearance.resize(bellyPts.size());
 
     // ------------------
@@ -225,7 +225,7 @@ int main(int argc, char* argv[]) {
 
 
     // Create the driver
-    auto path = ChBezierCurve::read(vehicle::GetDataFile(path_file));
+    auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
     ChPathFollowerDriver driver(mrole.GetVehicle(), vehicle::GetDataFile(steering_controller_file),
                                 vehicle::GetDataFile(speed_controller_file), path, "my_path", 0.0);
     driver.Initialize();
@@ -286,12 +286,10 @@ int main(int argc, char* argv[]) {
         mrole.GetSystem()->SetTimestepperType(ChTimestepper::Type::HHT);
         auto integrator = std::static_pointer_cast<ChTimestepperHHT>(mrole.GetSystem()->GetTimestepper());
         integrator->SetAlpha(-0.2);
-        integrator->SetMaxiters(50);
+        integrator->SetMaxIters(50);
         integrator->SetAbsTolerances(1e-4, 1e2);
-        integrator->SetMode(ChTimestepperHHT::ACCELERATION);
         integrator->SetStepControl(false);
         integrator->SetModifiedNewton(false);
-        integrator->SetScaling(true);
         integrator->SetVerbose(true);
 #endif
     } else {
@@ -302,7 +300,6 @@ int main(int argc, char* argv[]) {
         mrole.GetSystem()->SetSolver(solver);
 
         mrole.GetSystem()->SetMaxPenetrationRecoverySpeed(1.5);
-        mrole.GetSystem()->SetMinBounceSpeed(2.0);
     }
 
     // ---------------
@@ -360,9 +357,9 @@ int main(int argc, char* argv[]) {
                                          ->GetOutputMotorshaftTorque());
             engineForce.push_back(eTorque * effRadius / gear_ratio);
             for (size_t i = 0; i < bellyPts.size(); i++) {
-                ChVector<> p = mrole.GetVehicle().GetPointLocation(bellyPts[i]);
-                // GetLog() << "BellyZ(" << i << ")" << p.z() << "\n";
-                double t = terrain.GetHeight(ChVector<>(p.x(), p.y(), 0));
+                ChVector3d p = mrole.GetVehicle().GetPointLocation(bellyPts[i]);
+                // std::cout << "BellyZ(" << i << ")" << p.z() << "\n";
+                double t = terrain.GetHeight(ChVector3d(p.x(), p.y(), 0));
                 clearance[i].AddPoint(xpos, p.z() - t);
             }
         }
@@ -372,7 +369,7 @@ int main(int argc, char* argv[]) {
         if (time > bail_out_time) {
             break;
         }
-        driver.SetDesiredSpeed(ChSineStep(time, 1.0, 0.0, 2.0, target_speed));
+        driver.SetDesiredSpeed(ChFunctionSineStep::Eval(time, 1.0, 0.0, 2.0, target_speed));
 
         // Collect output data from modules
         DriverInputs driver_inputs = driver.GetInputs();
@@ -410,15 +407,15 @@ int main(int argc, char* argv[]) {
         double vmin, vmax;
         clearance[i].Estimate_x_range(x1, x2);
         clearance[i].Estimate_y_range(x1, x2, vmin, vmax, 0);
-        GetLog() << "Clearance#" << i << " = " << vmin << "\n";
+        std::cout << "Clearance#" << i << " = " << vmin << "\n";
         if (vmin < clearMin) {
             clearMin = vmin;
         }
     }
 
     double wallclock_time = timer.GetTimeSeconds();
-    GetLog() << "Model time      = " << sim_time << " s\n";
-    GetLog() << "Wall clock time = " << wallclock_time << " s\n";
+    std::cout << "Model time      = " << sim_time << " s\n";
+    std::cout << "Wall clock time = " << wallclock_time << " s\n";
 
     double fMax = 0.0;
     double fMean = 0.0;
@@ -428,9 +425,9 @@ int main(int argc, char* argv[]) {
         fMean += engineForce[i];
     }
     fMean /= double(engineForce.size());
-    GetLog() << "Average Tractive Force = " << fMean << " N\n";
-    GetLog() << "Max Tractive Force     = " << fMax << " N\n";
-    GetLog() << "Min. Clearance         = " << clearMin << " m\n";
+    std::cout << "Average Tractive Force = " << fMean << " N\n";
+    std::cout << "Max Tractive Force     = " << fMax << " N\n";
+    std::cout << "Min. Clearance         = " << clearMin << " m\n";
 
     return 0;
 }

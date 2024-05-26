@@ -19,7 +19,6 @@
 //
 // =============================================================================
 
-#include "chrono/core/ChStream.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 #include "chrono/utils/ChFilters.h"
 
@@ -78,7 +77,7 @@ const std::string out_dir = "../HMMWV_ACC_TST";
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // --------------
     // Create systems
@@ -89,7 +88,7 @@ int main(int argc, char* argv[]) {
     my_hmmwv.SetContactMethod(contact_method);
     my_hmmwv.SetChassisCollisionType(CollisionType::NONE);
     my_hmmwv.SetChassisFixed(false);
-    my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector<>(-180, 0, 0.6), QUNIT));
+    my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(-180, 0, 0.6), QUNIT));
     my_hmmwv.SetEngineType(engine_model);
     my_hmmwv.SetTransmissionType(transmission_model);
     my_hmmwv.SetDriveType(drive_type);
@@ -121,7 +120,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht interface
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("HMMWV Special Test");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -137,13 +136,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    utils::CSV_writer driver_csv(" ");
+    utils::ChWriterCSV driver_csv(" ");
 
     // ------------------------
     // Create the driver system
     // ------------------------
     std::string driverFile = GetChronoDataFile("vehicle/hmmwv/driver/AccTest_Maneuver.txt");
-    GetLog() << driverFile << "\n";
+    std::cout << driverFile << "\n";
     ChDataDriver driver(my_hmmwv.GetVehicle(), driverFile);
     driver.Initialize();
 
@@ -154,9 +153,9 @@ int main(int argc, char* argv[]) {
     my_hmmwv.GetVehicle().LogSubsystemTypes();
 
     // Recorders
-    ChFunction_Recorder speed_recorder;
-    ChFunction_Recorder engine_speed_recorder;
-    ChFunction_Recorder engine_torque_recorder;
+    ChFunctionInterp speed_recorder;
+    ChFunctionInterp engine_speed_recorder;
+    ChFunctionInterp engine_torque_recorder;
 
     // Number of simulation steps between miscellaneous events
     int render_steps = (int)std::ceil(render_step_size / step_size);
@@ -232,7 +231,7 @@ int main(int argc, char* argv[]) {
         default:
             break;
     }
-    driver_csv.write_to_file(out_dir + "/output_" + tire_model_str + ".csv",
+    driver_csv.WriteToFile(out_dir + "/output_" + tire_model_str + ".csv",
                              "#time throttle speed engine_torque engine_speed");
 
 #ifdef CHRONO_POSTPROCESS

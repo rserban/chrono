@@ -34,7 +34,6 @@
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
 using namespace chrono;
-using namespace chrono::geometry;
 using namespace chrono::fea;
 using namespace chrono::irrlicht;
 using std::cout;
@@ -57,25 +56,24 @@ ChSolver::Type solver_type = ChSolver::Type::PARDISO_MKL;
 ChTimestepper::Type timestepper_type = ChTimestepper::Type::HHT;
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     ChSystemSMC my_system;
 
     //--------------------------------------//
     //      CREATE THE PHYSICAL SYSTEM      //
     //--------------------------------------//
-    collision::ChCollisionInfo::SetDefaultEffectiveCurvatureRadius(
-        1);  // Effective radius of curvature for all SCM contacts.
-    collision::ChCollisionModel::SetDefaultSuggestedEnvelope(0.001);  // max outside detection envelope
-    collision::ChCollisionModel::SetDefaultSuggestedMargin(0.001);    // max inside penetration
-    double sphere_swept_thickness = 0.001;                            // outward additional layer around meshes
+    ChCollisionInfo::SetDefaultEffectiveCurvatureRadius(1);  // Effective radius of curvature for all SCM contacts.
+    ChCollisionModel::SetDefaultSuggestedEnvelope(0.001);    // max outside detection envelope
+    ChCollisionModel::SetDefaultSuggestedMargin(0.001);      // max inside penetration
+    double sphere_swept_thickness = 0.001;                   // outward additional layer around meshes
 
     //--------------------------------------//
     //       Create materials               //
     //--------------------------------------//
     
     // Contact material
-    auto mysurfmaterial = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto mysurfmaterial = chrono_types::make_shared<ChContactMaterialSMC>();
     mysurfmaterial->SetYoungModulus(6e4);
     mysurfmaterial->SetFriction(0.3f);
     mysurfmaterial->SetRestitution(0.2f);
@@ -84,9 +82,9 @@ int main(int argc, char* argv[]) {
     // Membrane
     // Create an orthotropic material. All layers for all elements share the same material.
     double rho_mem = 1000;
-    ChVector<> E_mem(2.1e7, 2.1e7, 2.1e7);
-    ChVector<> nu_mem(0.3, 0.3, 0.3);
-    ChVector<> G_mem(8.0769231e6, 8.0769231e6, 8.0769231e6);
+    ChVector3d E_mem(2.1e7, 2.1e7, 2.1e7);
+    ChVector3d nu_mem(0.3, 0.3, 0.3);
+    ChVector3d G_mem(8.0769231e6, 8.0769231e6, 8.0769231e6);
     auto mem_mat = chrono_types::make_shared<ChMaterialShellANCF>(rho_mem, E_mem, nu_mem, G_mem);
 
     //--------------------------------------//
@@ -121,13 +119,13 @@ int main(int argc, char* argv[]) {
     // Create a mesh, that is a container for groups of elements and their referenced nodes.
     auto mem_mesh = chrono_types::make_shared<ChMesh>();
 
-    for (double u = 0; u < CH_C_2PI; u = u + CH_C_PI / n_c) {
-        for (double v = 0; v < CH_C_2PI; v = v + CH_C_PI / n_a) {
+    for (double u = 0; u < CH_2PI; u = u + CH_PI / n_c) {
+        for (double v = 0; v < CH_2PI; v = v + CH_PI / n_a) {
             // Point on torus
             double x = cos(u) * (c + a * cos(v));
             double y = a * sin(v) + init_height;
             double z = sin(u) * (c + a * cos(v));
-            ChVector<double> location(x, y, z);
+            ChVector3d location(x, y, z);
 
             /*
             // Tangent with respect to parameter u
@@ -145,17 +143,17 @@ int main(int argc, char* argv[]) {
             double uvj = t2_x * t1_z - t1_x * t2_z;
             double uvk = t1_x * t2_y - t2_x * t1_y;
 
-            ChVector<> D(uvi, uvj, uvk);
+            ChVector3d D(uvi, uvj, uvk);
             D.Normalize();
             */
 
             double dx = -cos(v) * cos(u);
             double dy = -sin(v);
             double dz = -cos(v) * sin(u);
-            ChVector<> D(dx, dy, dz);
+            ChVector3d D(dx, dy, dz);
 
             // Create the node
-            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(x, y, z), D);
+            auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector3d(x, y, z), D);
             node->SetMass(0);
             mem_mesh->AddNode(node);
         }
@@ -184,7 +182,7 @@ int main(int argc, char* argv[]) {
                               std::dynamic_pointer_cast<ChNodeFEAxyzD>(mem_mesh->GetNode(node3)));
 
             element->SetDimensions(a / n_a, a / n_a);             // Set element dimensions
-            element->AddLayer(dz, 0 * CH_C_DEG_TO_RAD, mem_mat);  // Single layer with 0deg. fiber angle
+            element->AddLayer(dz, 0 * CH_DEG_TO_RAD, mem_mat);  // Single layer with 0deg. fiber angle
             element->SetAlphaDamp(0.0);                           // Structural damping for this element
             mem_mesh->AddElement(element);
         }
@@ -205,7 +203,7 @@ int main(int argc, char* argv[]) {
                           std::dynamic_pointer_cast<ChNodeFEAxyzD>(mem_mesh->GetNode(node3)));
 
         element->SetDimensions(a / n_a, a / n_a);             // Set element dimensions
-        element->AddLayer(dz, 0 * CH_C_DEG_TO_RAD, mem_mat);  // Single layer with 0deg. fiber angle
+        element->AddLayer(dz, 0 * CH_DEG_TO_RAD, mem_mat);  // Single layer with 0deg. fiber angle
         element->SetAlphaDamp(0.0);                           // Structural damping for this element
         mem_mesh->AddElement(element);
     }
@@ -225,7 +223,7 @@ int main(int argc, char* argv[]) {
                           std::dynamic_pointer_cast<ChNodeFEAxyzD>(mem_mesh->GetNode(node3)));
 
         element->SetDimensions(a / n_a, a / n_a);             // Set element dimensions
-        element->AddLayer(dz, 0 * CH_C_DEG_TO_RAD, mem_mat);  // Single layer with 0deg. fiber angle
+        element->AddLayer(dz, 0 * CH_DEG_TO_RAD, mem_mat);  // Single layer with 0deg. fiber angle
         element->SetAlphaDamp(0.0);                           // Structural damping for this element
         mem_mesh->AddElement(element);
     }
@@ -238,7 +236,7 @@ int main(int argc, char* argv[]) {
                       std::dynamic_pointer_cast<ChNodeFEAxyzD>(mem_mesh->GetNode((2 * n_c) * n_c - 2 * n_a)));
 
     element->SetDimensions(a / n_a, a / n_a);             // Set element dimensions
-    element->AddLayer(dz, 0 * CH_C_DEG_TO_RAD, mem_mat);  // Single layer with 0deg. fiber angle
+    element->AddLayer(dz, 0 * CH_DEG_TO_RAD, mem_mat);  // Single layer with 0deg. fiber angle
     element->SetAlphaDamp(0.0);                           // Structural damping for this element
     mem_mesh->AddElement(element);
 
@@ -290,17 +288,17 @@ int main(int argc, char* argv[]) {
 
     // Create a floor as a simple collision primitive:
     auto mfloor = chrono_types::make_shared<ChBodyEasyBox>(5, 0.1, 5, 700, true, true, mysurfmaterial);
-    mfloor->SetPos(ChVector<>(0, -0.1, 0));
-    mfloor->SetBodyFixed(true);
+    mfloor->SetPos(ChVector3d(0, -0.1, 0));
+    mfloor->SetFixed(true);
     my_system.Add(mfloor);
 
     // two falling objects:
     auto mcube = chrono_types::make_shared<ChBodyEasyBox>(0.1, 0.1, 0.1, 5000, true, true, mysurfmaterial);
-    mcube->SetPos(ChVector<>(0.6, init_height, 0.6));
+    mcube->SetPos(ChVector3d(0.6, init_height, 0.6));
     my_system.Add(mcube);
 
     auto msphere = chrono_types::make_shared<ChBodyEasySphere>(0.1, 5000, true, true, mysurfmaterial);
-    msphere->SetPos(ChVector<>(0.8, init_height, 0.6));
+    msphere->SetPos(ChVector3d(0.8, init_height, 0.6));
     my_system.Add(msphere);
 
     //--------------------------------------//
@@ -314,7 +312,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0.0, 0.6, -1.0), ChVector<>(0.0, 0.0, 0.0));
+    vis->AddCamera(ChVector3d(0.0, 0.6, -1.0), ChVector3d(0.0, 0.0, 0.0));
     vis->AttachSystem(&my_system);
 
 
@@ -355,12 +353,8 @@ int main(int argc, char* argv[]) {
             auto stepper = chrono_types::make_shared<ChTimestepperHHT>(&my_system);
             my_system.SetTimestepper(stepper);
             stepper->SetAlpha(-0.2);
-            stepper->SetMaxiters(20);
+            stepper->SetMaxIters(20);
             stepper->SetAbsTolerances(1e-5, 1e-3);
-            // Do not use POSITION mode if there are 3D rigid bodies in the system
-            // (POSITION mode technically incorrect when quaternions present).
-            stepper->SetMode(ChTimestepperHHT::ACCELERATION);
-            stepper->SetScaling(false);
             stepper->SetStepControl(true);
             stepper->SetMinStepSize(1e-8);
             stepper->SetVerbose(false);

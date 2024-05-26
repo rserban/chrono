@@ -25,7 +25,7 @@
 #include "chrono/utils/ChFilters.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 #include "chrono/core/ChTimer.h"
-#include "chrono/assets/ChBoxShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/assets/ChConeShape.h"
 #include "chrono_vehicle/ChConfigVehicle.h"
 #include "chrono_vehicle/ChVehicleModelData.h"
@@ -78,11 +78,11 @@ class ISO3888_Helper {
                 } else {
                     ofsC = (widthA - widthC) / 2;
                 }
-                GetLog() << "Section 1 Length  = " << lengthA << " m   Width = " << widthA << " m\n";
-                GetLog() << "Section 2 Length  = " << lengthAB << " m\n";
-                GetLog() << "Section 3 Length  = " << lengthB << " m   Width = " << widthB << " m\n";
-                GetLog() << "Section 4 Length  = " << lengthBC << " m\n";
-                GetLog() << "Section 5 Length  = " << lengthC << " m   Width = " << widthC << " m\n";
+                std::cout << "Section 1 Length  = " << lengthA << " m   Width = " << widthA << " m\n";
+                std::cout << "Section 2 Length  = " << lengthAB << " m\n";
+                std::cout << "Section 3 Length  = " << lengthB << " m   Width = " << widthB << " m\n";
+                std::cout << "Section 4 Length  = " << lengthBC << " m\n";
+                std::cout << "Section 5 Length  = " << lengthC << " m   Width = " << widthC << " m\n";
                 break;
             case ISO3888_2:
                 // gate A
@@ -131,50 +131,50 @@ class ISO3888_Helper {
                 } else {
                     ofsC = (widthA - widthC) / 2;
                 }
-                GetLog() << "Section 1 Length  = " << lengthA << " m   Width = " << widthA << " m\n";
-                GetLog() << "Section 2 Length  = " << lengthAB << " m\n";
-                GetLog() << "Section 3 Length  = " << lengthB << " m   Width = " << widthB << " m\n";
-                GetLog() << "Section 4 Length  = " << lengthBC << " m\n";
-                GetLog() << "Section 5 Length  = " << lengthC << " m   Width = " << widthC << " m\n";
+                std::cout << "Section 1 Length  = " << lengthA << " m   Width = " << widthA << " m\n";
+                std::cout << "Section 2 Length  = " << lengthAB << " m\n";
+                std::cout << "Section 3 Length  = " << lengthB << " m   Width = " << widthB << " m\n";
+                std::cout << "Section 4 Length  = " << lengthBC << " m\n";
+                std::cout << "Section 5 Length  = " << lengthC << " m   Width = " << widthC << " m\n";
                 break;
         }
         //================== setup definition points ========================================
         double zl = 0.1;
         // P1
-        leftLine.push_back(ChVector<>(xmin + acc_length, widthA / 2.0, 0));
-        centerLine.push_back(ChVector<>(xmin, 0, 0));
-        rightLine.push_back(ChVector<>(xmin + acc_length, -widthA / 2.0, 0));
+        leftLine.push_back(ChVector3d(xmin + acc_length, widthA / 2.0, 0));
+        centerLine.push_back(ChVector3d(xmin, 0, 0));
+        rightLine.push_back(ChVector3d(xmin + acc_length, -widthA / 2.0, 0));
         // P2
-        leftLine.push_back(ChVector<>(xmin + acc_length + lengthA, widthA / 2.0, 0));
-        centerLine.push_back(ChVector<>(xmin + acc_length + lengthA, 0, zl));
-        rightLine.push_back(ChVector<>(xmin + acc_length + lengthA, -widthA / 2.0, 0));
+        leftLine.push_back(ChVector3d(xmin + acc_length + lengthA, widthA / 2.0, 0));
+        centerLine.push_back(ChVector3d(xmin + acc_length + lengthA, 0, zl));
+        rightLine.push_back(ChVector3d(xmin + acc_length + lengthA, -widthA / 2.0, 0));
         // P3
-        leftLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB, widthB / 2.0, 0));
-        centerLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB, 0, zl));
-        rightLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB, -widthB / 2.0, 0));
+        leftLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB, widthB / 2.0, 0));
+        centerLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB, 0, zl));
+        rightLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB, -widthB / 2.0, 0));
         leftLine.back().y() += ofsB;
         centerLine.back().y() += ofsB;
         rightLine.back().y() += ofsB;
         // P4
-        leftLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB, widthB / 2.0, 0));
-        centerLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB, 0, zl));
-        rightLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB, -widthB / 2.0, 0));
+        leftLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB, widthB / 2.0, 0));
+        centerLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB, 0, zl));
+        rightLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB, -widthB / 2.0, 0));
         leftLine.back().y() += ofsB;
         centerLine.back().y() += ofsB;
         rightLine.back().y() += ofsB;
         // P5
-        leftLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC, widthC / 2.0, 0));
-        centerLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC, 0, zl));
-        rightLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC, -widthC / 2.0, 0));
+        leftLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC, widthC / 2.0, 0));
+        centerLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC, 0, zl));
+        rightLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC, -widthC / 2.0, 0));
         leftLine.back().y() += ofsC;
         centerLine.back().y() += ofsC;
         rightLine.back().y() += ofsC;
         // P6
         leftLine.push_back(
-            ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC + lengthC, widthC / 2.0, 0));
-        centerLine.push_back(ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC + lengthC, 0, zl));
+            ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC + lengthC, widthC / 2.0, 0));
+        centerLine.push_back(ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC + lengthC, 0, zl));
         rightLine.push_back(
-            ChVector<>(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC + lengthC, -widthC / 2.0, 0));
+            ChVector3d(xmin + acc_length + lengthA + lengthAB + lengthB + lengthBC + lengthC, -widthC / 2.0, 0));
         leftLine.back().y() += ofsC;
         centerLine.back().x() += 100.0;
         centerLine.back().y() += ofsC;
@@ -207,7 +207,7 @@ class ISO3888_Helper {
         }
         tst.close();
         // prepare path spline definition
-        ChVector<> offset(lengthB / 3, 0, 0);
+        ChVector3d offset(lengthB / 3, 0, 0);
         for (size_t i = 0; i < centerLine.size(); i++) {
             inCV.push_back(centerLine[i] - offset);
             outCV.push_back(centerLine[i] + offset);
@@ -215,7 +215,7 @@ class ISO3888_Helper {
         path = chrono_types::make_shared<ChBezierCurve>(centerLine, inCV, outCV);
     }
 
-    bool GateTestLeft(ChVector<>& p) {
+    bool GateTestLeft(ChVector3d& p) {
         if (p.x() >= leftLine[0].x() && p.x() <= leftLine[1].x()) {
             if (p.y() > leftLine[0].y())
                 return false;
@@ -231,7 +231,7 @@ class ISO3888_Helper {
         return true;
     }
 
-    bool GateTestRight(ChVector<>& p) {
+    bool GateTestRight(ChVector3d& p) {
         if (p.x() >= leftLine[0].x() && p.x() <= leftLine[1].x()) {
             if (p.y() < rightLine[0].y())
                 return false;
@@ -248,7 +248,7 @@ class ISO3888_Helper {
     }
 
     size_t GetConePositions() { return leftCones.size(); }
-    ChVector<>& GetConePosition(size_t idx, bool left) {
+    ChVector3d& GetConePosition(size_t idx, bool left) {
         if (left)
             return leftCones[idx];
         else
@@ -262,11 +262,11 @@ class ISO3888_Helper {
     std::shared_ptr<ChBezierCurve> GetPath() { return path; }
 
   private:
-    std::vector<ChVector<>> leftLine;
-    std::vector<ChVector<>> centerLine;
-    std::vector<ChVector<>> rightLine;
-    std::vector<ChVector<>> leftCones;
-    std::vector<ChVector<>> rightCones;
+    std::vector<ChVector3d> leftLine;
+    std::vector<ChVector3d> centerLine;
+    std::vector<ChVector3d> rightLine;
+    std::vector<ChVector3d> leftCones;
+    std::vector<ChVector3d> rightCones;
     double widthA;
     double lengthA;
     double widthB;
@@ -282,8 +282,8 @@ class ISO3888_Helper {
     double xmin;
     double xmax;
     double acc_length;
-    std::vector<ChVector<>> inCV;
-    std::vector<ChVector<>> outCV;
+    std::vector<ChVector3d> inCV;
+    std::vector<ChVector3d> outCV;
     std::shared_ptr<ChBezierCurve> path;
 };
 // =============================================================================
@@ -323,7 +323,7 @@ const double mph2kmh = 1.609344;
 //  instead of 'demo_VEH_HMMWV_DoubleLaneChange' use 'run_app.sh demo_VEH_HMMWV_DoubleLaneChange.app'
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     std::string wtitle;
     DLC_Variant dlc_mode = NATO;
@@ -362,7 +362,7 @@ int main(int argc, char* argv[]) {
     FEDA feda;
     feda.SetContactMethod(ChContactMethod::SMC);
     feda.SetChassisFixed(false);
-    feda.SetInitPosition(ChCoordsys<>(ChVector<>(-terrainLength / 2 + 5, 0, 0.7), ChQuaternion<>(1, 0, 0, 0)));
+    feda.SetInitPosition(ChCoordsys<>(ChVector3d(-terrainLength / 2 + 5, 0, 0.7), ChQuaternion<>(1, 0, 0, 0)));
     feda.SetTireType(tire_model);
     feda.SetTireStepSize(tire_step_size);
     feda.SetAerodynamicDrag(0.5, 5.0, 1.2);
@@ -383,10 +383,10 @@ int main(int argc, char* argv[]) {
     feda.SetTireVisualizationType(tire_vis_type);
 
     ISO3888_Helper helper(-accelerationLength + 5.0, accelerationLength, vehicle_width, dlc_mode, left_turn);
-    ////GetLog() << "Maneuver Length = " << helper.GetManeuverLength() << " m\n";
+    ////std::cout << "Maneuver Length = " << helper.GetManeuverLength() << " m\n";
 
     // Create the terrain
-    auto patch_mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+    auto patch_mat = chrono_types::make_shared<ChContactMaterialSMC>();
     patch_mat->SetFriction(0.9f);
     patch_mat->SetRestitution(0.01f);
     patch_mat->SetYoungModulus(2e7f);
@@ -411,7 +411,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht interface
     auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle(wtitle);
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->SetHUDLocation(500, 20);
     vis->Initialize();
     vis->AddTypicalLights();
@@ -426,7 +426,7 @@ int main(int argc, char* argv[]) {
     // now we can add the road cones
     double coneBaseWidth = 0.415;
     for (size_t i = 0; i < helper.GetConePositions(); i++) {
-        ChVector<> pL = helper.GetConePosition(i, true) + ChVector<>(0, coneBaseWidth / 2, 0);
+        ChVector3d pL = helper.GetConePosition(i, true) + ChVector3d(0, coneBaseWidth / 2, 0);
         irr::scene::IAnimatedMesh* mesh_coneL =
            vis->GetSceneManager()->getMesh(GetChronoDataFile("models/traffic_cone/trafficCone750mm.obj").c_str());
         irr::scene::IAnimatedMeshSceneNode* node_coneL = vis->GetSceneManager()->addAnimatedMeshSceneNode(mesh_coneL);
@@ -434,7 +434,7 @@ int main(int argc, char* argv[]) {
         node_coneL->setPosition(irr::core::vector3dfCH(pL));
         plt << pL.x() << "\t" << pL.y();
 
-        ChVector<> pR = helper.GetConePosition(i, false) + ChVector<>(0, -coneBaseWidth / 2, 0);
+        ChVector3d pR = helper.GetConePosition(i, false) + ChVector3d(0, -coneBaseWidth / 2, 0);
         irr::scene::IAnimatedMesh* mesh_coneR =
             vis->GetSceneManager()->getMesh(GetChronoDataFile("models/traffic_cone/trafficCone750mm.obj").c_str());
         irr::scene::IAnimatedMeshSceneNode* node_coneR = vis->GetSceneManager()->addAnimatedMeshSceneNode(mesh_coneR);
@@ -453,25 +453,25 @@ int main(int argc, char* argv[]) {
     utils::ChRunningAverage speed_filter(500);
 
     // Running average of vehicle lateral acceleration
-    utils::ChButterworth_Lowpass accel_filter(4, step_size, 2.0);
+    utils::ChButterworthLowpass accel_filter(4, step_size, 2.0);
 
     // Running average of vehicle steering wheel angle
-    utils::ChButterworth_Lowpass steer_filter(4, step_size, 2.0);
+    utils::ChButterworthLowpass steer_filter(4, step_size, 2.0);
 
     // Differentiate steering signal
     utils::ChFilterD ang_diff(step_size);
 
     // Record vehicle speed
-    ChFunction_Recorder speed_recorder;
+    ChFunctionInterp speed_recorder;
 
     // Record lateral vehicle acceleration
-    ChFunction_Recorder accel_recorder;
+    ChFunctionInterp accel_recorder;
 
     // Record lateral vehicle steering wheel angle
-    ChFunction_Recorder steer_recorder;
+    ChFunctionInterp steer_recorder;
 
     // Record lateral vehicle steering wheel angular speed
-    ChFunction_Recorder angspeed_recorder;
+    ChFunctionInterp angspeed_recorder;
 
     plt << "$data << EOD" << std::endl;
 
@@ -485,36 +485,36 @@ int main(int argc, char* argv[]) {
         time = feda.GetSystem()->GetChTime();
         double speed = speed_filter.Add(feda.GetVehicle().GetSpeed());
         double accel =
-            accel_filter.Filter(feda.GetVehicle().GetPointAcceleration(ChVector<>(-wheel_base / 2, 0, 0)).y());
+            accel_filter.Filter(feda.GetVehicle().GetPointAcceleration(ChVector3d(-wheel_base / 2, 0, 0)).y());
 
         speed_recorder.AddPoint(time, speed);
         accel_recorder.AddPoint(time, accel);
         xpos = feda.GetVehicle().GetPos().x();
         double ypos = feda.GetVehicle().GetPos().y();
-        ChVector<> pFrontLeft = feda.GetVehicle().GetPointLocation(ChVector<>(0, vehicle_width / 2, 1));
-        ChVector<> pRearLeft = feda.GetVehicle().GetPointLocation(ChVector<>(-wheel_base, vehicle_width / 2, 1));
-        ChVector<> pFrontRight = feda.GetVehicle().GetPointLocation(ChVector<>(0, -vehicle_width / 2, 1));
-        ChVector<> pRearRight =
-            feda.GetVehicle().GetPointLocation(ChVector<>(-wheel_base, -vehicle_width / 2, 1));
+        ChVector3d pFrontLeft = feda.GetVehicle().GetPointLocation(ChVector3d(0, vehicle_width / 2, 1));
+        ChVector3d pRearLeft = feda.GetVehicle().GetPointLocation(ChVector3d(-wheel_base, vehicle_width / 2, 1));
+        ChVector3d pFrontRight = feda.GetVehicle().GetPointLocation(ChVector3d(0, -vehicle_width / 2, 1));
+        ChVector3d pRearRight =
+            feda.GetVehicle().GetPointLocation(ChVector3d(-wheel_base, -vehicle_width / 2, 1));
         if (!helper.GateTestLeft(pFrontLeft)) {
-            GetLog() << "Test Failure: vehicle left the course with the front left wheel.\n";
+            std::cout << "Test Failure: vehicle left the course with the front left wheel.\n";
             break;
         }
         if (!helper.GateTestLeft(pRearLeft)) {
-            GetLog() << "Test Failure: vehicle left the course with the rear left wheel.\n";
+            std::cout << "Test Failure: vehicle left the course with the rear left wheel.\n";
             break;
         }
         if (!helper.GateTestRight(pFrontRight)) {
-            GetLog() << "Test Failure: vehicle left the course with the front right wheel.\n";
+            std::cout << "Test Failure: vehicle left the course with the front right wheel.\n";
             break;
         }
         if (!helper.GateTestRight(pRearRight)) {
-            GetLog() << "Test Failure: vehicle left the course with the rear right wheel.\n";
+            std::cout << "Test Failure: vehicle left the course with the rear right wheel.\n";
             break;
         }
         // End simulation
         if (time >= 100 || xpos > xend) {
-            GetLog() << "Test Run: terminated normally.\n";
+            std::cout << "Test Run: terminated normally.\n";
             break;
         }
 
@@ -529,9 +529,9 @@ int main(int argc, char* argv[]) {
         double angspeed = ang_diff.Filter(steer);
         angspeed_recorder.AddPoint(time, angspeed);
         ChQuaternion<> q = feda.GetVehicle().GetRot();
-        double rollangle = q.Q_to_Euler123().x() * CH_C_RAD_TO_DEG;
-        double yawrate = feda.GetVehicle().GetChassisBody()->GetWvel_loc().z() * CH_C_RAD_TO_DEG;
-        double latacc = accel_recorder.Get_y(time) / 9.81;
+        double rollangle = q.Q_to_Euler123().x() * CH_RAD_TO_DEG;
+        double yawrate = feda.GetVehicle().GetChassisBody()->GetAngVelLocal().z() * CH_RAD_TO_DEG;
+        double latacc = accel_recorder.GetVal(time) / 9.81;
         if (xpos >= -50.0 && step_number % 500 == 0) {
             plt << time << "\t" << xpos << "\t" << ypos << "\t" << steer << "\t" << angspeed << "\t" << rollangle
                 << "\t" << yawrate << "\t" << latacc << std::endl;

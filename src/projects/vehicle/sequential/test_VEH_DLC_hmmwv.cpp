@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
     HMMWV_Full my_hmmwv;
     my_hmmwv.SetContactMethod(ChContactMethod::SMC);
     my_hmmwv.SetChassisFixed(false);
-    my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector<>(-75, 0, 0.5), QUNIT));
+    my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(-75, 0, 0.5), QUNIT));
     my_hmmwv.SetEngineType(EngineModelType::SHAFTS);
     my_hmmwv.SetTransmissionType(TransmissionModelType::SHAFTS);
     my_hmmwv.SetDriveType(DrivelineTypeWV::RWD);
@@ -105,12 +105,12 @@ int main(int argc, char* argv[]) {
     terrain.Initialize();
 
     // Parameterized ISO double lane change (to left)
-    auto path = DoubleLaneChangePath(ChVector<>(-75, 0, 0.1), 13.5, 4.0, 11.0, 50.0, true);
-    auto npoints = path->getNumPoints();
-    double x_max = path->getPoint(npoints - 1).x();
+    auto path = DoubleLaneChangePath(ChVector3d(-75, 0, 0.1), 13.5, 4.0, 11.0, 50.0, true);
+    auto npoints = path->GetNumPoints();
+    double x_max = path->GetPoint(npoints - 1).x();
 
     // Parameterized NATO double lane change (to right)
-    ////auto path = DoubleLaneChangePath(ChVector<>(-125, 0, 0.1), 28.93, 3.6105, 25.0, 50.0, false);
+    ////auto path = DoubleLaneChangePath(ChVector3d(-125, 0, 0.1), 28.93, 3.6105, 25.0, 50.0, false);
 
     // Create the driver system
     ChPathFollowerDriver driver(my_hmmwv.GetVehicle(), path, "my_path", 10.0);
@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle Irrlicht application
     auto vis = chrono_types::make_shared<ChVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Suspension Test Rig");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->Initialize();
     vis->AddTypicalLights();
     vis->AddSkyBox();
@@ -165,8 +165,8 @@ int main(int argc, char* argv[]) {
 
         // Update sentinel and target location markers for the path-follower controller.
         // Note that we do this whether or not we are currently using the path-follower driver.
-        const ChVector<>& pS = driver.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 

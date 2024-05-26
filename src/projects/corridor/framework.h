@@ -37,17 +37,17 @@ class Framework {
 
     unsigned int AddPath(std::shared_ptr<chrono::ChBezierCurve> curve);
     unsigned int AddPath(const std::vector<GPScoord>& gps_points, bool closed);
-    unsigned int AddPath(const std::vector<chrono::ChVector<>>& points, bool closed);
+    unsigned int AddPath(const std::vector<chrono::ChVector3d>& points, bool closed);
 
     void SetPathColor(unsigned int id, const chrono::ChColor& color);
 
     unsigned int AddVehicle(Vehicle::Type type,
                             unsigned int path_id,
-                            const chrono::ChVector<>& loc,
+                            const chrono::ChVector3d& loc,
                             double target_speed);
     unsigned int AddVehicle(Vehicle::Type type, unsigned int path_id, const GPScoord& gps_loc, double target_speed);
 
-    unsigned int AddTrafficLight(const chrono::ChVector<>& center, double radius, const chrono::ChCoordsys<>& pos);
+    unsigned int AddTrafficLight(const chrono::ChVector3d& center, double radius, const chrono::ChCoordsys<>& pos);
     unsigned int AddTrafficLight(const GPScoord& gps_center, double radius, const GPScoord& gps_pos);
 
     void SetAgentBroadcast(unsigned int id, double freq, double radius);
@@ -64,7 +64,7 @@ class Framework {
     void Run(double time_end, int fps = 30, bool real_time = true);
 
     chrono::ChSystem* GetSystem() { return m_system; }
-    chrono::ChVector<> GetLocation(const GPScoord& gps) const;
+    chrono::ChVector3d GetLocation(const GPScoord& gps) const;
 
     void ListAgents();
 

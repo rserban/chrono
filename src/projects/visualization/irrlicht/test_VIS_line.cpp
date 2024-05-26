@@ -22,7 +22,7 @@
 #include "chrono/geometry/ChLineBezier.h"
 #include "chrono/geometry/ChLineSegment.h"
 
-#include "chrono/assets/ChLineShape.h"
+#include "chrono/assets/ChVisualShapeLine.h"
 #include "chrono/assets/ChPathShape.h"
 
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
@@ -39,25 +39,25 @@ int main(int argc, char* argv[]) {
 
     // Create a ground body
     auto ground = chrono_types::make_shared<ChBody>();
-    ground->SetBodyFixed(true);
-    ground->SetCollide(false);
+    ground->SetFixed(true);
+    ground->EnableCollision(false);
     sys.AddBody(ground);
 
     // Create a set of points
-    double angle = CH_C_PI / 12;
-    std::vector<ChVector<>> points;
+    double angle = CH_PI / 12;
+    std::vector<ChVector3d> points;
     for (unsigned int i = 0; i < num_line_points; i++) {
         double r = i * 0.02;
         double x = 10 + r * std::cos(i * angle);
         double y = r * std::sin(i * angle);
-        points.push_back(ChVector<>(x, y, 0));
+        points.push_back(ChVector3d(x, y, 0));
     }
 
     // Create a path asset and add segments to it
     auto path_asset = chrono_types::make_shared<ChPathShape>();
     for (unsigned int i = 1; i < num_line_points; i++) {
         double len = (points[i] - points[i - 1]).Length();
-        geometry::ChLineSegment segment(points[i - 1], points[i]);
+        ChLineSegment segment(points[i - 1], points[i]);
         path_asset->GetPathGeometry()->AddSubLine(segment, len);
     }
     path_asset->SetNumRenderPoints(num_render_points);
@@ -69,8 +69,8 @@ int main(int argc, char* argv[]) {
 
     // Create a Bezier curve asset, reusing the points
     auto bezier_curve = chrono_types::make_shared<ChBezierCurve>(points);
-    auto bezier_line = chrono_types::make_shared<geometry::ChLineBezier>(bezier_curve);
-    auto bezier_asset = chrono_types::make_shared<ChLineShape>();
+    auto bezier_line = chrono_types::make_shared<ChLineBezier>(bezier_curve);
+    auto bezier_asset = chrono_types::make_shared<ChVisualShapeLine>();
     bezier_asset->SetLineGeometry(bezier_line);
     bezier_asset->SetNumRenderPoints(num_render_points);
     ground->AddVisualShape(bezier_asset);
@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AddSkyBox();
     vis->AddTypicalLights();
-    vis->AddCamera(ChVector<>(0, 0, -20));
+    vis->AddCamera(ChVector3d(0, 0, -20));
     vis->AttachSystem(&sys);
 
     // Simulation loop

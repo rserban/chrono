@@ -41,7 +41,7 @@ class Path {
   private:
     Path(Framework* framework, std::shared_ptr<chrono::ChBezierCurve> curve);
     Path(Framework* framework, const std::vector<GPScoord>& gps_points, double v_offset, bool closed);
-    Path(Framework* framework, const std::vector<chrono::ChVector<>>& points, double v_offset, bool closed);
+    Path(Framework* framework, const std::vector<chrono::ChVector3d>& points, double v_offset, bool closed);
 
     unsigned int m_id;
     std::shared_ptr<chrono::ChBezierCurve> m_curve;

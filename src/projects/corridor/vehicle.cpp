@@ -18,6 +18,8 @@
 #include "traffic_light.h"
 #include "vehicle.h"
 
+#include "chrono/utils/ChUtils.h"
+
 using namespace chrono;
 using namespace chrono::vehicle;
 
@@ -43,7 +45,7 @@ Vehicle::Vehicle(Framework* framework, unsigned int id, Type vehicle_type)
     m_vehicle_msg->type = Message::VEH;
     m_vehicle_msg->senderID = id;
     m_vehicle_msg->time = 0;
-    m_vehicle_msg->location = ChVector<>(0, 0, 0);
+    m_vehicle_msg->location = ChVector3d(0, 0, 0);
 }
 
 Vehicle::~Vehicle() {
@@ -61,14 +63,14 @@ void Vehicle::SetupDriver(std::shared_ptr<chrono::ChBezierCurve> curve, double t
     m_target_speed = target_speed;
 
     double dist = GetLookAheadDistance();
-    ChVector<> steering_gains = GetSteeringGainsPID();
-    ChVector<> speed_gains = GetSpeedGainsPID();
+    ChVector3d steering_gains = GetSteeringGainsPID();
+    ChVector3d speed_gains = GetSpeedGainsPID();
     m_steeringPID->SetLookAheadDistance(dist);
     m_steeringPID->SetGains(steering_gains.x(), steering_gains.y(), steering_gains.z());
     m_speedPID->SetGains(speed_gains.x(), speed_gains.y(), speed_gains.z());
 
-    m_steeringPID->Reset(GetVehicle());
-    m_speedPID->Reset(GetVehicle());
+    m_steeringPID->Reset(GetVehicle().GetRefFrame());
+    m_speedPID->Reset(GetVehicle().GetRefFrame());
 }
 
 void Vehicle::AdvanceDriver(double step) {
@@ -94,7 +96,7 @@ void Vehicle::AdvanceDriver(double step) {
 
     // use the minimum of the two target speeds (object detection, or cruising)
     target_speed = std::min(target_speed, m_target_speed);
-    double out_speed = m_speedPID->Advance(GetVehicle(), target_speed, step);
+    double out_speed = m_speedPID->Advance(GetVehicle().GetRefFrame(), target_speed, GetVehicle().GetChTime(), step);
 
     // Set the throttle and braking values based on the output from the speed controller.
     // double out_speed = m_speedPID->Advance(GetVehicle(), m_target_speed, step);
@@ -115,7 +117,7 @@ void Vehicle::AdvanceDriver(double step) {
     }
 
     // Set the steering value based on the output from the steering controller.
-    double out_steering = m_steeringPID->Advance(GetVehicle(), step);
+    double out_steering = m_steeringPID->Advance(GetVehicle().GetRefFrame(), GetVehicle().GetChTime(), step);
     ChClampValue(out_steering, -1.0, 1.0);
     m_driver_inputs.m_steering = out_steering;
 }

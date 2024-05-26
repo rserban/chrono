@@ -30,8 +30,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Print the sim set - up parameters to userlog
-    GetLog() << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << ".VCMS\n";
-    GetLog() << "\nTesting SMC multicore coefficient of restitution....\n";
+    std::cout << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << ".VCMS\n";
+    std::cout << "\nTesting SMC multicore coefficient of restitution....\n";
 
     // Create a file for logging data
     const std::string fname = GetChronoOutputPath() + "/dat.csv";
@@ -55,11 +55,11 @@ int main(int argc, char* argv[]) {
             float adDMT = 0.0f;               /// Magnitude of the adhesion in the DMT adhesion model
             float adSPerko = 0.0f;            /// Magnitude of the adhesion in the SPerko adhesion model
 
-            auto mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+            auto mat = chrono_types::make_shared<ChContactMaterialSMC>();
             mat->SetYoungModulus(y_modulus);
             mat->SetPoissonRatio(p_ratio);
-            mat->SetSfriction(s_frict);
-            mat->SetKfriction(k_frict);
+            mat->SetStaticFriction(s_frict);
+            mat->SetSlidingFriction(k_frict);
             mat->SetRollingFriction(roll_frict);
             mat->SetSpinningFriction(spin_frict);
             mat->SetRestitution(cor_in);
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
             double out_step = 1.0E-2;
             double time_sim = 0.5;
 
-            ChVector<> gravity(0, 0, 0);
+            ChVector3d gravity(0, 0, 0);
 
             ChSystemMulticoreSMC msystem;
             SetSimParameters(&msystem, gravity, force_to_enum(fmodels[f]));
@@ -82,8 +82,8 @@ int main(int argc, char* argv[]) {
             double rad = 0.5;
             double mass = 1.0;
 
-            ChVector<> pos(0, rad * 1.25, 0);
-            ChVector<> init_v(0, -1, 0);
+            ChVector3d pos(0, rad * 1.25, 0);
+            ChVector3d init_v(0, -1, 0);
 
             auto body1 = AddSphere(0, &msystem, mat, rad, mass, pos, init_v);
             auto body2 = AddSphere(1, &msystem, mat, rad, mass, pos * -1, init_v * -1);
@@ -94,12 +94,12 @@ int main(int argc, char* argv[]) {
 #endif
 
             // Calculate motion parameters prior to collision
-            ChVector<> rel_v_in = body2->GetPos_dt() - body1->GetPos_dt();
+            ChVector3d rel_v_in = body2->GetPosDt() - body1->GetPosDt();
             real rel_vm_in = rel_v_in.Length();
 
             // Print the sim set - up parameters to userlog once
             if (f == 0 && var == 0) {
-                GetLog() << "\ntime_step, " << time_step << "\nout_step, " << out_step << "\ntotal_sim_time, "
+                std::cout << "\ntime_step, " << time_step << "\nout_step, " << out_step << "\ntotal_sim_time, "
                          << time_sim << "\nadhesion_model, "
                          << static_cast<int>(msystem.GetSettings()->solver.adhesion_force_model)
                          << "\ntangential_displ_model, "
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
                          << "\nconstant_adhesion, " << ad << "\nDMT_adhesion_multiplier, " << adDMT
                          << "\nperko_adhesion_multiplier, " << adSPerko << "\n";
             }
-            GetLog() << "\nModel #" << f << " (" << fmodels[f].c_str() << ") var setting #" << var << "\n";
+            std::cout << "\nModel #" << f << " (" << fmodels[f].c_str() << ") var setting #" << var << "\n";
 
             // Set the soft-real-time cycle parameters
             double time = 0.0;
@@ -139,7 +139,7 @@ int main(int argc, char* argv[]) {
             }
 
             // Check results. Should fail test if abs(cor_dif) >= 1.0e-3
-            ChVector<> rel_v_out = body2->GetPos_dt() - body1->GetPos_dt();
+            ChVector3d rel_v_out = body2->GetPosDt() - body1->GetPosDt();
             real rel_vm_out = rel_v_out.Length();
 
             real cor_out = rel_vm_out / rel_vm_in;

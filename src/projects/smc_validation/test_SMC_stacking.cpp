@@ -30,8 +30,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Print the sim set - up parameters to userlog
-    GetLog() << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << ".VCMS\n";
-    GetLog() << "\nTesting SMC multicore stacking behavior....\n";
+    std::cout << "\nCopyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << ".VCMS\n";
+    std::cout << "\nTesting SMC multicore stacking behavior....\n";
 
     // Execute test for each force model
     std::vector<std::string> fmodels = {"hooke", "hertz", "plaincoulomb", "flores"};
@@ -49,11 +49,11 @@ int main(int argc, char* argv[]) {
         float adDMT = 0.0f;        /// Magnitude of the adhesion in the DMT adhesion model
         float adSPerko = 0.0f;     /// Magnitude of the adhesion in the SPerko adhesion model
 
-        auto mat = chrono_types::make_shared<ChMaterialSurfaceSMC>();
+        auto mat = chrono_types::make_shared<ChContactMaterialSMC>();
         mat->SetYoungModulus(y_modulus);
         mat->SetPoissonRatio(p_ratio);
-        mat->SetSfriction(s_frict);
-        mat->SetKfriction(k_frict);
+        mat->SetStaticFriction(s_frict);
+        mat->SetSlidingFriction(k_frict);
         mat->SetRollingFriction(roll_frict);
         mat->SetSpinningFriction(spin_frict);
         mat->SetRestitution(cor_in);
@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
         double out_step = 1.0E-2;
         double time_sim = 10.0;
 
-        ChVector<> gravity(0, -9.81, 0);
+        ChVector3d gravity(0, -9.81, 0);
 
         ChSystemMulticoreSMC msystem;
         SetSimParameters(&msystem, gravity, force_to_enum(fmodels[f]));
@@ -74,19 +74,19 @@ int main(int argc, char* argv[]) {
 
         // Add the wall to the system
         double wmass = 10.0;
-        ChVector<> wsize(8, 1, 8);
-        ChVector<> wpos(0, -wsize.y() / 2 - 3, 0);
+        ChVector3d wsize(8, 1, 8);
+        ChVector3d wpos(0, -wsize.y() / 2 - 3, 0);
 
-        auto wall = AddWall(-1, &msystem, mat, wsize, wmass, wpos, ChVector<>(0, 0, 0), true);
+        auto wall = AddWall(-1, &msystem, mat, wsize, wmass, wpos, ChVector3d(0, 0, 0), true);
 
         // Add the spheres to the system
         double srad = 1.0;
         double smass = 1.0;
-        ChVector<> spos(0, 11, 0);
+        ChVector3d spos(0, 11, 0);
 
         for (int sid = 0; sid < 5; ++sid) {
-            auto body = AddSphere(sid, &msystem, mat, srad, smass, spos + ChVector<>(0, srad * 3.0 * sid, 0),
-                                  ChVector<>(0, 0, 0));
+            auto body = AddSphere(sid, &msystem, mat, srad, smass, spos + ChVector3d(0, srad * 3.0 * sid, 0),
+                                  ChVector3d(0, 0, 0));
         }
 
         // Create the Irrlicht visualization.
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
 
         // Print the sim set - up parameters to userlog once
         if (f == 0) {
-            GetLog() << "\ntime_step, " << time_step << "\nout_step, " << out_step << "\ntotal_sim_time, " << time_sim
+            std::cout << "\ntime_step, " << time_step << "\nout_step, " << out_step << "\ntotal_sim_time, " << time_sim
                      << "\nadhesion_model, " << static_cast<int>(msystem.GetSettings()->solver.adhesion_force_model)
                      << "\ntangential_displ_model, "
                      << static_cast<int>(msystem.GetSettings()->solver.tangential_displ_mode) << "\ntimestepper, "
@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
                      << "\nspinning_friction, " << spin_frict << "\ncor, " << cor_in << "\nconstant_adhesion, " << ad
                      << "\nDMT_adhesion_multiplier, " << adDMT << "\nperko_adhesion_multiplier, " << adSPerko << "\n";
         }
-        GetLog() << "\nModel #" << f << " (" << fmodels[f].c_str() << ")\n";
+        std::cout << "\nModel #" << f << " (" << fmodels[f].c_str() << ")\n";
 
         // Set the soft-real-time cycle parameters
         double time = 0.0;
@@ -134,19 +134,19 @@ int main(int argc, char* argv[]) {
             // Calculate the average velocity of all particles and exit the loop if KE < threshold
             bool KEthresh = CalcAverageKE(&msystem, 1.0E-9);
             if (KEthresh) {
-                GetLog() << "[simulation] KE exceeds threshold at t = " << time << "\n";
+                std::cout << "[simulation] KE exceeds threshold at t = " << time << "\n";
                 break;
             }
         }
 
         // Check results. The spheres should be in a stack with their (x,y) positions at (0,0).
         // The rotation quaternions should be (1, 0, 0, 0)
-        for (int i = 0; i < msystem.Get_bodylist().size(); ++i) {
-            const std::shared_ptr<ChBody> body = msystem.Get_bodylist().at(i);
+        for (int i = 0; i < msystem.GetBodies().size(); ++i) {
+            const std::shared_ptr<ChBody> body = msystem.GetBodies().at(i);
 
             ChQuaternion<> ref = ChQuaternion<>(1, 0, 0, 0);
             ChQuaternion<> rot = body->GetRot();
-            ChVector<> pos = body->GetPos();
+            ChVector3d pos = body->GetPos();
         }
     }
 

@@ -56,8 +56,8 @@ class SCMDataTerrain : public ChTerrain {
     std::array<TerrainForce, 4> m_tire_forces;
 
     std::vector<double> m_time;
-    std::array<std::vector<ChVector<>>, 4> m_frc_data;
-    std::array<std::vector<ChVector<>>, 4> m_trq_data;
+    std::array<std::vector<ChVector3d>, 4> m_frc_data;
+    std::array<std::vector<ChVector3d>, 4> m_trq_data;
     int m_last;
 
     bool m_done;
@@ -71,12 +71,12 @@ SCMDataTerrain::SCMDataTerrain(WheeledVehicle& vehicle, const std::string& data_
 
     // Create a ground body (only to carry some visualization assets)
     auto ground = chrono_types::make_shared<ChBody>();
-    ground->SetBodyFixed(true);
-    ground->SetCollide(false);
+    ground->SetFixed(true);
+    ground->EnableCollision(false);
 
-    auto box = chrono_types::make_shared<ChBoxShape>(20, 20, 1);
+    auto box = chrono_types::make_shared<ChVisualShapeBox>(20, 20, 1);
     box->SetTexture(GetChronoDataFile("textures/concrete.jpg"), 10, 10);
-    ground->AddVisualShape(box, ChFrame<>(ChVector<>(0, 0, -0.5), QUNIT));
+    ground->AddVisualShape(box, ChFrame<>(ChVector3d(0, 0, -0.5), QUNIT));
 
     vehicle.GetSystem()->AddBody(ground);
 
@@ -113,9 +113,9 @@ SCMDataTerrain::SCMDataTerrain(WheeledVehicle& vehicle, const std::string& data_
         m_time.push_back(time);
         for (int i = 0; i < 4; i++) {
             iss >> x >> y >> z;
-            m_frc_data[i].push_back(ChVector<>(x, y, z));
+            m_frc_data[i].push_back(ChVector3d(x, y, z));
             iss >> x >> y >> z;
-            m_trq_data[i].push_back(ChVector<>(x, y, z));
+            m_trq_data[i].push_back(ChVector3d(x, y, z));
         }
     }
 
@@ -150,8 +150,8 @@ void SCMDataTerrain::Synchronize(double time) {
 
     // 2. Add tire forces as external forces to spindle bodies
     for (int i = 0; i < 4; i++) {
-        m_wheels[i]->GetSpindle()->Accumulate_force(m_tire_forces[i].force, m_tire_forces[i].point, false);
-        m_wheels[i]->GetSpindle()->Accumulate_torque(m_tire_forces[i].moment, false);
+        m_wheels[i]->GetSpindle()->AccumulateForce(m_tire_forces[i].force, m_tire_forces[i].point, false);
+        m_wheels[i]->GetSpindle()->AccumulateTorque(m_tire_forces[i].moment, false);
     }
 }
 
@@ -160,10 +160,10 @@ void SCMDataTerrain::Synchronize(double time) {
 int main(int argc, char* argv[]) {
     // Create the Chrono system
     ChSystemNSC sys;
-    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
+    sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));
 
     // Create vehicle
-    ChCoordsys<> init_pos(ChVector<>(0, 0, 0.5), QUNIT);
+    ChCoordsys<> init_pos(ChVector3d(0, 0, 0.5), QUNIT);
 
     std::string vehicle_json = "Polaris/Polaris.json";
     std::string engine_json = "Polaris/Polaris_EngineSimpleMap.json";
@@ -199,7 +199,7 @@ int main(int argc, char* argv[]) {
     // Create the vehicle run-time visualization interface
     ChWheeledVehicleVisualSystemIrrlicht vis;
     vis.SetWindowTitle("Polaris - SCM data terrain");
-    vis.SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis.SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis.Initialize();
     vis.AddTypicalLights();
     vis.AddSkyBox();

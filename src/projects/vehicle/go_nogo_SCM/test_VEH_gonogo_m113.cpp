@@ -32,7 +32,8 @@
 #include "chrono/solver/ChIterativeSolverLS.h"
 #include "chrono/utils/ChFilters.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
-#include "chrono/assets/ChLineShape.h"
+#include "chrono/assets/ChVisualShapeLine.h"
+#include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/ChDriver.h"
 #include "chrono_vehicle/ChVehicle.h"
@@ -74,12 +75,12 @@ double horizontal_offset = 12;
 double horizontal_pos = hdimX - horizontal_offset;
 
 // Initial vehicle position, orientation, and forward velocity
-ChVector<> initLoc(-horizontal_pos, 0, 0.8);
+ChVector3d initLoc(-horizontal_pos, 0, 0.8);
 ChQuaternion<> initRot(1, 0, 0, 0);
 double initSpeed = 0;
 
 // Point on chassis tracked by the camera (Irrlicht only)
-ChVector<> trackPoint(-1.0, 0.0, 0.0);
+ChVector3d trackPoint(-1.0, 0.0, 0.0);
 
 // -----------------------------------------------------------------------------
 // Timed events
@@ -131,7 +132,7 @@ class GONOGO_Driver : public chrono::vehicle::ChDriver {
     void SetGains(double Kp, double Ki, double Kd) { m_steeringPID.SetGains(Kp, Ki, Kd); }
     void SetLookAheadDistance(double dist) { m_steeringPID.SetLookAheadDistance(dist); }
 
-    void Reset() { m_steeringPID.Reset(m_vehicle); }
+    void Reset() { m_steeringPID.Reset(m_vehicle.GetRefFrame()); }
 
     virtual void Synchronize(double time) override;
     virtual void Advance(double step) override;
@@ -147,7 +148,7 @@ class GONOGO_Driver : public chrono::vehicle::ChDriver {
 // =============================================================================
 
 int main(int argc, char* argv[]) {
-    GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
     // ----------------------------
     // Parse command line arguments
@@ -219,7 +220,7 @@ int main(int argc, char* argv[]) {
     iss >> model_index >> slope_val >> saturation_val >> Bekker_n >> Bekker_Kphi >> Bekker_Kc >> Mohr_coh >> Mohr_phi >> Janosi_k;
     
     double slope_deg = slope_val * max_slope;
-    double slope = slope_deg * (CH_C_PI / 180);
+    double slope = slope_deg * (CH_PI / 180);
     Bekker_Kphi *= 1000;
     Bekker_Kc *= 1000;
     Mohr_coh *= 1000;
@@ -273,11 +274,11 @@ int main(int argc, char* argv[]) {
     // -------------
 
     // Prepare rotated acceleration vector
-    ChVector<> gravity(0, 0, -9.81);
-    ChVector<> gravityR = ChMatrix33<>(slope, ChVector<>(0, 1, 0)) * gravity;
+    ChVector3d gravity(0, 0, -9.81);
+    ChVector3d gravityR = ChMatrix33<>(slope, ChVector3d(0, 1, 0)) * gravity;
 
     ChSystemSMC* system = new ChSystemSMC();
-    system->Set_G_acc(gravity);
+    system->SetGravitationalAcceleration(gravity);
 
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
     solver->SetTolerance(1e-10);
@@ -294,7 +295,7 @@ int main(int argc, char* argv[]) {
     m113.SetTrackShoeType(TrackShoeType::SINGLE_PIN);
     m113.SetDrivelineType(DrivelineTypeTV::SIMPLE);
     m113.SetEngineType(EngineModelType::SIMPLE_MAP);
-    m113.SetTransmissionType(TransmissionModelType::SIMPLE_MAP);
+    m113.SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_MAP);
 
     m113.SetInitPosition(ChCoordsys<>(initLoc, initRot));
     m113.Initialize();
@@ -317,7 +318,7 @@ int main(int argc, char* argv[]) {
     // -------------------------------------
 
     double height = initLoc.z();
-    auto path = StraightLinePath(ChVector<>(-2 * hdimX, 0, height), ChVector<>(200 * hdimX, 0, height));
+    auto path = StraightLinePath(ChVector3d(-2 * hdimX, 0, height), ChVector3d(200 * hdimX, 0, height));
 
     GONOGO_Driver driver(vehicle, path, false, time_start_engine, time_max_throttle);
     double look_ahead_dist = 5;
@@ -343,14 +344,14 @@ int main(int argc, char* argv[]) {
     double damping = 3e4;    // Damping coefficient (Pa*s/m)
 
     SCMTerrain terrain(system);
-    terrain.SetPlane(ChCoordsys<>(VNULL, Q_from_AngX(CH_C_PI_2)));
+    terrain.SetPlane(ChCoordsys<>(VNULL, QuatFromAngleX(CH_PI_2)));
     terrain.SetSoilParameters(Bekker_Kphi, Bekker_Kc, Bekker_n, Mohr_coh, Mohr_phi, K, E_elastic, damping);
     ////terrain.SetPlotType(vehicle::SCMTerrain::PLOT_PRESSURE_YELD, 0, 30000.2);
     terrain.SetPlotType(vehicle::SCMTerrain::PLOT_SINKAGE, 0, 0.15);
     terrain.Initialize(2 * hdimX, 2 * hdimY, 0.02);
 
     // Enable moving patch feature
-    terrain.AddMovingPatch(m113.GetChassisBody(), ChVector<>(-2, 0, 0), ChVector<>(6.5, 3.5, 1.0));
+    terrain.AddMovingPatch(m113.GetChassisBody(), ChVector3d(-2, 0, 0), ChVector3d(6.5, 3.5, 1.0));
 
 #ifdef CHRONO_IRRLICHT
 
@@ -367,7 +368,7 @@ int main(int argc, char* argv[]) {
     vis->AddLogo();
     vis->AttachVehicle(&vehicle);
 
-    ////vis->SetChaseCameraAngle(CH_C_PI / 5);
+    ////vis->SetChaseCameraAngle(CH_PI / 5);
     ////vis->EnableStats(false);
 #endif
 
@@ -423,7 +424,7 @@ int main(int argc, char* argv[]) {
         // Rotate gravity vector
         if (!is_pitched && time > time_pitch) {
             cout << time << "    Pitch: " << gravityR.x() << " " << gravityR.y() << " " << gravityR.z() << endl;
-            system->Set_G_acc(gravityR);
+            system->SetGravitationalAcceleration(gravityR);
             is_pitched = true;
         }
 
@@ -445,9 +446,9 @@ int main(int argc, char* argv[]) {
 #endif
 
         // Extract chassis state
-        ChVector<> pv = m113.GetChassisBody()->GetFrame_REF_to_abs().GetPos();
-        ChVector<> vv = m113.GetChassisBody()->GetFrame_REF_to_abs().GetPos_dt();
-        ChVector<> av = m113.GetChassisBody()->GetFrame_REF_to_abs().GetPos_dtdt();
+        ChVector3d pv = m113.GetChassisBody()->GetFrameRefToAbs().GetPos();
+        ChVector3d vv = m113.GetChassisBody()->GetFrameRefToAbs().GetPosDt();
+        ChVector3d av = m113.GetChassisBody()->GetFrameRefToAbs().GetPosDt2();
 
         // Check if vehicle at maximum position
         if (pv.x() >= horizontal_pos) {
@@ -564,15 +565,15 @@ GONOGO_Driver::GONOGO_Driver(chrono::vehicle::ChVehicle& vehicle,
                              double time_start,
                              double time_max)
     : chrono::vehicle::ChDriver(vehicle), m_steeringPID(path), m_start(time_start), m_end(time_max) {
-    m_steeringPID.Reset(m_vehicle);
+    m_steeringPID.Reset(m_vehicle.GetRefFrame());
 
     if (render_path) {
-        auto road = std::shared_ptr<chrono::ChBody>(m_vehicle.GetSystem()->NewBody());
-        road->SetBodyFixed(true);
+        auto road = chrono_types::make_shared<ChBody>();
+        road->SetFixed(true);
         m_vehicle.GetSystem()->AddBody(road);
 
-        auto path_asset = chrono_types::make_shared<chrono::ChLineShape>();
-        path_asset->SetLineGeometry(chrono_types::make_shared<chrono::geometry::ChLineBezier>(m_steeringPID.GetPath()));
+        auto path_asset = chrono_types::make_shared<chrono::ChVisualShapeLine>();
+        path_asset->SetLineGeometry(chrono_types::make_shared<chrono::ChLineBezier>(m_steeringPID.GetPath()));
         path_asset->SetColor(chrono::ChColor(0.0f, 0.8f, 0.0f));
         path_asset->SetName("straight_path");
         road->AddVisualShape(path_asset);
@@ -591,12 +592,12 @@ void GONOGO_Driver::Synchronize(double time) {
 }
 
 void GONOGO_Driver::Advance(double step) {
-    double out_steering = m_steeringPID.Advance(m_vehicle, step);
-    chrono::ChClampValue(out_steering, -1.0, 1.0);
+    double out_steering = m_steeringPID.Advance(m_vehicle.GetRefFrame(), m_vehicle.GetChTime(), step);
+    ChClampValue(out_steering, -1.0, 1.0);
     m_steering = out_steering;
 }
 
 void GONOGO_Driver::ExportPathPovray(const std::string& out_dir) {
-    chrono::utils::WriteCurvePovray(*m_steeringPID.GetPath(), "straight_path", out_dir, 0.04,
+    utils::WriteCurvePovray(*m_steeringPID.GetPath(), "straight_path", out_dir, 0.04,
                                     chrono::ChColor(0.8f, 0.5f, 0.0f));
 }

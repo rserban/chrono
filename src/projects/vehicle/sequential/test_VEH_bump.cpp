@@ -53,8 +53,8 @@ VisualizationType wheel_vis_type = VisualizationType::NONE;
 VisualizationType tire_vis_type = VisualizationType::PRIMITIVES;
 
 // Initial vehicle location and orientation
-ChVector<> initLoc(5, 5, 0.5);
-ChQuaternion<> initRot = Q_from_AngZ(0);
+ChVector3d initLoc(5, 5, 0.5);
+ChQuaternion<> initRot = QuatFromAngleZ(0);
 
 // Desired vehicle speed (m/s)
 double target_speed = 12;
@@ -82,19 +82,19 @@ const std::string out_dir = "../HMMWV_BUMP";
 
 // =============================================================================
 
-std::shared_ptr<ChBezierCurve> CreateBezierPath(const ChVector<>& start, const ChVector<>& dir, double length) {
-    std::vector<ChVector<>> points;
-    std::vector<ChVector<>> inCV;
-    std::vector<ChVector<>> outCV;
+std::shared_ptr<ChBezierCurve> CreateBezierPath(const ChVector3d& start, const ChVector3d& dir, double length) {
+    std::vector<ChVector3d> points;
+    std::vector<ChVector3d> inCV;
+    std::vector<ChVector3d> outCV;
 
     // Start point
-    ChVector<> P1 = start;
+    ChVector3d P1 = start;
     points.push_back(P1);
     inCV.push_back(P1);
     outCV.push_back(P1 + 0.1 * length * dir);
 
     // End point
-    ChVector<> P2 = start + length * dir;
+    ChVector3d P2 = start + length * dir;
     points.push_back(P2);
     inCV.push_back(P2 - 0.1 * length * dir);
     outCV.push_back(P2);
@@ -144,21 +144,19 @@ int main(int argc, char* argv[]) {
     // Add bump
     // ---------------
 
-    ChVector<> fwd_dir = initRot.GetXaxis();
-    ChVector<> loc = ChVector<>(initLoc.x(), initLoc.y(), bump_height - bump_radius) + fwd_dir * dist_to_bump;
+    ChVector3d fwd_dir = initRot.GetXaxis();
+    ChVector3d loc = ChVector3d(initLoc.x(), initLoc.y(), bump_height - bump_radius) + fwd_dir * dist_to_bump;
 
     std::cout << loc.x() << "  " << loc.y() << "  " << loc.z() << std::endl;
 
-    auto bump = std::shared_ptr<ChBody>(my_hmmwv.GetSystem()->NewBody());
+    auto bump = chrono_types::make_shared<ChBody>();
     bump->SetPos(loc);
     bump->SetRot(initRot);
-    bump->SetBodyFixed(true);
-    bump->SetCollide(true);
+    bump->SetFixed(true);
+    bump->EnableCollision(true);
 
-    auto bump_mat = ChMaterialSurface::DefaultMaterial(my_hmmwv.GetSystem()->GetContactMethod());
-    bump->GetCollisionModel()->ClearModel();
+    auto bump_mat = ChContactMaterial::DefaultMaterial(my_hmmwv.GetSystem()->GetContactMethod());
     utils::AddCylinderGeometry(bump.get(), bump_mat, bump_radius, 4.0);
-    bump->GetCollisionModel()->BuildModel();
 
     bump->GetVisualShape(0)->SetColor(ChColor(0.2f, 0.3f, 0.4f));
 
@@ -182,7 +180,7 @@ int main(int argc, char* argv[]) {
 
     auto vis = chrono_types::make_shared<ChVehicleVisualSystemIrrlicht>();
     vis->SetWindowTitle("Steering Controller Demo");
-    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->SetHUDLocation(500, 20);
     vis->Initialize();
     vis->AddTypicalLights();
@@ -207,9 +205,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    utils::CSV_writer csv("\t");
-    csv.stream().setf(std::ios::scientific | std::ios::showpos);
-    csv.stream().precision(6);
+    utils::ChWriterCSV csv("\t");
+    csv.Stream().setf(std::ios::scientific | std::ios::showpos);
+    csv.Stream().precision(6);
 
     utils::ChRunningAverage filter_drv_acc(filter_window_size);
     utils::ChRunningAverage filter_com_acc(filter_window_size);
@@ -224,7 +222,7 @@ int main(int argc, char* argv[]) {
     auto wheel_body = my_hmmwv.GetVehicle().GetAxle(0)->GetWheel(LEFT)->GetSpindle();
 
     // Driver location in vehicle local frame
-    ChVector<> drv_pos_loc = my_hmmwv.GetChassis()->GetLocalDriverCoordsys().pos;
+    ChVector3d drv_pos_loc = my_hmmwv.GetChassis()->GetLocalDriverCoordsys().pos;
 
     // Number of simulation steps between miscellaneous events
     double render_step_size = 1 / fps;
@@ -238,15 +236,15 @@ int main(int argc, char* argv[]) {
         // Extract system state
         double time = my_hmmwv.GetSystem()->GetChTime();
 
-        ChVector<> drv_pos_abs = my_hmmwv.GetVehicle().GetDriverPos();
-        ChVector<> veh_pos_abs = my_hmmwv.GetVehicle().GetPos();
-        ChVector<> com_pos_abs = chassis_body->GetPos();
-        ChVector<> flw_pos_abs = wheel_body->GetPos();
+        ChVector3d drv_pos_abs = my_hmmwv.GetVehicle().GetDriverPos();
+        ChVector3d veh_pos_abs = my_hmmwv.GetVehicle().GetPos();
+        ChVector3d com_pos_abs = chassis_body->GetPos();
+        ChVector3d flw_pos_abs = wheel_body->GetPos();
 
-        ChVector<> drv_acc_loc = my_hmmwv.GetVehicle().GetPointAcceleration(drv_pos_loc);
-        ChVector<> drv_acc_abs = chassis_body->GetFrame_REF_to_abs().PointAccelerationLocalToParent(drv_pos_loc);
-        ChVector<> com_acc_abs = chassis_body->GetPos_dtdt();
-        ChVector<> flw_acc_abs = wheel_body->GetPos_dtdt();
+        ChVector3d drv_acc_loc = my_hmmwv.GetVehicle().GetPointAcceleration(drv_pos_loc);
+        ChVector3d drv_acc_abs = chassis_body->GetFrameRefToAbs().PointAccelerationLocalToParent(drv_pos_loc);
+        ChVector3d com_acc_abs = chassis_body->GetPosDt2();
+        ChVector3d flw_acc_abs = wheel_body->GetPosDt2();
 
         double vert_drv_acc_abs = filter_drv_acc.Add(drv_acc_abs.z());
         double vert_com_acc_abs = filter_com_acc.Add(com_acc_abs.z());
@@ -279,8 +277,8 @@ int main(int argc, char* argv[]) {
         */
 
         // Update sentinel and target location markers for the path-follower controller.
-        const ChVector<>& pS = driver_follower.GetSteeringController().GetSentinelLocation();
-        const ChVector<>& pT = driver_follower.GetSteeringController().GetTargetLocation();
+        const ChVector3d& pS = driver_follower.GetSteeringController().GetSentinelLocation();
+        const ChVector3d& pT = driver_follower.GetSteeringController().GetTargetLocation();
         ballS->setPosition(irr::core::vector3df((irr::f32)pS.x(), (irr::f32)pS.y(), (irr::f32)pS.z()));
         ballT->setPosition(irr::core::vector3df((irr::f32)pT.x(), (irr::f32)pT.y(), (irr::f32)pT.z()));
 
@@ -310,7 +308,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (state_output)
-        csv.write_to_file(out_dir + "/state.out");
+        csv.WriteToFile(out_dir + "/state.out");
 
     return 0;
 }
