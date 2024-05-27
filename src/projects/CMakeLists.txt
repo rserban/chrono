@@ -133,12 +133,6 @@ if(BUILD_PROJECTS_BENCHMARKS)
   add_subdirectory(benchmarks)
 endif()
 
-option(BUILD_PROJECTS_SMC_VALIDATION "Build SMC validation projects" ON)
-mark_as_advanced(FORCE BUILD_PROJECTS_SMC_VALIDATION)
-if(BUILD_PROJECTS_SMC_VALIDATION)
-  add_subdirectory(smc_validation)
-endif()
-
 option(BUILD_PROJECTS_SYNCHRONO "Build Synchrono projects" ON)
 mark_as_advanced(FORCE BUILD_PROJECTS_SYNCHRONO)
 if(BUILD_PROJECTS_SYNCHRONO)
