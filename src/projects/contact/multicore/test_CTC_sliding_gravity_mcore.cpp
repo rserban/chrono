@@ -113,10 +113,14 @@ std::shared_ptr<ChBody> AddSphereBody(int id,
     body->EnableCollision(true);
 
     // collision
-    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector3d(+size.x() / 2, -size.y() / 2 + 0.1, +size.z() / 2));
-    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector3d(+size.x() / 2, -size.y() / 2 + 0.1, -size.z() / 2));
-    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector3d(-size.x() / 2, -size.y() / 2 + 0.1, +size.z() / 2));
-    body->GetCollisionModel()->AddSphere(mat, 0.1, ChVector3d(-size.x() / 2, -size.y() / 2 + 0.1, -size.z() / 2));
+    body->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeSphere>(mat, 0.1),
+                            ChVector3d(+size.x() / 2, -size.y() / 2 + 0.1, +size.z() / 2));
+    body->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeSphere>(mat, 0.1),
+                            ChVector3d(+size.x() / 2, -size.y() / 2 + 0.1, -size.z() / 2));
+    body->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeSphere>(mat, 0.1),
+                            ChVector3d(-size.x() / 2, -size.y() / 2 + 0.1, +size.z() / 2));
+    body->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeSphere>(mat, 0.1),
+                            ChVector3d(-size.x() / 2, -size.y() / 2 + 0.1, -size.z() / 2));
 
     // visualization
     auto box = chrono_types::make_shared<ChVisualShapeBox>(size.x(), size.y(), size.z());

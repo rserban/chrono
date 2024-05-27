@@ -504,7 +504,7 @@ void AddFixedObstacles(ChSystem* system, double xpos, double radius) {
     minfo.Y = 2e7f;
     auto obst_mat = minfo.CreateMaterial(system->GetContactMethod());
 
-    obstacle->GetCollisionModel()->AddCylinder(obst_mat, radius, radius, length * 0.5);
+    obstacle->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeCylinder>(obst_mat, radius, length * 0.5));
 
     system->AddBody(obstacle);
 }
@@ -526,7 +526,7 @@ void AddFallingObjects(ChSystem* system) {
     auto obst_mat = minfo.CreateMaterial(system->GetContactMethod());
 
     ball->EnableCollision(true);
-    ball->GetCollisionModel()->AddSphere(obst_mat, radius);
+    ball->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeSphere>(obst_mat, radius));
 
     auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(radius);
     sphere->SetTexture(GetChronoDataFile("textures/bluewhite.png"));

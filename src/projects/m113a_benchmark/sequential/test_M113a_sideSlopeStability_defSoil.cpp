@@ -222,8 +222,9 @@ int main(int argc, char* argv[]) {
     ground1->EnableCollision(true);
     m113.GetSystem()->AddBody(ground1);
 
-    ground1->GetCollisionModel()->AddBox(ground_mat, rigidLength, terrainWidth, depth,
-                                         ChVector3d(0, 0, -0.5 * depth));
+    ground1->AddCollisionShape(
+        chrono_types::make_shared<ChCollisionShapeBox>(ground_mat, rigidLength, terrainWidth, depth),
+        ChVector3d(0, 0, -0.5 * depth));
 
     auto box1 = chrono_types::make_shared<ChVisualShapeBox>(rigidLength, terrainWidth, depth);
     ground1->AddVisualShape(box1, ChFrame<>(ChVector3d(0, 0, -0.5 * depth)));
@@ -235,8 +236,9 @@ int main(int argc, char* argv[]) {
     ground2->EnableCollision(true);
     m113.GetSystem()->AddBody(ground2);
 
-    ground2->GetCollisionModel()->AddBox(ground_mat, rigidLength, terrainWidth, depth,
-                                         ChVector3d(0, 0, -0.5 * depth));
+    ground2->AddCollisionShape(
+        chrono_types::make_shared<ChCollisionShapeBox>(ground_mat, rigidLength, terrainWidth, depth),
+        ChVector3d(0, 0, -0.5 * depth));
 
     auto box2 = chrono_types::make_shared<ChVisualShapeBox>(rigidLength, terrainWidth, depth);
     ground2->AddVisualShape(box1, ChFrame<>(ChVector3d(0, 0, -0.5 * depth)));
@@ -252,7 +254,7 @@ int main(int argc, char* argv[]) {
     obstacle->EnableCollision(false);
     m113.GetSystem()->AddBody(obstacle);
 
-    obstacle->GetCollisionModel()->AddSphere(ground_mat, 3.0);
+    obstacle->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeSphere>(ground_mat, 3.0));
     auto ball = chrono_types::make_shared<ChVisualShapeSphere>(3.0);
     obstacle->AddVisualShape(ball);
 

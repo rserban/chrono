@@ -45,7 +45,6 @@ using std::cout;
 using std::endl;
 
 using namespace chrono;
-using namespace chrono::geometry;
 using namespace chrono::viper;
 
 // -----------------------------------------------------------------------------

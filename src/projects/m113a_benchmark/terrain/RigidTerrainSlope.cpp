@@ -58,7 +58,7 @@ void RigidTerrainSlope::Initialize(std::shared_ptr<ChContactMaterial> mat,
                                    double grade,
                                    double sizeX,
                                    double sizeY) {
-    m_friction = mat->GetSfriction();
+    m_friction = mat->GetStaticFriction();
 
     m_height1 = height1;
     m_height2 = height2;
@@ -70,7 +70,7 @@ void RigidTerrainSlope::Initialize(std::shared_ptr<ChContactMaterial> mat,
     double depth = 10;  // thickness of each contact box
 
     {
-        m_ground->GetCollisionModel()->AddBox(mat, sizeX, sizeY, depth,
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, sizeX, sizeY, depth),
                                               ChVector3d(-sizeX / 2, 0, height1 - depth / 2));
         auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX, sizeY, depth);
         m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(-sizeX / 2, 0, height1 - depth / 2)));
@@ -87,14 +87,15 @@ void RigidTerrainSlope::Initialize(std::shared_ptr<ChContactMaterial> mat,
 
         ChMatrix33<> rot(-m_angle, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, dim_x, dim_y, dim_z),
+                                    ChFramed(ChVector3d(x, y, z), rot));
 
         auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
         m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
     }
 
     {
-        m_ground->GetCollisionModel()->AddBox(mat, sizeX, sizeY, depth,
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, sizeX, sizeY, depth),
                                               ChVector3d(m_run + sizeX / 2, 0, height2 - depth / 2));
         auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX, sizeY, depth);
         m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(m_run + sizeX / 2, 0, height2 - depth / 2)));

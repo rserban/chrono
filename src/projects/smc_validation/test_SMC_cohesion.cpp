@@ -67,7 +67,7 @@ void WriteData(std::ofstream& dat, ChSystemMulticoreSMC* msystem, const std::str
             << body->GetPosDt().x() << "," << body->GetPosDt().y() << "," << body->GetPosDt().z() << ","
             << body->GetAngVelParent().x() << "," << body->GetAngVelParent().y() << "," << body->GetAngVelParent().z() << ","
             << body->GetPosDt2().x() << "," << body->GetPosDt2().y() << "," << body->GetPosDt2().z() << ","
-            << body->GetWacc_par().x() << "," << body->GetWacc_par().y() << "," << body->GetWacc_par().z() << ","
+            << body->GetAngAccParent().x() << "," << body->GetAngAccParent().y() << "," << body->GetAngAccParent().z() << ","
             << msystem->GetBodyContactForce(body).x << "," << msystem->GetBodyContactForce(body).y << ","
             << msystem->GetBodyContactForce(body).z << "," << msystem->GetBodyContactTorque(body).x << ","
             << msystem->GetBodyContactTorque(body).y << "," << msystem->GetBodyContactTorque(body).z << "\n";

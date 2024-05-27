@@ -496,7 +496,7 @@ void AddFixedObstacles(ChSystem* system, double radius, double obstacle_distance
     obstacle->AddVisualShape(shape, ChFrame<>(ChVector3d(obstacle_distance, 0, 0), QuatFromAngleX(CH_PI_2)));
 
     // Contact
-    obstacle->GetCollisionModel()->AddCylinder(obst_mat, radius, radius, length * 0.5,
+    obstacle->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeCylinder>(obst_mat, radius, length * 0.5),
                                                ChVector3d(obstacle_distance, 0, 0));
 
     system->AddBody(obstacle);

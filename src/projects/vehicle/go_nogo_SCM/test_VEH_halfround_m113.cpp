@@ -403,7 +403,8 @@ void AddHalfround(ChSystem* system, double radius, double obstacle_distance) {
     obst_mat->SetFriction(friction_coefficient);
     obst_mat->SetRestitution(restitution_coefficient);
 
-    obstacle->GetCollisionModel()->AddCylinder(obst_mat, radius, radius, length * 0.5, ChVector3d(obstacle_distance, 0, 0));
+    obstacle->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeCylinder>(obst_mat, radius, length * 0.5),
+                                ChVector3d(obstacle_distance, 0, 0));
 
     system->AddBody(obstacle);
 }

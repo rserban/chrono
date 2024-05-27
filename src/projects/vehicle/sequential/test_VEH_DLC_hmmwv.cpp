@@ -33,7 +33,6 @@
 #include "chrono_thirdparty/filesystem/path.h"
 
 using namespace chrono;
-using namespace chrono::geometry;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::hmmwv;
 
@@ -58,7 +57,7 @@ int main(int argc, char* argv[]) {
     my_hmmwv.SetChassisFixed(false);
     my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(-75, 0, 0.5), QUNIT));
     my_hmmwv.SetEngineType(EngineModelType::SHAFTS);
-    my_hmmwv.SetTransmissionType(TransmissionModelType::SHAFTS);
+    my_hmmwv.SetTransmissionType(TransmissionModelType::AUTOMATIC_SHAFTS);
     my_hmmwv.SetDriveType(DrivelineTypeWV::RWD);
     my_hmmwv.SetSteeringType(SteeringTypeWV::PITMAN_ARM);
     my_hmmwv.SetTireType(tire_model);

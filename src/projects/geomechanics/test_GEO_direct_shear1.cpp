@@ -130,7 +130,7 @@ void AddWall(std::shared_ptr<ChBody>& body,
              const ChVector3d& dim,
              const ChVector3d& loc,
              bool visible) {
-    body->GetCollisionModel()->AddBox(mat, dim.x(), dim.y(), dim.z(), loc);
+    body->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, dim.x(), dim.y(), dim.z()), loc);
 
     if (visible == true) {
         auto box = chrono_types::make_shared<ChVisualShapeBox>(dim.x(), dim.y(), dim.z());
@@ -376,7 +376,7 @@ int main(int argc, char* argv[]) {
                 ball->SetFixed(false);
                 ball->EnableCollision(true);
 
-                ball->GetCollisionModel()->AddSphere(material, radius);
+                ball->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeSphere>(material, radius));
                 ball->GetCollisionModel()->SetFamily(4);
 
                 auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(radius);

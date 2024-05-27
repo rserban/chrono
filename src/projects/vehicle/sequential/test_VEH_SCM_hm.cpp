@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     double width = 0.4;
 
     auto material = chrono_types::make_shared<ChContactMaterialSMC>();
-    mrigidbody->GetCollisionModel()->AddCylinder(material, radius, radius, width / 2);
+    mrigidbody->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeCylinder>(material, radius, radius, width / 2));
     mrigidbody->EnableCollision(true);
 
     auto cyl_shape = chrono_types::make_shared<ChVisualShapeCylinder>(radius, width);

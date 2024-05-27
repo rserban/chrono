@@ -141,10 +141,12 @@ chrono::ChCoordsys<> CreateTerrain(ChSystem& sys,
     auto mat = mat_info.CreateMaterial(sys.GetContactMethod());
 
     if (create_ramp) {
-        body->GetCollisionModel()->AddBox(mat, ramp_length, width, height, ramp_loc, ramp_rot);
+        body->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, ramp_length, width, height),
+                                ChFramed(ramp_loc, ramp_rot));
     }
     if (terrain_mesh_contact) {
-        body->GetCollisionModel()->AddTriangleMesh(mat, trimesh, true, false, VNULL, ChMatrix33<>(1), 0.01);
+        body->AddCollisionShape(
+            chrono_types::make_shared<ChCollisionShapeTriangleMesh>(mat, trimesh, true, false, 0.01));
     }
     body->EnableCollision(true);
 

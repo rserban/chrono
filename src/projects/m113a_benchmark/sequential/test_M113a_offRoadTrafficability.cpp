@@ -202,7 +202,7 @@ int main(int argc, char* argv[]) {
     chassis_mat->SetPoissonRatio(nu);
 
     // Add flat bottom plate
-    m113.GetChassisBody()->GetCollisionModel()->AddBox(chassis_mat, 0.5 * 4.25, 0.5 * 1.65, 0.05,
+    m113.GetChassisBody()->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(chassis_mat, 0.5 * 4.25, 0.5 * 1.65, 0.05),
                                                           ChVector3d(-1.925, 0, -.153 + 0.1));
 
     auto bottomPlate = chrono_types::make_shared<ChVisualShapeBox>();
@@ -213,7 +213,7 @@ int main(int argc, char* argv[]) {
     // ChQuaternion<> plateAngleQuat = chrono::QuatFromAngleAxis(1.0474, VECT_Y);
     ChMatrix33<> plateAngle;
     plateAngle.Set_A_quaternion(chrono::QuatFromAngleAxis(-1.0474, VECT_Y));
-    m113.GetChassisBody()->GetCollisionModel()->AddBox(chassis_mat, 0.5 * .3521, 0.5 * 1.65, 0.05,
+    m113.GetChassisBody()->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(chassis_mat, 0.5 * .3521, 0.5 * 1.65, 0.05),
                                                           ChVector3d(.2457, 0, 0.0245), plateAngle);
 
     auto angledPlate = chrono_types::make_shared<ChVisualShapeBox>();
@@ -324,8 +324,9 @@ int main(int argc, char* argv[]) {
     ground1->EnableCollision(true);
     m113.GetSystem()->AddBody(ground1);
 
-    ground1->GetCollisionModel()->AddBox(ground_mat, terrainLength, terrainWidth, depth,
-                                         ChVector3d(0, 0, -0.5 * depth));
+    ground1->AddCollisionShape(
+        chrono_types::make_shared<ChCollisionShapeBox>(ground_mat, terrainLength, terrainWidth, depth),
+        ChVector3d(0, 0, -0.5 * depth));
 
     auto box1 = chrono_types::make_shared<ChVisualShapeBox>(terrainLength, terrainWidth, depth);
     ground1->AddVisualShape(box1, ChFrame<>(ChVector3d(0, 0, -0.5 * depth)));
@@ -337,8 +338,9 @@ int main(int argc, char* argv[]) {
     ground2->EnableCollision(true);
     m113.GetSystem()->AddBody(ground2);
 
-    ground2->GetCollisionModel()->AddBox(ground_mat, terrainLength, terrainWidth, depth,
-                                         ChVector3d(0, 0, -0.5 * depth));
+    ground2->AddCollisionShape(
+        chrono_types::make_shared<ChCollisionShapeBox>(ground_mat, terrainLength, terrainWidth, depth),
+        ChVector3d(0, 0, -0.5 * depth));
 
     auto box2 = chrono_types::make_shared<ChVisualShapeBox>(terrainLength, terrainWidth, depth);
     ground2->AddVisualShape(box1, ChFrame<>(ChVector3d(0, 0, -0.5 * depth)));
@@ -363,11 +365,11 @@ int main(int argc, char* argv[]) {
 
         auto transJoint = chrono_types::make_shared<ChLinkLockPrismatic>();
         transJoint->SetName("_transJoint");
-        transJoint->Initialize(slipRig, m113.GetChassisBody(), ChCoordsys<>(initLoc, QUNIT));
+        transJoint->Initialize(slipRig, m113.GetChassisBody(), ChFrame<>(initLoc, QUNIT));
         m113.GetSystem()->AddLink(transJoint);
 
         lockJoint->SetName("_transJoint");
-        lockJoint->Initialize(slipRig, ground1, ChCoordsys<>(initLoc, QUNIT));
+        lockJoint->Initialize(slipRig, ground1, ChFrame<>(initLoc, QUNIT));
         m113.GetSystem()->AddLink(lockJoint);
 
         double transSpeed = (1.0 - slip) * sprocketRadius * rotSpeed;
@@ -394,15 +396,14 @@ int main(int argc, char* argv[]) {
         auto planeJoint = chrono_types::make_shared<ChLinkLockPointPlane>();
         planeJoint->SetName("_planeJoint");
         planeJoint->Initialize(ground1, m113.GetChassisBody(),
-                               ChCoordsys<>(initLoc, chrono::QuatFromAngleAxis(CH_PI / 2, VECT_X)));
+                               ChFrame<>(initLoc, chrono::QuatFromAngleAxis(CH_PI / 2, VECT_X)));
         m113.GetSystem()->AddLink(planeJoint);
 
         // add joint to keep the vehicle centered
         auto planeJoint2 = chrono_types::make_shared<ChLinkLockPointPlane>();
         planeJoint2->SetName("_planeJoint2");
-        planeJoint2->Initialize(
-            ground1, m113.GetChassisBody(),
-            ChCoordsys<>(initLoc + ChVector3d(1, 0, 0), chrono::QuatFromAngleAxis(CH_PI / 2, VECT_X)));
+        planeJoint2->Initialize(ground1, m113.GetChassisBody(),
+                                ChFrame<>(initLoc + ChVector3d(1, 0, 0), chrono::QuatFromAngleAxis(CH_PI / 2, VECT_X)));
         m113.GetSystem()->AddLink(planeJoint2);
     }
 

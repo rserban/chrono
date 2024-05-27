@@ -196,7 +196,8 @@ int main(int argc, char* argv[]) {
 
     switch (object_model) {
         case CollisionType::PRIMITIVE: {
-            object->GetCollisionModel()->AddCylinder(object_mat, radius, len, ChVector3d(0), ChMatrix33<>(1));
+            object->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeCylinder>(object_mat, radius, len),
+                                      ChFramed(ChVector3d(0), ChMatrix33<>(1)));
 
             auto cyl = chrono_types::make_shared<ChVisualShapeCylinder>(radius, len);
             cyl->SetColor(ChColor(0.3f, 0.3f, 0.3f));
@@ -209,8 +210,8 @@ int main(int argc, char* argv[]) {
             if (!trimesh->LoadWavefrontMesh(tire_mesh_file, true, false))
                 return 1;
 
-            object->GetCollisionModel()->AddTriangleMesh(object_mat, trimesh, false, false, ChVector3d(0),
-                                                         ChMatrix33<>(1), mesh_swept_sphere_radius);
+            object->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeTriangleMesh>(
+                object_mat, trimesh, false, false, mesh_swept_sphere_radius));
 
             auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
             trimesh_shape->SetMesh(trimesh);
@@ -252,7 +253,8 @@ int main(int argc, char* argv[]) {
 
     switch (ground_model) {
         case CollisionType::PRIMITIVE: {
-            ground->GetCollisionModel()->AddBox(ground_mat, hx, hy, hz, ChVector3d(0, 0, -hz));
+            ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(ground_mat, hx, hy, hz),
+                                      ChVector3d(0, 0, -hz));
 
             auto box = chrono_types::make_shared<ChVisualShapeBox>(hx, hy, hz);
             box->SetTexture(GetChronoDataFile("textures/checker1.png"), 4, 3);
@@ -263,8 +265,8 @@ int main(int argc, char* argv[]) {
         case CollisionType::MESH: {
             auto trimesh = GroundMesh(hx, hy);
 
-            ground->GetCollisionModel()->AddTriangleMesh(ground_mat, trimesh, false, false, ChVector3d(0), ChMatrix33<>(1),
-                                                         mesh_swept_sphere_radius);
+            ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeTriangleMesh>(
+                ground_mat, trimesh, false, false, mesh_swept_sphere_radius));
 
             auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
             trimesh_shape->SetMesh(trimesh);

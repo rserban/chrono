@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
     ball->EnableCollision(true);
     ball->SetFixed(false);
 
-    ball->GetCollisionModel()->AddSphere(material, radius);
+    ball->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeSphere>(material, radius));
 
     auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(radius);
     sphere->SetTexture(GetChronoDataFile("textures/bluewhite.png"));
@@ -188,7 +188,8 @@ int main(int argc, char* argv[]) {
     ground->EnableCollision(true);
     ground->SetFixed(true);
 
-    ground->GetCollisionModel()->AddBox(material, width, thickness, length, ChVector3d(0, -thickness, 0));
+    ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(material, width, thickness, length),
+                              ChVector3d(0, -thickness, 0));
 
     auto box = chrono_types::make_shared<ChVisualShapeBox>(width, thickness, length);
     ground->AddVisualShape(box, ChFrame<>(ChVector3d(0, -thickness, 0)));

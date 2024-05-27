@@ -32,7 +32,6 @@
 #include "chrono_thirdparty/filesystem/path.h"
 
 using namespace chrono;
-using namespace chrono::geometry;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::hmmwv;
 
@@ -116,7 +115,7 @@ int main(int argc, char* argv[]) {
     my_hmmwv.SetChassisFixed(false);
     my_hmmwv.SetInitPosition(ChCoordsys<>(initLoc, initRot));
     my_hmmwv.SetEngineType(EngineModelType::SHAFTS);
-    my_hmmwv.SetTransmissionType(TransmissionModelType::SHAFTS);
+    my_hmmwv.SetTransmissionType(TransmissionModelType::AUTOMATIC_SHAFTS);
     my_hmmwv.SetDriveType(DrivelineTypeWV::RWD);
     my_hmmwv.SetTireType(tire_model);
     my_hmmwv.SetTireStepSize(step_size);
@@ -144,7 +143,7 @@ int main(int argc, char* argv[]) {
     // Add bump
     // ---------------
 
-    ChVector3d fwd_dir = initRot.GetXaxis();
+    ChVector3d fwd_dir = initRot.GetAxisX();
     ChVector3d loc = ChVector3d(initLoc.x(), initLoc.y(), bump_height - bump_radius) + fwd_dir * dist_to_bump;
 
     std::cout << loc.x() << "  " << loc.y() << "  " << loc.z() << std::endl;

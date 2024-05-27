@@ -118,15 +118,14 @@ unsigned int Framework::AddVehicle(Vehicle::Type type,
                            : (point - path->m_curve->GetPoint(i1 - 1)).GetNormalized();
     auto v = Vcross(ChVector3d(0, 0, 1), u);
     auto w = Vcross(u, v);
-    ChMatrix33<> A;
-    A.Set_A_axis(u, v, w);
+    ChMatrix33<> A(u,v,w);
 
     // Create vehicle at path node
     if (m_verbose) {
         std::cout << "Add vehicle" << std::endl;
         std::cout << "  " << point.x() << "  " << point.y() << "  " << point.z() << std::endl;
     }
-    auto vehicle = AddVehicle(type, ChCoordsys<>(point + ChVector3d(0, 0, 0.5), A.Get_A_quaternion()));
+    auto vehicle = AddVehicle(type, ChCoordsys<>(point + ChVector3d(0, 0, 0.5), A.GetQuaternion()));
     if (!vehicle)
         return -1;
 
@@ -231,7 +230,7 @@ void Framework::Run(double time_end, int fps, bool real_time) {
         time = m_system->GetChTime();
 
         if (real_time)
-            while (timer.GetTimeSecondsIntermediate() < time) {
+            while (timer() < time) {
             }
     }
     timer.stop();
@@ -252,11 +251,10 @@ void Framework::CreateTerrain() {
     auto patch = m_terrain->AddPatch(patch_mat, ChCoordsys<>(ChVector3d(0, 0, 0), QUNIT), GetChronoDataFile(m_scene.m_coll_file),
                                      0.01, m_render_coll);
 
-    ChVector3d bbmin, bbmax;
-    patch->GetGroundBody()->GetCollisionModel()->GetAABB(bbmin, bbmax);
+    auto aabb = patch->GetGroundBody()->GetCollisionModel()->GetBoundingBox();
     std::cout << "Scene Bounding Box" << std::endl;
-    std::cout << "  " << bbmin.x() << "  " << bbmin.y() << "  " << bbmin.z() << std::endl;
-    std::cout << "  " << bbmax.x() << "  " << bbmax.y() << "  " << bbmax.z() << std::endl;
+    std::cout << "  " << aabb.min.x() << "  " << aabb.min.y() << "  " << aabb.min.z() << std::endl;
+    std::cout << "  " << aabb.max.x() << "  " << aabb.max.y() << "  " << aabb.max.z() << std::endl;
 
     if (m_render_coll) {
         patch->GetGroundBody()->GetVisualShape(0)->SetTexture(GetChronoDataFile("concrete.jpg"), 1, 1);

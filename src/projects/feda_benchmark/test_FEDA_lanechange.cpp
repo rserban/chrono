@@ -26,7 +26,6 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 #include "chrono/core/ChTimer.h"
 #include "chrono/assets/ChVisualShapeBox.h"
-#include "chrono/assets/ChConeShape.h"
 #include "chrono_vehicle/ChConfigVehicle.h"
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
@@ -41,7 +40,6 @@
 #endif
 
 using namespace chrono;
-using namespace chrono::geometry;
 using namespace chrono::irrlicht;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::feda;
@@ -296,7 +294,7 @@ VisualizationType wheel_vis_type = VisualizationType::NONE;
 
 // Type of powertrain model (SHAFTS, SIMPLE_MAP)
 EngineModelType engine_model = EngineModelType::SHAFTS;
-TransmissionModelType transmision_model = TransmissionModelType::SHAFTS;
+TransmissionModelType transmision_model = TransmissionModelType::AUTOMATIC_SHAFTS;
 
 // Drive type (FWD, RWD, or AWD)
 DrivelineTypeWV drive_type = DrivelineTypeWV::AWD;

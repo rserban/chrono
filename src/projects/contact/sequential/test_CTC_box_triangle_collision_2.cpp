@@ -155,7 +155,7 @@ int main(int argc, char* argv[]) {
     auto trimesh = TriangleMesh(vertices);
     triangle->EnableCollision(true);
     triangle->GetCollisionModel()->SetEnvelope(collision_envelope);
-    triangle->GetCollisionModel()->AddTriangleMesh(contact_mat, trimesh, false, false, ChVector3d(0), ChMatrix33<>(1));
+    triangle->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeTriangleMesh>(contact_mat, trimesh, false, false));
     auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     trimesh_shape->SetMesh(trimesh);
     trimesh_shape->SetColor(ChColor(0.6f, 0.6f, 0.6f));

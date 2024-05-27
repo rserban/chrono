@@ -59,7 +59,7 @@ void RigidTerrainStep::Initialize(std::shared_ptr<ChContactMaterial> mat,
                                   double sizeY,
                                   bool tiled,
                                   double max_tile_size) {
-    m_friction = mat->GetSfriction();
+    m_friction = mat->GetStaticFriction();
 
     double depth = 10 + std::abs(height2 - height1);
     ChVector3d size(sizeX, sizeY, depth);
@@ -79,7 +79,7 @@ void RigidTerrainStep::CreateBox(std::shared_ptr<ChContactMaterial> mat,
     if (tiled) {
         //// TODO
     } else {
-        m_ground->GetCollisionModel()->AddBox(mat, size.x(), size.y(), size.z(), center);
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, size.x(), size.y(), size.z()), center);
     }
 
     auto box = chrono_types::make_shared<ChVisualShapeBox>(size.x(), size.y(), size.z());

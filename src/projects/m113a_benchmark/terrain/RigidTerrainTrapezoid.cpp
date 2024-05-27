@@ -64,7 +64,7 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  
                                        double sizeY,   // [in] terrain dimension in the Y direction
                                        double offsetX  // [in] offset in the +X direction for the start of 1st slope
 ) {
-    m_friction = mat->GetSfriction();
+    m_friction = mat->GetStaticFriction();
 
     m_widebase = false;
 
@@ -122,7 +122,7 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  
                        : 10 + std::abs(height3 - height2);  // thickness of each contact box
 
     {
-        m_ground->GetCollisionModel()->AddBox(mat, sizeX1, sizeY, depth,
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, sizeX1, sizeY, depth),
                                               ChVector3d(m_offsetX - sizeX1 / 2, 0, height1 - depth / 2));
         auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX1, sizeY, depth);
         m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(m_offsetX - sizeX1 / 2, 0, height1 - depth / 2)));
@@ -140,15 +140,16 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  
 
         ChMatrix33<> rot(-m_angle1, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, dim_x, dim_y, dim_z),
+                                    ChFramed(ChVector3d(x, y, z), rot));
 
         auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
         m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
     }
 
     {
-        m_ground->GetCollisionModel()->AddBox(mat, sizeX2, sizeY, depth,
-                                              ChVector3d(m_offsetX + m_run1 + sizeX2 / 2, 0, height2 - depth / 2));
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, sizeX2, sizeY, depth),
+                                    ChVector3d(m_offsetX + m_run1 + sizeX2 / 2, 0, height2 - depth / 2));
         auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX2, sizeY, depth);
         m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(m_offsetX + m_run1 + sizeX2 / 2, 0, height2 - depth / 2)));
     }
@@ -165,15 +166,16 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  
 
         ChMatrix33<> rot(-m_angle2, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, dim_x, dim_y, dim_z),
+                                    ChFramed(ChVector3d(x, y, z), rot));
 
         auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
+        m_ground->AddVisualShape(box, ChFramed(ChVector3d(x, y, z), rot));
     }
 
     {
-        m_ground->GetCollisionModel()->AddBox(
-            mat, sizeX3, sizeY, depth,
+        m_ground->AddCollisionShape(
+            chrono_types::make_shared<ChCollisionShapeBox>(mat, sizeX3, sizeY, depth),
             ChVector3d(m_offsetX + m_run1 + sizeX2 + m_run2 + sizeX3 / 2, 0, height3 - depth / 2));
         auto box = chrono_types::make_shared<ChVisualShapeBox>(sizeX3, sizeY, depth);
         m_ground->AddVisualShape(
@@ -192,7 +194,7 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  
     assert(heightB > heightT);
     assert(angle > 0);
 
-    m_friction = mat->GetSfriction();
+    m_friction = mat->GetStaticFriction();
 
     m_widebase = true;
 
@@ -220,10 +222,10 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  
 
         ChMatrix33<> rot(-angle, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, dim_x, dim_y, dim_z), ChFramed(ChVector3d(x, y, z), rot));
 
         auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
+        m_ground->AddVisualShape(box, ChFramed(ChVector3d(x, y, z), rot));
     }
 
     // Terrain & berm
@@ -231,13 +233,13 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  
         double x_center = m_offsetX + m_run1 + sizeB.x() / 2;
 
         double depthT = 10 + heightT;
-        m_ground->GetCollisionModel()->AddBox(mat, sizeT.x(), sizeT.y(), depthT,
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, sizeT.x(), sizeT.y(), depthT),
                                               ChVector3d(x_center, 0, heightT - depthT / 2));
         auto boxT = chrono_types::make_shared<ChVisualShapeBox>(sizeT.x(), sizeT.y(), depthT);
         m_ground->AddVisualShape(boxT, ChFrame<>(ChVector3d(x_center, 0, heightT - depthT / 2)));
 
         double depthB = 10 + heightB;
-        m_ground->GetCollisionModel()->AddBox(mat, sizeB.x(), sizeB.y(), depthB,
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, sizeB.x(), sizeB.y(), depthB),
                                               ChVector3d(x_center, 0, heightB - depthB / 2));
         auto boxB = chrono_types::make_shared<ChVisualShapeBox>(sizeB.x(), sizeB.y(), depthB);
         m_ground->AddVisualShape(boxB, ChFrame<>(ChVector3d(x_center, 0, heightB - depthB / 2)));
@@ -255,10 +257,11 @@ void RigidTerrainTrapezoid::Initialize(std::shared_ptr<ChContactMaterial> mat,  
 
         ChMatrix33<> rot(angle, ChVector3d(0, 1, 0));
 
-        m_ground->GetCollisionModel()->AddBox(mat, dim_x, dim_y, dim_z, ChVector3d(x, y, z), rot);
+        m_ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, dim_x, dim_y, dim_z),
+                                    ChFramed(ChVector3d(x, y, z), rot));
 
         auto box = chrono_types::make_shared<ChVisualShapeBox>(dim_x, dim_y, dim_z);
-        m_ground->AddVisualShape(box, ChFrame<>(ChVector3d(x, y, z), rot));
+        m_ground->AddVisualShape(box, ChFramed(ChVector3d(x, y, z), rot));
     }
 }
 

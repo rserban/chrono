@@ -196,8 +196,7 @@ int main(int argc, char* argv[]) {
 
     auto trimesh = GroundMesh(hx, hy);
 
-    ground->GetCollisionModel()->AddTriangleMesh(ground_mat, trimesh, false, false, ChVector3d(0), ChMatrix33<>(1),
-                                                 mesh_swept_sphere_radius);
+    ground->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeTriangleMesh>(ground_mat, trimesh, false, false, mesh_swept_sphere_radius));
 
     auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     trimesh_shape->SetMesh(trimesh);

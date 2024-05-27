@@ -40,7 +40,6 @@
 
 using namespace chrono;
 using namespace chrono::fsi;
-using namespace chrono::geometry;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::m113;
 
@@ -125,7 +124,7 @@ int main(int argc, char* argv[]) {
     sysFSI.SetOutputLength(0);
 
     // Create an initial box for the terrain patch
-    chrono::utils::GridSampler<> sampler(initSpace0);
+    chrono::utils::ChGridSampler<> sampler(initSpace0);
     ChVector3d boxCenter(0, 0, bzDim / 2);
     ChVector3d boxHalfDim(bxDim / 2, byDim / 2, bzDim / 2);
     std::vector<ChVector3d> points = sampler.SampleBox(boxCenter, boxHalfDim);
@@ -352,8 +351,8 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector3d
 
         // Set collision
         rock_body->SetFixed(false);
-        rock_body->GetCollisionModel()->AddTriangleMesh(cmaterial, trimesh, false, false, VNULL, ChMatrix33<>(1),
-    0.005); rock_body->EnableCollision(true);
+        rock_body->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeTriangleMesh>(cmaterial, trimesh, false, false, 0.005));
+        rock_body->EnableCollision(true);
 
         // Create BCE particles associated with mesh
         if(i==0){
@@ -372,7 +371,7 @@ void AddWall(std::shared_ptr<ChBody> body,
              const ChVector3d& dim,
              std::shared_ptr<ChContactMaterial> mat,
              const ChVector3d& loc) {
-    body->GetCollisionModel()->AddBox(mat, 2 * dim.x(), 2 * dim.y(), 2 * dim.z(), loc);
+    body->AddCollisionShape(chrono_types::make_shared<ChCollisionShapeBox>(mat, 2 * dim.x(), 2 * dim.y(), 2 * dim.z()), loc);
     auto box = chrono_types::make_shared<ChVisualShapeBox>(2 * dim.x(), 2 * dim.y(), 2 * dim.z());
     body->AddVisualShape(box, ChFrame<>(loc));
 }
