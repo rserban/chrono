@@ -32,7 +32,7 @@
 #include <vector>
 
 #include "chrono/ChConfig.h"
-#include "chrono/collision/ChCollisionModelChrono.h"
+#include "chrono/collision/multicore/ChCollisionModelMulticore.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
@@ -213,17 +213,6 @@ int Id_ball = -4;
 double mass_ball = 200;            // [g] mass of testing ball
 double radius_ball = 0.9 * hdimX;  // [cm] radius of testing ball
 
-void AdjustInertia(ChSystemMulticore* m_sys) {
-    // TODO skip the box bodies
-    auto blist = m_sys->GetBodies();
-    for (int i = 2; i < blist.size(); i++) {
-        auto body = blist[i];
-        double mass = body->GetMass();
-        double r = std::static_pointer_cast<ChCollisionShapeChrono>(body->GetCollisionModel()->GetShape(0))->B[0];
-        body->SetInertiaXX(2 * mass * r * r / 3);
-    }
-}
-
 // =============================================================================
 // Create the containing bin (the ground), the shear box, and the load plate.
 //
@@ -333,16 +322,16 @@ void CreateMechanismBodies(ChSystemMulticore* system) {
 // =============================================================================
 void ConnectShearBox(ChSystemMulticore* system, std::shared_ptr<ChBody> ground, std::shared_ptr<ChBody> box) {
     auto prismatic = chrono_types::make_shared<ChLinkLockPrismatic>();
-    prismatic->Initialize(ground, box, ChCoordsys<>(ChVector3d(0, 0, 2 * hdimZ), QuatFromAngleY(CH_PI_2)));
+    prismatic->Initialize(ground, box, ChFrame<>(ChVector3d(0, 0, 2 * hdimZ), QuatFromAngleY(CH_PI_2)));
     prismatic->SetName("prismatic_box_ground");
     system->AddLink(prismatic);
 
     auto actuator_fun = chrono_types::make_shared<ChFunctionRamp>(0.0, desiredVelocity);
 
-    auto actuator = chrono_types::make_shared<ChLinkLinActuator>();
+    auto actuator = chrono_types::make_shared<ChLinkLockLinActuator>();
     ChVector3d pt1(0, 0, 2 * hdimZ);
     ChVector3d pt2(1, 0, 2 * hdimZ);
-    actuator->Initialize(ground, box, false, ChCoordsys<>(pt1, QUNIT), ChCoordsys<>(pt2, QUNIT));
+    actuator->Initialize(ground, box, false, ChFrame<>(pt1, QUNIT), ChFrame<>(pt2, QUNIT));
     actuator->SetName("actuator");
     actuator->SetDistanceOffset(1);
     actuator->SetActuatorFunction(actuator_fun);
@@ -600,7 +589,7 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<ChBody> loadPlate;
     std::shared_ptr<ChLinkLockPrismatic> prismatic_box_ground;
     std::shared_ptr<ChLinkLockPrismatic> prismatic_plate_ground;
-    std::shared_ptr<ChLinkLinActuator> actuator;
+    std::shared_ptr<ChLinkLockLinActuator> actuator;
 
     switch (problem) {
         case SETTLING: {
@@ -619,7 +608,6 @@ int main(int argc, char* argv[]) {
             // Create granular material.
             int num_particles = CreateGranularMaterial(msystem);
             cout << "Granular material:  " << num_particles << " particles" << endl;
-            AdjustInertia(msystem);
             break;
         }
 
@@ -680,7 +668,7 @@ int main(int argc, char* argv[]) {
                 ConnectShearBox(msystem, ground, shearBox);
                 prismatic_box_ground =
                     std::static_pointer_cast<ChLinkLockPrismatic>(msystem->SearchLink("prismatic_box_ground"));
-                actuator = std::static_pointer_cast<ChLinkLinActuator>(msystem->SearchLink("actuator"));
+                actuator = std::static_pointer_cast<ChLinkLockLinActuator>(msystem->SearchLink("actuator"));
             }
 
             // Release the shear box when using an actuator.
@@ -727,11 +715,8 @@ int main(int argc, char* argv[]) {
     std::valarray<double> hdata(0.0, buffer_size);
 
     // Create output files
-    ChStreamOutAsciiFile statsStream(stats_file.c_str());
-    ChStreamOutAsciiFile shearStream(shear_file.c_str());
-
-    shearStream.SetNumFormat("%16.4e");
-    shearStream << normalPressure << "\n";
+    std::ofstream statsStream(stats_file);
+    std::ofstream shearStream(shear_file);
 
 #ifdef CHRONO_OPENGL
     opengl::ChVisualSystemOpenGL vis;
@@ -832,7 +817,7 @@ int main(int argc, char* argv[]) {
             statsStream << time << ", " << exec_time << ", " << num_contacts / write_steps << ", " << numIters << ", "
                         << residual << ", " << max_cnstr_viol[0] << ", " << max_cnstr_viol[1] << ", "
                         << max_cnstr_viol[2] << ", \n";
-            statsStream.GetFstream().flush();
+            statsStream.flush();
 
             num_contacts = 0;
             max_cnstr_viol[0] = 0;
@@ -871,7 +856,7 @@ int main(int argc, char* argv[]) {
                 shearStream << time << "  " << shearBox->GetPos().x() << "     ";
                 shearStream << rforceA.x() << "  " << rforceA.y() << "  " << rforceA.z() << "     ";
                 shearStream << rtorqueA.x() << "  " << rtorqueA.y() << "  " << rtorqueA.z() << "\n";
-                shearStream.GetFstream().flush();
+                shearStream.flush();
             }
         }
 

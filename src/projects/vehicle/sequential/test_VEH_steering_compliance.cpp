@@ -57,7 +57,7 @@ double GetSteering(double time) {
 // Steering input applied to shaft
 void ApplySteering(double time, double steering, std::shared_ptr<ChShaftsMotorPosition> element) {
     double max_angle = 50.0 * (CH_PI / 180);
-    auto fun = std::static_pointer_cast<ChFunctionSetpoint>(element->GetAngleFunction());
+    auto fun = std::static_pointer_cast<ChFunctionSetpoint>(element->GetPositionFunction());
     fun->SetSetpoint(max_angle * steering, time);
 }
 
@@ -99,11 +99,11 @@ int main(int argc, char* argv[]) {
 
     // Markers on steering link (at tie-rod connections)
     auto markerP = chrono_types::make_shared<ChMarker>();
-    markerP->Impose_Rel_Coord(ChCoordsys<>(pTP));
+    markerP->ImposeRelativeTransform(ChFrame<>(pTP));
     link->AddMarker(markerP);
 
     auto markerI = chrono_types::make_shared<ChMarker>();
-    markerI->Impose_Rel_Coord(ChCoordsys<>(pTI));
+    markerI->ImposeRelativeTransform(ChFrame<>(pTI));
     link->AddMarker(markerI);
 
     // Pitman arm body
@@ -126,22 +126,21 @@ int main(int argc, char* argv[]) {
     // -------------
 
     auto revolute = chrono_types::make_shared<ChLinkLockRevolute>();
-    revolute->Initialize(chassis, arm, ChCoordsys<>(ChVector3d(0, 0.249, 0), QUNIT));
+    revolute->Initialize(chassis, arm, ChFrame<>(ChVector3d(0, 0.249, 0), QUNIT));
     sys.AddLink(revolute);
 
     ChVector3d u(0, 0, 1);  // univ axis on arm
     ChVector3d v(1, 0, 0);  // univ axis on link
     ChVector3d w(0, 1, 0);  // w = u x v
-    ChMatrix33<> rot;
-    rot.Set_A_axis(u, v, w);
+    ChMatrix33<> rot(u, v, w);
     auto universal = chrono_types::make_shared<ChLinkUniversal>();
-    universal->Initialize(arm, link, ChFrame<>(ChVector3d(0.129, 0.249, 0), rot.Get_A_quaternion()));
+    universal->Initialize(arm, link, ChFrame<>(ChVector3d(0.129, 0.249, 0), rot.GetQuaternion()));
     sys.AddLink(universal);
 
     double distance = (ChVector3d(0.129, -0.325, 0) - ChVector3d(0, -0.325, 0)).Length();
     auto revsph = chrono_types::make_shared<ChLinkRevoluteSpherical>();
     revsph->Initialize(chassis, link, ChCoordsys<>(ChVector3d(0, -0.325, 0), QUNIT), distance);
-    revsph->AddVisualShape(chrono_types::make_shared<ChSegmentShape>());
+    revsph->AddVisualShape(chrono_types::make_shared<ChVisualShapeSegment>());
     sys.AddLink(revsph);
 
     // ---------------------
@@ -172,12 +171,12 @@ int main(int argc, char* argv[]) {
     sys.Add(shaftA);
 
     // Rigidly attach shaftA to the arm body
-    auto shaft_arm = chrono_types::make_shared<ChShaftsBody>();
+    auto shaft_arm = chrono_types::make_shared<ChShaftBodyRotation>();
     shaft_arm->Initialize(shaftA, arm, ChVector3d(0, 0, 1));
     sys.Add(shaft_arm);
 
     // Rigidly attach shaftC to the chassis body
-    auto shaft_chassis = chrono_types::make_shared<ChShaftsBody>();
+    auto shaft_chassis = chrono_types::make_shared<ChShaftBodyRotation>();
     shaft_chassis->Initialize(shaftC, chassis, ChVector3d(0, 0, 1));
     sys.Add(shaft_chassis);
 
@@ -185,7 +184,7 @@ int main(int argc, char* argv[]) {
     auto shaft_motor = chrono_types::make_shared<ChShaftsMotorPosition>();
     shaft_motor->Initialize(shaftC, shaftC1);
     auto motor_fun = chrono_types::make_shared<ChFunctionSetpoint>();
-    shaft_motor->SetAngleFunction(motor_fun);
+    shaft_motor->SetPositionFunction(motor_fun);
     sys.Add(shaft_motor);
 
     // A compliant or a rigid connection between shaftA1 and shaftC1
@@ -267,10 +266,10 @@ int main(int argc, char* argv[]) {
         // Output
         auto aPos = arm->GetPos();
         auto aRot = arm->GetRot();
-        auto aAngles = aRot.Q_to_Euler123();
+        auto aAngles = aRot.GetCardanAnglesXYZ();
         auto lPos = link->GetPos();
-        auto mP = markerP->GetAbsCoord().pos;
-        auto mI = markerI->GetAbsCoord().pos;
+        auto mP = markerP->GetAbsFrame().GetPos();
+        auto mI = markerI->GetAbsFrame().GetPos();
         csv << time << steering << aPos << aAngles << lPos << mP << mI << endl;
 
         // Advance dynamics

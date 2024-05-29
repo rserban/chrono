@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
     veh.SetChassisCollisionType(CollisionType::NONE);
     veh.SetInitPosition(ChCoordsys<>(ChVector3d(0, 0, 1.0), QUNIT));
     veh.SetEngineType(EngineModelType::SHAFTS);
-    veh.SetTransmissionType(TransmissionModelType::SHAFTS);
+    veh.SetTransmissionType(TransmissionModelType::AUTOMATIC_SHAFTS);
     veh.SetTireType(TireModelType::PAC02);
     veh.SetTireStepSize(step_size);
     

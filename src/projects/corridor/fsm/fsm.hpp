@@ -223,9 +223,9 @@ namespace fsm
                     aborted.push_back(it);
                     continue;
                 }
-                for( auto it = aborted.begin(), end = aborted.end(); it != end; ++it ) {
-                    call(**it, 'quit');
-                    deque.erase(--(it->base()));
+                for( auto it1 = aborted.begin(), end = aborted.end(); it1 != end; ++it1 ) {
+                    call(**it1, 'quit');
+                    deque.erase(--(it1->base()));
                 }
                 current_trigger = trigger;
                 return true;

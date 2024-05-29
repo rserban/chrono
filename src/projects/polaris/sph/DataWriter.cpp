@@ -334,13 +334,13 @@ void DataWriterVehicle::CollectDataMBS() {
     }
 
     for (int i = 0; i < 4; i++) {
-        const auto& t_force = m_wheels[i]->GetSpindle()->Get_accumulated_force();
+        const auto& t_force = m_wheels[i]->GetSpindle()->GetAccumulatedForce();
         m_mbs_outputs[start + 0] = t_force.x();
         m_mbs_outputs[start + 1] = t_force.y();
         m_mbs_outputs[start + 2] = t_force.z();
         start += 3;
 
-        const auto& t_torque = m_wheels[i]->GetSpindle()->Get_accumulated_torque();
+        const auto& t_torque = m_wheels[i]->GetSpindle()->GetAccumulatedTorque();
         m_mbs_outputs[start + 0] = t_torque.x();
         m_mbs_outputs[start + 1] = t_torque.y();
         m_mbs_outputs[start + 2] = t_torque.z();
@@ -382,7 +382,7 @@ void DataWriterVehicle::WriteDataMBS(const std::string& filename) {
 
 ChFrame<> DataWriterVehicle::GetSampleBoxFrame(int box_id) const {
     auto wheel_pos = m_wheels[box_id]->GetPos();
-    auto wheel_normal = m_wheels[box_id]->GetSpindle()->GetRot().GetYaxis();
+    auto wheel_normal = m_wheels[box_id]->GetSpindle()->GetRot().GetAxisY();
     auto tire_radius = m_wheels[box_id]->GetTire()->GetRadius();
 
     ChVector3d Z_dir(0, 0, 1);
@@ -433,13 +433,13 @@ void DataWriterObject::CollectDataMBS() {
     m_mbs_outputs[start + 2] = v_omg.z();
     start += 3;
 
-    const auto& t_force = m_body->Get_accumulated_force();
+    const auto& t_force = m_body->GetAccumulatedForce();
     m_mbs_outputs[start + 0] = t_force.x();
     m_mbs_outputs[start + 1] = t_force.y();
     m_mbs_outputs[start + 2] = t_force.z();
     start += 3;
 
-    const auto& t_torque = m_body->Get_accumulated_torque();
+    const auto& t_torque = m_body->GetAccumulatedTorque();
     m_mbs_outputs[start + 0] = t_torque.x();
     m_mbs_outputs[start + 1] = t_torque.y();
     m_mbs_outputs[start + 2] = t_torque.z();
@@ -470,7 +470,7 @@ void DataWriterObject::WriteDataMBS(const std::string& filename) {
 
 ChFrame<> DataWriterObject::GetSampleBoxFrame(int box_id) const {
     auto pos = m_body->GetPos();
-    auto normal = m_body->GetRot().GetYaxis();
+    auto normal = m_body->GetRot().GetAxisY();
     auto hheight = m_body_size.z() / 2;
 
     ChVector3d Z_dir(0, 0, 1);

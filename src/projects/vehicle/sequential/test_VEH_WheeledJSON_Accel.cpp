@@ -131,7 +131,7 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
                                  ChContactable* modA,
                                  ChContactable* modB) override {
         const ChVector3d& nrm = plane_coord.GetAxisX();
-        std::cout << "   " << ((ChBody*)modA)->GetNameString() << "  -  " << ((ChBody*)modB)->GetNameString()
+        std::cout << "   " << ((ChBody*)modA)->GetName() << "  -  " << ((ChBody*)modB)->GetName()
                   << std::endl;
         std::cout << "      pt A:  " << pA << std::endl;
         std::cout << "      pt B:  " << pB << std::endl;

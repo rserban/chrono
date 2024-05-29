@@ -14,8 +14,8 @@
 
 #include "chrono/fea/ChBuilderBeam.h"
 #include "chrono/fea/ChElementCableANCF.h"
-#include "chrono/fea/ChLinkDirFrame.h"
-#include "chrono/fea/ChLinkPointFrame.h"
+#include "chrono/fea/ChLinkNodeSlopeFrame.h"
+#include "chrono/fea/ChLinkNodeFrame.h"
 #include "chrono/fea/ChMesh.h"
 #include "chrono/assets/ChVisualShapeFEA.h"
 
@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
     msection_cable->SetDiameter(0.002);
     msection_cable->SetYoungModulus(5e3);
     msection_cable->SetDensity(2000);
-    msection_cable->SetBeamRaleyghDamping(0.2);
+    msection_cable->SetRayleighDamping(0.2);
 
     int N_x = 2;
     int N_y = 2;
@@ -82,11 +82,11 @@ int main(int argc, char* argv[]) {
     for (auto node : base_nodes) {
         node->SetFixed(true);
 
-        ////auto pos_const = chrono_types::make_shared<fea::ChLinkPointFrame>();
+        ////auto pos_const = chrono_types::make_shared<fea::ChLinkNodeFrame>();
         ////pos_const->Initialize(node, ground);
         ////mphysicalSystem.Add(pos_const);
 
-        ////auto dir_const = chrono_types::make_shared<fea::ChLinkDirFrame>();
+        ////auto dir_const = chrono_types::make_shared<fea::ChLinkNodeSlopeFrame>();
         ////dir_const->Initialize(node, ground);
         ////dir_const->SetDirectionInAbsoluteCoords(node->D);
         ////mphysicalSystem.Add(dir_const);
@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
 
         if (step_number == 1) {
             for (auto node : my_mesh->GetNodes()) {
-                cout << node->GetIndex() << " " << node->NodeGetOffsetX() << " " << node->NodeGetOffsetW() << endl;
+                cout << node->GetIndex() << " " << node->NodeGetOffsetPosLevel() << " " << node->NodeGetOffsetVelLevel() << endl;
             }
         }
 

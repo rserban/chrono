@@ -158,8 +158,7 @@ void CustomTerrain::Synchronize() {
         ChVector3d longitudinal = Vcross(disc_normal, terrain_normal);
         longitudinal.Normalize();
         ChVector3d lateral = Vcross(terrain_normal, longitudinal);
-        ChMatrix33<> rot;
-        rot.Set_A_axis(longitudinal, lateral, terrain_normal);
+        ChMatrix33<> rot(longitudinal, lateral, terrain_normal);
         ChFrame<> frame(wheel_bottom_location, rot);
 
         // Get wheel velocity expressed in the tire frame

@@ -6,7 +6,7 @@
 
 #include "chrono/ChConfig.h"
 
-#include <chrono/motion_functions/ChFunctionSetpoint.h>
+#include <chrono/functions/ChFunctionSetpoint.h>
 #include <chrono/physics/ChBody.h>
 #include <chrono/physics/ChLinkLock.h>
 #include <chrono/physics/ChLinkMotorLinearPosition.h>
@@ -181,7 +181,7 @@ void AddPlate(ChSystemMulticoreNSC& m_sys,
     m_sys.AddBody(plate);
 
     auto prismatic_plate_box = chrono_types::make_shared<ChLinkLockPrismatic>();
-    prismatic_plate_box->Initialize(plate, top, ChCoordsys<>(ChVector3d(0, 0, 0), QUNIT));
+    prismatic_plate_box->Initialize(plate, top, ChFrame<>(ChVector3d(0, 0, 0), QUNIT));
     m_sys.AddLink(prismatic_plate_box);
 }
 
@@ -205,10 +205,10 @@ void AddMotor(ChSystemMulticoreNSC& m_sys,
 
 void FixPlate(ChSystemMulticoreNSC& m_sys, std::shared_ptr<ChBody>& plate, std::shared_ptr<ChBody>& top) {
     ChQuaternion<> z2y;
-    z2y.QuatFromAngleAxis(-CH_PI / 2, ChVector3d(1, 0, 0));
+    z2y.SetFromAngleAxis(-CH_PI / 2, ChVector3d(1, 0, 0));
 
     auto pin = chrono_types::make_shared<ChLinkLockPrismatic>();
-    pin->Initialize(plate, top, ChCoordsys<>(ChVector3d(0, 0, 0), z2y));
+    pin->Initialize(plate, top, ChFrame<>(ChVector3d(0, 0, 0), z2y));
     m_sys.AddLink(pin);
 }
 

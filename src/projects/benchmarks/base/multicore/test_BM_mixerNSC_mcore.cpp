@@ -74,7 +74,7 @@ MixerTestNSC<N>::MixerTestNSC() : m_system(new ChSystemMulticoreNSC()), m_step(1
     mat->SetFriction(0.4f);
 
     // Create container bin
-    auto bin = utils::CreateBoxContainer(m_system, -100, mat, ChVector3d(1, 1, 0.1 + 0.4 * num_layers * radius), 0.1);
+    auto bin = utils::CreateBoxContainer(m_system, mat, ChVector3d(1, 1, 0.1 + 0.4 * num_layers * radius), 0.1);
 
     // The rotating mixer body (1.6 x 0.2 x 0.4)
     auto mixer = chrono_types::make_shared<ChBody>();

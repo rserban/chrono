@@ -17,7 +17,7 @@
 
 
 #include "ChCollisionLidar.h"
-
+#include "chrono/collision/ChCollisionSystem.h"
 
 ChCollisionLidarRay::ChCollisionLidarRay(std::shared_ptr<chrono::ChBody> parent, bool visualize){
 	this->parent = parent;	//save reference to the ChSystem
@@ -32,23 +32,23 @@ ChCollisionLidarRay::~ChCollisionLidarRay(){
 
 // update the ray collision
 // this checks the ray and sets the appropriate ray length and hit object name
-void ChCollisionLidarRay::Update(bool updateCollision){
+void ChCollisionLidarRay::Update(bool updateCollision) {
+    this->globalStartPos = this->parent->GetPos() + this->parent->GetRot().Rotate(relativeStartPos);
+    this->globalEndPos = this->parent->GetPos() + this->parent->GetRot().Rotate(relativeEndPos);
 
-	this->globalStartPos = this->parent->GetPos() + this->parent->GetRot().Rotate(relativeStartPos);
-	this->globalEndPos = this->parent->GetPos() + this->parent->GetRot().Rotate(relativeEndPos);
-
-	if(updateCollision){
-		// see if the ray collides with anything
-		this->parent->GetSystem()->GetCollisionSystem()->RayHit(this->globalStartPos, this->globalEndPos, this->rayCollision);
-		if(rayCollision.hit){
-			//if the ray collides, set the length accordingly
-			this->SetLength((rayCollision.abs_hitPoint-this->globalStartPos).Length());
-		}
-	}
-	if(visualize){
-		rayEnd->SetPos(globalEndPos);
-		rayStart->SetPos(globalStartPos);
-	}
+    if (updateCollision) {
+        // see if the ray collides with anything
+        chrono::ChCollisionSystem::ChRayhitResult rayCollision;
+        this->parent->GetSystem()->GetCollisionSystem()->RayHit(this->globalStartPos, this->globalEndPos, rayCollision);
+        if (rayCollision.hit) {
+            // if the ray collides, set the length accordingly
+            this->SetLength((rayCollision.abs_hitPoint - this->globalStartPos).Length());
+        }
+    }
+    if (visualize) {
+        rayEnd->SetPos(globalEndPos);
+        rayStart->SetPos(globalStartPos);
+    }
 }
 
 // set the start and end point of the ray

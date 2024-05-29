@@ -18,7 +18,7 @@
 #define AV_SCENE_H
 
 #include "chrono/core/ChFrame.h"
-#include "chrono/core/ChVector.h"
+#include "chrono/core/ChVector3.h"
 #include "chrono/core/ChVector2.h"
 
 namespace av {

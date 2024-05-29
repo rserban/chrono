@@ -18,7 +18,7 @@
 
 #include "chrono/physics/ChSystemNSC.h"
 
-#include "chrono/assets/ChModelFileShape.h"
+#include "chrono/assets/ChVisualShapeModelFile.h"
 
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
     sys.AddBody(ground);
 
     // Visualization
-    auto vis_mesh = chrono_types::make_shared<ChModelFileShape>();
+    auto vis_mesh = chrono_types::make_shared<ChVisualShapeModelFile>();
     vis_mesh->SetFilename(GetChronoDataFile("models/tractor_wheel/tractor_wheel.obj"));
     vis_mesh->SetColor(ChColor(0.5f, 0.0f, 0.0f));
     ground->AddVisualShape(vis_mesh);

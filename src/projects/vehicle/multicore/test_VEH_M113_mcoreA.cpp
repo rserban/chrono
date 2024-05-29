@@ -143,7 +143,7 @@ int main(int argc, char* argv[]) {
     BrakeType brake_type = BrakeType::SIMPLE;
     DrivelineTypeTV driveline_type = DrivelineTypeTV::BDS;
     EngineModelType engine_type = EngineModelType::SHAFTS;
-    TransmissionModelType transmission_type = TransmissionModelType::SHAFTS;
+    TransmissionModelType transmission_type = TransmissionModelType::AUTOMATIC_SHAFTS;
 
     //// TODO
     if (shoe_type == TrackShoeType::DOUBLE_PIN)
@@ -321,7 +321,7 @@ int main(int argc, char* argv[]) {
                 const ChVector3d& i_pos_abs = track_L->GetIdler()->GetWheelBody()->GetPos();
                 const ChVector3d& s_pos_abs = track_L->GetSprocket()->GetGearBody()->GetPos();
                 const ChVector3d& s_omg_rel = track_L->GetSprocket()->GetGearBody()->GetAngVelLocal();
-                auto s_appl_trq = track_L->GetSprocket()->GetAxle()->GetAppliedTorque();
+                auto s_appl_trq = track_L->GetSprocket()->GetAxle()->GetAppliedLoad();
                 ChVector3d i_pos_rel = c_ref.TransformPointParentToLocal(i_pos_abs);
                 ChVector3d s_pos_rel = c_ref.TransformPointParentToLocal(s_pos_abs);
                 cout << "      L idler:    " << i_pos_rel.x() << "  " << i_pos_rel.y() << "  " << i_pos_rel.z() << endl;

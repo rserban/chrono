@@ -454,10 +454,7 @@ int main(int argc, char* argv[]) {
 
                 double clearMin = 99.0;
                 for (size_t i = 0; i < clearance.size(); i++) {
-                    double x1, x2;
-                    double vmin, vmax;
-                    clearance[i].Estimate_x_range(x1, x2);
-                    clearance[i].Estimate_y_range(x1, x2, vmin, vmax, 0);
+                    auto vmin = clearance[i].GetMin();
                     std::cout << "Clearance#" << i << " = " << vmin << "\n";
                     if (vmin < clearMin) {
                         clearMin = vmin;

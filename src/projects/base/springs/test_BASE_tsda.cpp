@@ -51,7 +51,7 @@ int main(int, char*[]) {
     link_shock->SetDampingCoefficient(Shock_DampingCoeff);
     my_system.AddLink(link_shock);
 
-    ChStreamOutAsciiFile io("tsda.out");
+    std::ofstream io("tsda.out");
 
     my_system.GetSolver()->AsIterative()->SetMaxIterations(1000);
     ChRealtimeStepTimer realtime_timer;

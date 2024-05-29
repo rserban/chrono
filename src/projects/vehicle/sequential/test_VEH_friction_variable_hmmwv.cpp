@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
     HMMWV_Full hmmwv(&sys);
     hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(-90, 0, 0.7), QUNIT));
     hmmwv.SetEngineType(EngineModelType::SHAFTS);
-    hmmwv.SetTransmissionType(TransmissionModelType::SHAFTS);
+    hmmwv.SetTransmissionType(TransmissionModelType::AUTOMATIC_SHAFTS);
     hmmwv.SetDriveType(DrivelineTypeWV::RWD);
     hmmwv.SetTireType(tire_model);
     hmmwv.SetTireStepSize(tire_step_size);

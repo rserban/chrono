@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
         int n = 100;
         double delta = 1.0 / n;
         for (int i = 0; i < n; i++) {
-            ChVector3d p = path->eval(delta * i);
+            ChVector3d p = path->Eval(delta * i);
             out << p.x() << " " << p.y() << " " << p.z() << std::endl;
         }
     }
@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
         ChBezierCurveTracker tracker(path);        
         ChVector3d s = ChVector3d(110.0 * (i / 50.0), 0, 0);
         ChVector3d t;
-        tracker.calcClosestPoint(s, t);
+        tracker.CalcClosestPoint(s, t);
         out << s.x() << " " << s.y() << " " << s.z() << " ";
         out << t.x() << " " << t.y() << " " << t.z() << std::endl;
     }
@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
         ChBezierCurveTracker tracker(path);
         ChVector3d s = ChVector3d(110, 110.0 * (i / 50.0), 0);
         ChVector3d t;
-        tracker.calcClosestPoint(s, t);
+        tracker.CalcClosestPoint(s, t);
         out << s.x() << " " << s.y() << " " << s.z() << " ";
         out << t.x() << " " << t.y() << " " << t.z() << std::endl;
     }

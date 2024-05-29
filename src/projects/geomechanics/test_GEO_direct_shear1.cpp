@@ -201,8 +201,8 @@ int main(int argc, char* argv[]) {
 
     ChQuaternion<> z2y;
     ChQuaternion<> z2x;
-    z2y.QuatFromAngleAxis(-CH_PI / 2, ChVector3d(1, 0, 0));
-    z2x.QuatFromAngleAxis(CH_PI / 2, ChVector3d(0, 1, 0));
+    z2y.SetFromAngleAxis(-CH_PI / 2, ChVector3d(1, 0, 0));
+    z2x.SetFromAngleAxis(CH_PI / 2, ChVector3d(0, 1, 0));
 
     // Create the system
 
@@ -304,7 +304,7 @@ int main(int argc, char* argv[]) {
     bin->GetCollisionModel()->SetFamily(1);
     bin->GetCollisionModel()->DisallowCollisionsWith(2);
     bin->GetCollisionModel()->DisallowCollisionsWith(3);
-    bin->GetCollisionModel()->SetFamilyMaskDoCollisionWithFamily(4);
+    bin->GetCollisionModel()->CollidesWith(4);
 
     my_system->AddBody(bin);
 
@@ -329,7 +329,7 @@ int main(int argc, char* argv[]) {
     box->GetCollisionModel()->SetFamily(2);
     box->GetCollisionModel()->DisallowCollisionsWith(1);
     box->GetCollisionModel()->DisallowCollisionsWith(3);
-    box->GetCollisionModel()->SetFamilyMaskDoCollisionWithFamily(4);
+    box->GetCollisionModel()->CollidesWith(4);
 
     my_system->AddBody(box);
 
@@ -350,7 +350,7 @@ int main(int argc, char* argv[]) {
     plate->GetCollisionModel()->SetFamily(3);
     plate->GetCollisionModel()->DisallowCollisionsWith(1);
     plate->GetCollisionModel()->DisallowCollisionsWith(2);
-    plate->GetCollisionModel()->SetFamilyMaskDoCollisionWithFamily(4);
+    plate->GetCollisionModel()->CollidesWith(4);
 
     my_system->AddBody(plate);
 
@@ -395,16 +395,14 @@ int main(int argc, char* argv[]) {
 
     auto prismatic_plate_box = chrono_types::make_shared<ChLinkLockPrismatic>();
     prismatic_plate_box->SetName("prismatic_plate_box");
-    prismatic_plate_box->Initialize(plate, box, ChCoordsys<>(ChVector3d(0, 0, 0), z2y));
+    prismatic_plate_box->Initialize(plate, box, ChFrame<>(ChVector3d(0, 0, 0), z2y));
     my_system->AddLink(prismatic_plate_box);
 
     // Setup output
 
-    ChStreamOutAsciiFile shearStream(shear_file.c_str());
-    ChStreamOutAsciiFile forceStream(force_file.c_str());
-    ChStreamOutAsciiFile statsStream(stats_file.c_str());
-    shearStream.SetNumFormat("%16.4e");
-    forceStream.SetNumFormat("%16.4e");
+    std::ofstream shearStream(shear_file);
+    std::ofstream forceStream(force_file);
+    std::ofstream statsStream(stats_file);
 
     // Create the OpenGL visualization window
 

@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include "chrono/core/ChVector.h"
+#include "chrono/core/ChVector3.h"
 
 namespace av {
 

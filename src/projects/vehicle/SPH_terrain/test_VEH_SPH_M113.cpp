@@ -272,7 +272,7 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector3d
 
     // Initialize the vehicle at the specified position
     ChVector3d initLoc(-1, -1, 1.2);
-    ChQuaternion<> initRot = Q_from_Euler123(ChVector3d(0, 0, 0.25 * CH_PI));
+    auto initRot = QuatFromAngleSet({RotRepresentation::CARDAN_ANGLES_XYZ, ChVector3d(0, 0, 0.25 * CH_PI)});
     track->SetInitPosition(ChCoordsys<>(initLoc, initRot));
     track->Initialize();
 
@@ -334,7 +334,8 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector3d
         double det_x = 0.1 * pow(-1.0, i + j);
         double det_y = 0.1 * pow(-1.0, i + j + 1);
         ChVector3d rock_pos = ChVector3d(-2.0 + i * 1.0 + det_x, -2.0 + j * 1.0 + det_y, 0.8);
-        ChQuaternion<> rock_rot = Q_from_Euler123(ChVector3d(rot_ang_x, rot_ang_y, rot_ang_z));
+        ChQuaternion<> rock_rot = QuatFromAngleSet({RotRepresentation::CARDAN_ANGLES_XYZ, 
+                                                    ChVector3d(rot_ang_x, rot_ang_y, rot_ang_z)});
 
         // Set the COG coordinates to barycenter, without displacing the REF reference.
         // Make the COG frame a principal frame.
@@ -346,7 +347,7 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI, const ChVector3d
         rock_body->SetInertiaXX(mdensity * principal_I);
 
         // Set the absolute position of the body:
-        rock_body->SetFrame_REF_to_abs(ChFrame<>(ChVector3d(rock_pos),ChQuaternion<>(rock_rot)));
+        rock_body->SetFrameRefToAbs(ChFrame<>(ChVector3d(rock_pos),ChQuaternion<>(rock_rot)));
         sysMBS.Add(rock_body);
 
         // Set collision

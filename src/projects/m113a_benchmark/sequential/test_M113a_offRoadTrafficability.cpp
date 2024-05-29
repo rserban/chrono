@@ -374,7 +374,7 @@ int main(int argc, char* argv[]) {
 
         double transSpeed = (1.0 - slip) * sprocketRadius * rotSpeed;
         auto motion = chrono_types::make_shared<ChFunctionRamp>(0, transSpeed);
-        lockJoint->SetMotion_X(motion);
+        lockJoint->SetMotionX(motion);
 
         motor->Initialize(
             vehicle.GetTrackAssembly(chrono::vehicle::RIGHT)->GetSprocket()->GetGearBody(), m113.GetChassisBody(),
@@ -459,8 +459,7 @@ int main(int argc, char* argv[]) {
         }
         driver.ExportPathPovray(out_dir);
     }
-    ChStreamOutAsciiFile csv(outputFileStream.str().c_str());
-    csv.SetNumFormat("%16.4e");
+    std::ofstream csv(outputFileStream.str());
 
     // utils::ChWriterCSV csv("\t");
     // csv.Stream().setf(std::ios::scientific | std::ios::showpos);
@@ -585,34 +584,29 @@ int main(int argc, char* argv[]) {
         }
 
         if (state_output) {
-            if (controlSlip)
-            {
+            if (controlSlip) {
                 drawbarPull = lockJoint->GetReaction2().force.x();
                 torque = motor->GetMotorTorque();
                 torque2 = motor2->GetMotorTorque();
             }
+            auto chassis_angles = m113.GetChassisBody()->GetRotMat().GetCardanAnglesXYZ();
             csv << time << driver_inputs.m_steering << driver_inputs.m_throttle << driver_inputs.m_braking;
             csv << vehicle.GetSpeed() << ", ";
             csv << acc_CG.x() << ", " << fwd_acc_CG << ", " << acc_CG.y() << ", " << lat_acc_CG << ", ";
             csv << acc_driver.x() << ", " << fwd_acc_driver << ", " << acc_driver.y() << ", " << lat_acc_driver << ", ";
             csv << acc_CG.z() << ", ";  // vertical acceleration
-            csv << vel_CG.x() << ", " << vel_CG.y() << ", " << vel_CG.z() << ", ";
-            csv << m113.GetChassis()->GetPos().x() << ", " << m113.GetChassis()->GetPos().y() << ", "
-                << m113.GetChassis()->GetPos().z() << ", ";
-            csv << 180.0 * theta / CH_PI << ", ";                                                    // ground angle
-            csv << 180.0 * (theta - m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().x()) / CH_PI << ", ";  // vehicle roll
-            csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().y()) / CH_PI << ", ";          // vehicle pitch
-            csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().z()) / CH_PI << ", ";          // vehicle yaw
-            csv << FrontLeftCornerPos.x() << ", " << FrontLeftCornerPos.y() << ", " << FrontLeftCornerPos.z() << ", ";
-            csv << FrontRightCornerPos.x() << ", " << FrontRightCornerPos.y() << ", " << FrontRightCornerPos.z()
-                << ", ";
-            csv << RearLeftCornerPos.x() << ", " << RearLeftCornerPos.y() << ", " << RearLeftCornerPos.z() << ", ";
-            csv << RearRightCornerPos.x() << ", " << RearRightCornerPos.y() << ", " << RearRightCornerPos.z() << ", ";
+            csv << vel_CG;
+            csv << m113.GetChassis()->GetPos();
+            csv << CH_RAD_TO_DEG * theta;                         // ground angle
+            csv << CH_RAD_TO_DEG * (theta - chassis_angles.x());  // vehicle roll
+            csv << CH_RAD_TO_DEG * chassis_angles.y();            // vehicle pitch
+            csv << CH_RAD_TO_DEG * chassis_angles.z();            // vehicle yaw
+            csv << FrontLeftCornerPos << FrontRightCornerPos << RearLeftCornerPos << RearRightCornerPos;
             csv << m113.GetDriveline()->GetSprocketSpeed(chrono::vehicle::RIGHT) << ", ";
             csv << m113.GetDriveline()->GetSprocketSpeed(chrono::vehicle::LEFT) << ", ";
             csv << drawbarPull << ", " << torque << ", " << torque2 << ", ";
             csv << "\n";
-            csv.GetFstream().flush();
+            csv.flush();
         }
 
         // Collect output data from modules (for inter-module communication)
@@ -803,24 +797,20 @@ int main(int argc, char* argv[]) {
                 }
 
             }
-            csv << time << driver_inputs.m_steering << ", " << driver_inputs.m_throttle <<", " << driver_inputs.m_braking << ", ";
+            auto chassis_angles = m113.GetChassisBody()->GetRotMat().GetCardanAnglesXYZ();
+            csv << time << driver_inputs.m_steering << ", " << driver_inputs.m_throttle << ", "
+                << driver_inputs.m_braking << ", ";
             csv << vehicle.GetSpeed() << ", ";
             csv << acc_CG.x() << ", " << fwd_acc_CG << ", " << acc_CG.y() << ", " << lat_acc_CG << ", ";
             csv << acc_driver.x() << ", " << fwd_acc_driver << ", " << acc_driver.y() << ", " << lat_acc_driver << ", ";
             csv << acc_CG.z() << ", ";  // vertical acceleration
-            csv << vel_CG.x() << ", " << vel_CG.y() << ", " << vel_CG.z() << ", ";
-            csv << m113.GetChassis()->GetPos().x() << ", " << m113.GetChassis()->GetPos().y() << ", "
-                << m113.GetChassis()->GetPos().z() << ", ";
-            csv << 180.0 * theta / CH_PI << ", ";  // ground angle
-            csv << 180.0 * (theta - m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().x()) / CH_PI
-                << ", ";                                                                           // vehicle roll
-            csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().y()) / CH_PI << ", ";  // vehicle pitch
-            csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().z()) / CH_PI << ", ";  // vehicle yaw
-            csv << FrontLeftCornerPos.x() << ", " << FrontLeftCornerPos.y() << ", " << FrontLeftCornerPos.z() << ", ";
-            csv << FrontRightCornerPos.x() << ", " << FrontRightCornerPos.y() << ", " << FrontRightCornerPos.z()
-                << ", ";
-            csv << RearLeftCornerPos.x() << ", " << RearLeftCornerPos.y() << ", " << RearLeftCornerPos.z() << ", ";
-            csv << RearRightCornerPos.x() << ", " << RearRightCornerPos.y() << ", " << RearRightCornerPos.z() << ", ";
+            csv << vel_CG;
+            csv << m113.GetChassis()->GetPos();
+            csv << CH_RAD_TO_DEG * theta;                         // ground angle
+            csv << CH_RAD_TO_DEG * (theta - chassis_angles.x());  // vehicle roll
+            csv << CH_RAD_TO_DEG * chassis_angles.y();            // vehicle pitch
+            csv << CH_RAD_TO_DEG * chassis_angles.z();            // vehicle yaw
+            csv << FrontLeftCornerPos << FrontRightCornerPos << RearLeftCornerPos << RearRightCornerPos;
             csv << m113.GetDriveline()->GetSprocketSpeed(chrono::vehicle::RIGHT) << ", ";
             csv << m113.GetDriveline()->GetSprocketSpeed(chrono::vehicle::LEFT) << ", ";
             csv << drawbarPull << ", " << torque << ", " << torque2 << ", " << motionResistance << ", " << tractiveEffort << ", ";

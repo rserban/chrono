@@ -38,7 +38,7 @@ void plot(std::shared_ptr<ChBezierCurve> path, int n, const char* name) {
     std::vector<double> y(n);
     std::vector<double> z(n);
     for (int i = 0; i < n; i++) {
-        ChVector3d pos = path->eval(0.01 * i);
+        ChVector3d pos = path->Eval(0.01 * i);
         x[i] = pos.x();
         y[i] = pos.y();
         z[i] = pos.z();
@@ -47,14 +47,14 @@ void plot(std::shared_ptr<ChBezierCurve> path, int n, const char* name) {
 
     // Create a tracker
     ChBezierCurveTracker tracker(path);
-    tracker.reset(ChVector3d(x[5], y[5], z[5]));
+    tracker.Reset(ChVector3d(x[5], y[5], z[5]));
 
     // Find TNB frame and curvature at points on path
     ChFrame<> tnb;
     double curvature;
     for (int i = 2; i < n; i++) {
         ChVector3d loc(x[i], y[i], z[i]);
-        tracker.calcClosestPoint(loc, tnb, curvature);
+        tracker.CalcClosestPoint(loc, tnb, curvature);
         auto r = tnb.GetPos();
         auto T = tnb.GetRotMat().GetAxisX();
         auto N = tnb.GetRotMat().GetAxisY();

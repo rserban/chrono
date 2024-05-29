@@ -25,8 +25,8 @@
 
 #include "chrono/fea/ChBuilderBeam.h"
 #include "chrono/fea/ChElementCableANCF.h"
-#include "chrono/fea/ChLinkDirFrame.h"
-#include "chrono/fea/ChLinkPointFrame.h"
+#include "chrono/fea/ChLinkNodeSlopeFrame.h"
+#include "chrono/fea/ChLinkNodeFrame.h"
 #include "chrono/fea/ChMesh.h"
 #include "chrono/assets/ChVisualShapeFEA.h"
 
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
     section->SetDiameter(0.002);
     section->SetYoungModulus(1e6);
     section->SetDensity(2000);
-    section->SetBeamRaleyghDamping(0.8);
+    section->SetRayleighDamping(0.8);
 
     std::vector<std::shared_ptr<fea::ChNodeFEAxyzD>> base_nodes;
     std::vector<std::shared_ptr<fea::ChNodeFEAxyzD>> tip_nodes;
@@ -94,13 +94,13 @@ int main(int argc, char* argv[]) {
     std::vector<std::shared_ptr<ChLinkBase>> tip_cnstr;
 
     for (auto node : base_nodes) {
-        auto pos_cnstr = chrono_types::make_shared<fea::ChLinkPointFrame>();
+        auto pos_cnstr = chrono_types::make_shared<fea::ChLinkNodeFrame>();
         pos_cnstr->Initialize(node, ground);
         sys.Add(pos_cnstr);
 
-        auto dir_cnstr = chrono_types::make_shared<fea::ChLinkDirFrame>();
+        auto dir_cnstr = chrono_types::make_shared<fea::ChLinkNodeSlopeFrame>();
         dir_cnstr->Initialize(node, ground);
-        dir_cnstr->SetDirectionInAbsoluteCoords(node->GetD());
+        dir_cnstr->SetDirectionInAbsoluteCoords(node->GetSlope1());
         sys.Add(dir_cnstr);
 
         base_cnstr.push_back(pos_cnstr);
@@ -108,13 +108,13 @@ int main(int argc, char* argv[]) {
     }
 
     for (auto node : tip_nodes) {
-        auto pos_cnstr = chrono_types::make_shared<fea::ChLinkPointFrame>();
+        auto pos_cnstr = chrono_types::make_shared<fea::ChLinkNodeFrame>();
         pos_cnstr->Initialize(node, ground);
         sys.Add(pos_cnstr);
 
-        auto dir_cnstr = chrono_types::make_shared<fea::ChLinkDirFrame>();
+        auto dir_cnstr = chrono_types::make_shared<fea::ChLinkNodeSlopeFrame>();
         dir_cnstr->Initialize(node, ground);
-        dir_cnstr->SetDirectionInAbsoluteCoords(node->GetD());
+        dir_cnstr->SetDirectionInAbsoluteCoords(node->GetSlope1());
         sys.Add(dir_cnstr);
 
         tip_cnstr.push_back(pos_cnstr);

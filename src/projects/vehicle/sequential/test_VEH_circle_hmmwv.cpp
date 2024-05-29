@@ -27,6 +27,7 @@
 #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
 
 #include "chrono/geometry/ChLineBezier.h"
+#include "chrono/utils/ChUtils.h"
 
 #include "chrono_models/vehicle/hmmwv/HMMWV.h"
 
@@ -49,7 +50,7 @@ int main(int argc, char* argv[]) {
     my_hmmwv.SetChassisFixed(false);
     my_hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(-75, 0, 0.5), QUNIT));
     my_hmmwv.SetEngineType(EngineModelType::SHAFTS);
-    my_hmmwv.SetTransmissionType(TransmissionModelType::SHAFTS);
+    my_hmmwv.SetTransmissionType(TransmissionModelType::AUTOMATIC_SHAFTS);
     my_hmmwv.SetDriveType(DrivelineTypeWV::RWD);
     my_hmmwv.SetSteeringType(SteeringTypeWV::PITMAN_ARM);
     my_hmmwv.SetTireType(TireModelType::TMEASY);
@@ -88,7 +89,7 @@ int main(int argc, char* argv[]) {
     ChPathSteeringController steeringPID(path);
     steeringPID.SetLookAheadDistance(5);
     steeringPID.SetGains(0.8, 0, 0);
-    steeringPID.Reset(my_hmmwv.GetVehicle());
+    steeringPID.Reset(my_hmmwv.GetVehicle().GetRefFrame());
 
     // Create the vehicle Irrlicht application
     auto vis = chrono_types::make_shared<ChVehicleVisualSystemIrrlicht>();
@@ -138,7 +139,7 @@ int main(int argc, char* argv[]) {
         vis->Synchronize(time, driver_inputs);
 
         // Advance simulation for one timestep for all modules
-        steeringPID_output = steeringPID.Advance(my_hmmwv.GetVehicle(), step_size);
+        steeringPID_output = steeringPID.Advance(my_hmmwv.GetVehicle().GetRefFrame(), time, step_size);
         terrain.Advance(step_size);
         my_hmmwv.Advance(step_size);
         vis->Advance(step_size);

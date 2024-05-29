@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     std::string logfile = out_dir + "/log.dat";
-    ChStreamOutAsciiFile log(logfile.c_str());
+    std::ofstream log(logfile);
 
     std::string btitle("Body - ");
 

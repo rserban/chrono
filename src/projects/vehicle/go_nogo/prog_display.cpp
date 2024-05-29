@@ -39,7 +39,7 @@ void progressbar(unsigned int x, unsigned int n, unsigned int w) {
 }
 
 // Utility function to print to console a few important step statistics
-void TimingOutput(chrono::ChSystem* mSys, chrono::ChStreamOutAsciiFile* ofile) {
+void TimingOutput(chrono::ChSystem* mSys, std::ofstream* ofile) {
     double TIME = mSys->GetChTime();
     double STEP = mSys->GetTimerStep();
     double BROD = mSys->GetTimerCollisionBroad();

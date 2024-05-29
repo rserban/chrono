@@ -23,7 +23,7 @@
 #include "chrono/geometry/ChLineSegment.h"
 
 #include "chrono/assets/ChVisualShapeLine.h"
-#include "chrono/assets/ChPathShape.h"
+#include "chrono/assets/ChVisualShapePath.h"
 
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Create a path asset and add segments to it
-    auto path_asset = chrono_types::make_shared<ChPathShape>();
+    auto path_asset = chrono_types::make_shared<ChVisualShapePath>();
     for (unsigned int i = 1; i < num_line_points; i++) {
         double len = (points[i] - points[i - 1]).Length();
         ChLineSegment segment(points[i - 1], points[i]);

@@ -527,7 +527,7 @@ int main(int argc, char* argv[]) {
         double angspeed = ang_diff.Filter(steer);
         angspeed_recorder.AddPoint(time, angspeed);
         ChQuaternion<> q = feda.GetVehicle().GetRot();
-        double rollangle = q.Q_to_Euler123().x() * CH_RAD_TO_DEG;
+        double rollangle = q.GetCardanAnglesXYZ().x() * CH_RAD_TO_DEG;
         double yawrate = feda.GetVehicle().GetChassisBody()->GetAngVelLocal().z() * CH_RAD_TO_DEG;
         double latacc = accel_recorder.GetVal(time) / 9.81;
         if (xpos >= -50.0 && step_number % 500 == 0) {

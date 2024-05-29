@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
     // Generate wrapper scripts
     {
         std::string filename = out_dir + "/" + susp_name + ".ini";
-        ChStreamOutAsciiFile ini_file(filename.c_str());
+        std::ofstream ini_file(filename);
         ini_file << "Input_File_Name=\"render_suspension.pov\"\n";
         ini_file << "Include_Header=\"" << susp_name << "_inc.pov\"\n";
         ini_file << "Output_File_Name=\"" << susp_name << ".png\"\n";
@@ -178,7 +178,7 @@ int main(int argc, char* argv[]) {
     // Camera position for viewing entire suspension assembly
     {
         std::string filename = out_dir + "/" + susp_name + "_inc.pov";
-        ChStreamOutAsciiFile inc_file(filename.c_str());
+        std::ofstream inc_file(filename);
         inc_file << "#declare datafile = \"" << susp_name << ".dat\"\n";
         inc_file << "#declare cam_perspective = true;\n";
         inc_file << "#declare cam_lookat = <" << locL.x() << ", 0, 0>;\n";
@@ -189,7 +189,7 @@ int main(int argc, char* argv[]) {
     // Camera position for zooming on left side
     ////{
     ////    std::string filename = out_dir + "/" + susp_name + "_inc.pov";
-    ////    ChStreamOutAsciiFile inc_file(filename.c_str());
+    ////    std::ofstream inc_file(filename);
     ////    inc_file << "#declare datafile = \"" << susp_name << ".dat\"\n";
     ////    inc_file << "#declare cam_perspective = true;\n";
     ////    inc_file << "#declare cam_lookat = <" << locL.x() << "," << locL.y() - 0.25 << "," << locL.z() << ">;\n";

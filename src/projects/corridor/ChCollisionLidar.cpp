@@ -48,26 +48,23 @@ void ChCollisionLidar::Initialize(chrono::ChCoordsys<double> offsetPose,
 	double yDiff = aboutYMaxAngle - aboutYMinAngle;
 	double pDiff = aboutZMaxAngle - aboutZMinAngle;
 
-	for(int j=0; j< aboutZSamples; ++j){
-		for(int i=0; i<aboutYSamples; ++i){
+	for (int j = 0; j < aboutZSamples; ++j) {
+        for (int i = 0; i < aboutYSamples; ++i) {
+            yawAngle = (aboutYSamples == 1) ? 0 : i * yDiff / (aboutYSamples - 1) + aboutYMinAngle;
 
-			yawAngle = (aboutYSamples == 1) ? 0 :
-					i * yDiff / (aboutYSamples - 1) + aboutYMinAngle;
+            pitchAngle = (aboutZSamples == 1) ? 0 : j * pDiff / (aboutZSamples - 1) + aboutZMinAngle;
 
-			pitchAngle = (aboutZSamples == 1) ? 0 :
-					j * pDiff / (aboutZSamples - 1) + aboutZMinAngle;
+            // Yaw, Roll, Pitch according to ChQuaternion.h
+            ray.SetFromCardanAnglesZYX(chrono::ChVector3d(yawAngle, 0.0, -pitchAngle));
 
-			//Yaw, Roll, Pitch according to ChQuaternion.h
-			ray.Q_from_NasaAngles(chrono::ChVector3d(yawAngle, 0.0, -pitchAngle));
+            axis = (offsetPose.rot * ray).Rotate(chrono::ChVector3d(1.0, 0, 0));
 
-			axis = (offsetPose.rot * ray).Rotate(chrono::ChVector3d(1.0,0,0));
+            start = (axis * minRange) + offsetPose.pos;
+            end = (axis * maxRange) + offsetPose.pos;
 
-			start = (axis * minRange) + offsetPose.pos;
-			end = (axis * maxRange) + offsetPose.pos;
-
-			AddRay(start,end);
-		}
-	}
+            AddRay(start, end);
+        }
+    }
 }
 
 void ChCollisionLidar::UpdateRays(){

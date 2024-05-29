@@ -192,12 +192,6 @@ int main(int argc, char* argv[]) {
         terrain.Advance(step_size);
         feda.Advance(step_size);
         vis->Advance(step_size);
-        // ChQuaternion<> qW1= feda.GetVehicle().GetWheelRot(1);
-        // ChQuaternion<> qW0= feda.GetVehicle().GetWheelRot(0);
-        // ChQuaternion<> qV= feda.GetVehicle().GetRot();
-        // std::cout<<"Wheel0|"<<(qW0.Q_to_NasaAngles().z()*180/CH_PI) - (qV.Q_to_NasaAngles().z()*180/CH_PI)
-        //     <<"\t|Wheel1|"<<(qW1.Q_to_NasaAngles().z()*180/CH_PI) -
-        //     (qV.Q_to_NasaAngles().z()*180/CH_PI)<<std::endl;
 
         auto susp0 = std::static_pointer_cast<ChDoubleWishbone>(feda.GetVehicle().GetSuspension(0));
         auto susp1 = std::static_pointer_cast<ChDoubleWishbone>(feda.GetVehicle().GetSuspension(1));

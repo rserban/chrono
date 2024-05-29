@@ -14,8 +14,8 @@
 
 #include "chrono/fea/ChBuilderBeam.h"
 #include "chrono/fea/ChElementCableANCF.h"
-#include "chrono/fea/ChLinkDirFrame.h"
-#include "chrono/fea/ChLinkPointFrame.h"
+#include "chrono/fea/ChLinkNodeSlopeFrame.h"
+#include "chrono/fea/ChLinkNodeFrame.h"
 #include "chrono/fea/ChMesh.h"
 #include "chrono/assets/ChVisualShapeFEA.h"
 
@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
     section->SetDensity(1);
     section->SetYoungModulus(1e4);
     section->SetArea(1);
-    section->SetI(1e-20);
+    section->SetInertia(1e-20);
 
     auto new_node_0 = chrono_types::make_shared<chrono::fea::ChNodeFEAxyzD>(chrono::ChVector3d(0, 0, 0));
     auto new_node_1 = chrono_types::make_shared<chrono::fea::ChNodeFEAxyzD>(chrono::ChVector3d(-1, 0, 0));

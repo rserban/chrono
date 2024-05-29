@@ -102,7 +102,7 @@ class ShockForce : public ChLinkTSDA::ForceFunctor {
 
 class ShockODE : public ChLinkTSDA::ODE {
   public:
-    ShockODE(bool use_tables) : m_use_damper_tables(use_tables) {
+    ShockODE(bool tables) : m_use_damper_tables(tables) {
         // Setup damper tables for high frequency signals
         m_hf_damper_table.AddPoint(-5, -11936.925);
         m_hf_damper_table.AddPoint(-3, -11368.5);
@@ -311,7 +311,7 @@ int main(int argc, char* argv[]) {
     spring->RegisterForceFunctor(force);
     spring->RegisterODE(&rhs);
     system.AddLink(spring);
-    auto spring_shape = chrono_types::make_shared<ChSegmentShape>();
+    auto spring_shape = chrono_types::make_shared<ChVisualShapeSegment>();
     spring_shape->SetColor(ChColor(0.5f, 0.5f, 0.5f));
     spring->AddVisualShape(spring_shape);
 
@@ -333,7 +333,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     std::string logfile = out_dir + "/log.dat";
-    ChStreamOutAsciiFile log(logfile.c_str());
+    std::ofstream log(logfile);
 
     std::string title("");
 

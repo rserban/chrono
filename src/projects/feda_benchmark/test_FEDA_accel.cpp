@@ -56,7 +56,7 @@ VisualizationType wheel_vis_type = VisualizationType::NONE;
 
 // Type of powertrain model (SHAFTS, SIMPLE_MAP)
 EngineModelType engine_model = EngineModelType::SHAFTS;
-TransmissionModelType transmision_model = TransmissionModelType::SHAFTS;
+TransmissionModelType transmision_model = TransmissionModelType::AUTOMATIC_SHAFTS;
 
 // Drive type (FWD, RWD, or AWD)
 DrivelineTypeWV drive_type = DrivelineTypeWV::AWD;

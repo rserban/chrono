@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
     // Create the M113
     // ---------------
 
-    initRot.QuatFromAngleZ(-CH_PI_2);
+    initRot.SetFromAngleZ(-CH_PI_2);
 
     // Create the vehicle system
     M113 m113;

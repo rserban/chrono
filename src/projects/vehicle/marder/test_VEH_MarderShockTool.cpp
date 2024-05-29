@@ -457,11 +457,8 @@ int main(int argc, char* argv[]) {
         }
 
         marder.GetVehicle().WriteContacts("Marder_contacts.out");
-        double t1, t2, azmin, azmax;
-        accLogger.Estimate_x_range(t1, t2);
-        accLogger.Estimate_y_range(t1, t2, azmin, azmax, 0);
         // std::cout << "Contact speed     = " << contact_speed << " m/s\n";
-        azmax /= 9.81;
+        auto azmax = accLogger.GetMax() / 9.81;
         contact_speed *= MetersPerSecToMph;
         // std::cout << "Seat acceleration = " << azmax << " g\n";
         kurs.close();
@@ -469,9 +466,8 @@ int main(int argc, char* argv[]) {
         if (azmax >= 2.5)
             break;
     }  // iVel
-    double amin, amax;
     double resSpeed = endSpeedInch;
-    resLogger.Estimate_x_range(amin, amax);
+    auto amax = resLogger.GetEnd();
     if (amax >= 2.5) {
         resSpeed = resLogger.GetVal(2.5);
     }

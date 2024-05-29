@@ -415,42 +415,39 @@ int main(int argc, char* argv[]) {
                         ((SCMTerrain*)terrain)->GetMesh()->GetMesh()->GetCoordsColors();
 
                     std::string delim = ",";
-                    utils::ChWriterCSV csv(delim);
-                    csv << idx_vertices.size() << std::endl;
+                    utils::ChWriterCSV csv_pov(delim);
+                    csv_pov << idx_vertices.size() << std::endl;
                     for (int i = 0; i < idx_vertices.size(); i++) {
                         ChVector3d pos = (vertices[idx_vertices[i].x()] + vertices[idx_vertices[i].y()] +
                                           vertices[idx_vertices[i].z()]) /
                                          3.0;
-                        csv << pos << vertices[idx_vertices[i].x()] << vertices[idx_vertices[i].y()]
-                            << vertices[idx_vertices[i].z()] << colors[idx_vertices[i].x()].R
-                            << colors[idx_vertices[i].x()].G << colors[idx_vertices[i].x()].B
-                            << colors[idx_vertices[i].y()].R << colors[idx_vertices[i].y()].G
-                            << colors[idx_vertices[i].y()].B << colors[idx_vertices[i].z()].R
-                            << colors[idx_vertices[i].z()].G << colors[idx_vertices[i].z()].B << std::endl;
+                        csv_pov << pos << vertices[idx_vertices[i].x()] << vertices[idx_vertices[i].y()]
+                                << vertices[idx_vertices[i].z()] << colors[idx_vertices[i].x()].R
+                                << colors[idx_vertices[i].x()].G << colors[idx_vertices[i].x()].B
+                                << colors[idx_vertices[i].y()].R << colors[idx_vertices[i].y()].G
+                                << colors[idx_vertices[i].y()].B << colors[idx_vertices[i].z()].R
+                                << colors[idx_vertices[i].z()].G << colors[idx_vertices[i].z()].B << std::endl;
                     }
 
                     sprintf(filename, "%s/terrain_%05d.dat", pov_dir.c_str(), render_frame + 1);
-                    csv.WriteToFile(filename);
+                    csv_pov.WriteToFile(filename);
                 }
             }
 
             if (state_output) {
+                auto chassis_angles = m113.GetChassisBody()->GetRotMat().GetCardanAnglesXYZ();
                 csv << time << driver_inputs.m_steering << driver_inputs.m_throttle << driver_inputs.m_braking;
                 csv << vehicle.GetSpeed();
                 csv << acc_CG.x() << fwd_acc_CG << acc_CG.y() << lat_acc_CG;
                 csv << acc_driver.x() << fwd_acc_driver << acc_driver.y() << lat_acc_driver;
                 csv << acc_CG.z();  // vertical acceleration
-                csv << vel_CG.x() << vel_CG.y() << vel_CG.z();
-                csv << m113.GetChassis()->GetPos().x() << m113.GetChassis()->GetPos().y()
-                    << m113.GetChassis()->GetPos().z();
-                csv << 180.0 * theta / CH_PI;                                                    // ground angle
-                csv << 180.0 * (theta - m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().x()) / CH_PI;  // vehicle roll
-                csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().y()) / CH_PI;          // vehicle pitch
-                csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().z()) / CH_PI;          // vehicle yaw
-                csv << FrontLeftCornerPos.x() << FrontLeftCornerPos.y() << FrontLeftCornerPos.z();
-                csv << FrontRightCornerPos.x() << FrontRightCornerPos.y() << FrontRightCornerPos.z();
-                csv << RearLeftCornerPos.x() << RearLeftCornerPos.y() << RearLeftCornerPos.z();
-                csv << RearRightCornerPos.x() << RearRightCornerPos.y() << RearRightCornerPos.z();
+                csv << vel_CG;
+                csv << m113.GetChassis()->GetPos();
+                csv << CH_RAD_TO_DEG * theta;                         // ground angle
+                csv << CH_RAD_TO_DEG * (theta - chassis_angles.x());  // vehicle roll
+                csv << CH_RAD_TO_DEG * chassis_angles.y();            // vehicle pitch
+                csv << CH_RAD_TO_DEG * chassis_angles.z();            // vehicle yaw
+                csv << FrontLeftCornerPos << FrontRightCornerPos << RearLeftCornerPos << RearRightCornerPos;
                 csv << std::endl;
             }
 
@@ -536,22 +533,19 @@ int main(int argc, char* argv[]) {
             }
 
             if (state_output) {
+                auto chassis_angles = m113.GetChassisBody()->GetRotMat().GetCardanAnglesXYZ();
                 csv << time << driver_inputs.m_steering << driver_inputs.m_throttle << driver_inputs.m_braking;
                 csv << vehicle.GetSpeed();
                 csv << acc_CG.x() << fwd_acc_CG << acc_CG.y() << lat_acc_CG;
                 csv << acc_driver.x() << fwd_acc_driver << acc_driver.y() << lat_acc_driver;
                 csv << acc_CG.z();  // vertical acceleration
-                csv << vel_CG.x() << vel_CG.y() << vel_CG.z();
-                csv << m113.GetChassisBody()->GetPos().x() << m113.GetChassisBody()->GetPos().y()
-                    << m113.GetChassisBody()->GetPos().z();
-                csv << 180.0 * theta / CH_PI;                                                        // ground angle
-                csv << 180.0 * (theta - m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().x()) / CH_PI;  // vehicle roll
-                csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().y()) / CH_PI;          // vehicle pitch
-                csv << 180.0 * (m113.GetChassisBody()->GetRotMat().Get_A_Rxyz().z()) / CH_PI;          // vehicle yaw
-                csv << FrontLeftCornerPos.x() << FrontLeftCornerPos.y() << FrontLeftCornerPos.z();
-                csv << FrontRightCornerPos.x() << FrontRightCornerPos.y() << FrontRightCornerPos.z();
-                csv << RearLeftCornerPos.x() << RearLeftCornerPos.y() << RearLeftCornerPos.z();
-                csv << RearRightCornerPos.x() << RearRightCornerPos.y() << RearRightCornerPos.z();
+                csv << vel_CG;
+                csv << m113.GetChassis()->GetPos();
+                csv << CH_RAD_TO_DEG * theta;                         // ground angle
+                csv << CH_RAD_TO_DEG * (theta - chassis_angles.x());  // vehicle roll
+                csv << CH_RAD_TO_DEG * chassis_angles.y();            // vehicle pitch
+                csv << CH_RAD_TO_DEG * chassis_angles.z();            // vehicle yaw
+                csv << FrontLeftCornerPos << FrontRightCornerPos << RearLeftCornerPos << RearRightCornerPos;
                 csv << std::endl;
             }
 

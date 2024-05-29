@@ -199,8 +199,7 @@ double CreateParticles(ChSystem* system, double sphRatio) {
 // Utility function to print to console a few important step statistics
 
 static inline void TimingOutput(chrono::ChSystem* mSys,
-                                double drawbarPull,
-                                chrono::ChStreamOutAsciiFile* ofile = NULL) {
+                                double drawbarPull, std::ofstream* ofile = NULL) {
     double TIME = mSys->GetChTime();
     double STEP = mSys->GetTimerStep();
     double BROD = mSys->GetTimerCollisionBroad();
@@ -302,8 +301,7 @@ int main(int argc, char* argv[]) {
     statsFileStream << out_dir << "/M113_MULTICORE_" << r_g << "_" << rho_g << "_" << sphereRatio << "_" << mu_g << "_"
                     << slip << "_" << time_step << "_" << tolerance << ".csv";
     std::cout << statsFileStream.str() << std::endl;
-    ChStreamOutAsciiFile statsStream(statsFileStream.str().c_str());
-    statsStream.SetNumFormat("%16.4e");
+    std::ofstream statsStream(statsFileStream.str());
 
     // --------------
     // Create system.
@@ -530,7 +528,7 @@ int main(int argc, char* argv[]) {
 
     auto lockJoint = chrono_types::make_shared<ChLinkLockLock>();
     lockJoint->SetName("_lockJoint");
-    lockJoint->Initialize(slipRig, ground, ChCoordsys<>(initLoc, QUNIT));
+    lockJoint->Initialize(slipRig, ground, ChFrame<>(initLoc, QUNIT));
     system->AddLink(lockJoint);
 
     double transSpeed = (1.0 - slip) * sprocketRadius * rotSpeed;
@@ -612,7 +610,7 @@ int main(int argc, char* argv[]) {
             std::cout << std::endl << "Release vehicle t = " << time << std::endl;
             m113.GetChassisBody()->SetFixed(false);
             mat_g->SetFriction(mu_g);  // set friction of soil to true value
-            lockJoint->SetMotion_X(motion);
+            lockJoint->SetMotionX(motion);
         }
 
         // Collect output data from modules

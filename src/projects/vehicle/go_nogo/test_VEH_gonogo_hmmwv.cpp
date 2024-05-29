@@ -29,7 +29,6 @@
 #include <algorithm>
 
 #include "chrono/ChConfig.h"
-#include "chrono/core/ChMathematics.h"
 #include "chrono/utils/ChUtilsGeometry.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
@@ -181,7 +180,7 @@ HMMWV_Full* CreateVehicle(ChSystem* system, double vertical_offset);
 GONOGO_Driver* CreateDriver(ChVehicle& vehicle);
 
 void progressbar(unsigned int x, unsigned int n, unsigned int w = 50);
-void TimingOutput(chrono::ChSystem* mSys, chrono::ChStreamOutAsciiFile* ofile = NULL);
+void TimingOutput(chrono::ChSystem* mSys, std::ofstream* ofile = NULL);
 
 // =============================================================================
 

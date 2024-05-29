@@ -126,13 +126,13 @@ MechanismISO::MechanismISO(ChSystem* sys) : m_sys(sys) {
     }
 
     // Connect spindle to ground.
-    auto link = chrono_types::make_shared<ChLinkLockPlanePlane>();
-    link->Initialize(ground, m_spindle, ChCoordsys<>(VNULL, QuatFromAngleX(CH_PI_2)));
+    auto link = chrono_types::make_shared<ChLinkLockPlanar>();
+    link->Initialize(ground, m_spindle, ChFrame<>(VNULL, QuatFromAngleX(CH_PI_2)));
     m_sys->AddLink(link);
 
     // Create a wheel object and associate it with the spindle body.
     m_wheel = chrono_types::make_shared<hmmwv::HMMWV_Wheel>("Wheel");
-    m_wheel->Initialize(m_spindle, LEFT);
+    m_wheel->Initialize(nullptr, m_spindle, LEFT);
     m_wheel->SetVisualizationType(VisualizationType::NONE);
 
     // Create the tire object and associate it with the wheel body.
@@ -291,8 +291,8 @@ MechanismYUP::MechanismYUP(ChSystem* sys) : m_sys(sys) {
     }
 
     // Connect spindle to ground.
-    auto link = chrono_types::make_shared<ChLinkLockPlanePlane>();
-    link->Initialize(ground, m_spindle, ChCoordsys<>(VNULL, QUNIT));
+    auto link = chrono_types::make_shared<ChLinkLockPlanar>();
+    link->Initialize(ground, m_spindle, ChFrame<>(VNULL, QUNIT));
     m_sys->AddLink(link);
 
     // Create the "dummy" spindle body, used to provide wheel state information to the tire in an ISO frame.
@@ -303,7 +303,7 @@ MechanismYUP::MechanismYUP(ChSystem* sys) : m_sys(sys) {
 
     // Create a wheel object and associate it with the "dummy" spindle body.
     m_wheel = chrono_types::make_shared<hmmwv::HMMWV_Wheel>("Wheel");
-    m_wheel->Initialize(m_spindle_dummy, LEFT);
+    m_wheel->Initialize(nullptr, m_spindle_dummy, LEFT);
     m_wheel->SetVisualizationType(VisualizationType::NONE);
 
     // Create the tire object and associate it with the wheel body.

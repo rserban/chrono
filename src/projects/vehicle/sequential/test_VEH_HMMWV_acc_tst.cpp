@@ -47,7 +47,7 @@ using namespace chrono::vehicle::hmmwv;
 
 // Type of powertrain model (SHAFTS, SIMPLE)
 EngineModelType engine_model = EngineModelType::SHAFTS;
-TransmissionModelType transmission_model = TransmissionModelType::SHAFTS;
+TransmissionModelType transmission_model = TransmissionModelType::AUTOMATIC_SHAFTS;
 
 // Drive type (FWD, RWD, or AWD)
 DrivelineTypeWV drive_type = DrivelineTypeWV::AWD;

@@ -120,7 +120,7 @@ class CustomCompositionStrategy : public ChContactMaterialCompositionStrategy {
 // =============================================================================
 // Utility function to print to console a few important step statistics
 
-static inline void TimingOutput(chrono::ChSystem* mSys, chrono::ChStreamOutAsciiFile* ofile = NULL) {
+static inline void TimingOutput(chrono::ChSystem* mSys, std::ofstream* ofile = NULL) {
     double TIME = mSys->GetChTime();
     double STEP = mSys->GetTimerStep();
     double BROD = mSys->GetTimerCollisionBroad();

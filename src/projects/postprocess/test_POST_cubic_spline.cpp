@@ -1,5 +1,7 @@
 #include <vector>
+
 #include "chrono/core/ChCubicSpline.h"
+#include "chrono/utils/ChConstants.h"
 #include "chrono_postprocess/ChGnuPlot.h"
 
 using namespace chrono;

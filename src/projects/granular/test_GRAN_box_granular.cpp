@@ -317,17 +317,12 @@ int main(int argc, char** argv) {
     switch (shape) {
         case utils::MixtureType::SPHERE:
             if (randomized_size) {
-                m1->setDistributionSize(0.75 * radius_g, 0.5 * radius_g, 0.1 * radius_g, radius_g);
+                m1->SetDistributionSize(0.75 * radius_g, 0.5 * radius_g, 0.1 * radius_g, radius_g);
             } else {
                 m1->SetDefaultSize(radius_g);
             }
             v_sep = 2.001 * radius_g;
             h_sep = v_sep;
-            break;
-        case utils::MixtureType::BISPHERE:
-            m1->SetDefaultSize(ChVector3d(radius_g, 0.75 * radius_g, 0));
-            v_sep = 2.001 * radius_g;
-            h_sep = 2.751 * radius_g;
             break;
     }
 

@@ -17,10 +17,10 @@ int main(int argc, char* argv[]) {
     ////system.AddBody(body0);
 
     auto body1 = chrono_types::make_shared< ChBodyEasyMesh>(GetChronoDataFile("models/ob_chess_table.obj"), 1000, true, true);
-    body1->SetFrame_REF_to_abs(ChFrame<>(ChVector3d(-3.0, 0.0, 0.0), QUNIT));
+    body1->SetFrameRefToAbs(ChFrame<>(ChVector3d(-3.0, 0.0, 0.0), QUNIT));
 
     auto body2 = chrono_types::make_shared<ChBodyEasyMesh>(GetChronoDataFile("models/pallet.obj"), 1000, true, true);
-    body2->SetFrame_REF_to_abs(ChFrame<>(ChVector3d(+3.0, 0.0, 0.0), QUNIT));
+    body2->SetFrameRefToAbs(ChFrame<>(ChVector3d(+3.0, 0.0, 0.0), QUNIT));
 
     auto body3 = chrono_types::make_shared<ChBody>();
     body3->SetFixed(true);
