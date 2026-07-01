@@ -46,9 +46,9 @@ ChLinkMotorLinearSpeed::ChLinkMotorLinearSpeed(const ChLinkMotorLinearSpeed& oth
 
 ChLinkMotorLinearSpeed::~ChLinkMotorLinearSpeed() {}
 
-void ChLinkMotorLinearSpeed::Update(double mytime, bool update_assets) {
+void ChLinkMotorLinearSpeed::Update(double time, UpdateFlags update_flags) {
     // Inherit parent class:
-    ChLinkMotorLinear::Update(mytime, update_assets);
+    ChLinkMotorLinear::Update(time, update_flags);
 
     // Add the time-dependent term in residual C as
     //   C = d_error - d_setpoint - d_offset
@@ -59,7 +59,7 @@ void ChLinkMotorLinearSpeed::Update(double mytime, bool update_assets) {
         C(m_actuated_idx) = 0.0;
 }
 
-void ChLinkMotorLinearSpeed::IntLoadConstraint_Ct(const unsigned int off_L, ChVectorDynamic<>& Qc, const double c) {
+void ChLinkMotorLinearSpeed::IntLoadConstraint_Ct(const unsigned int off_L, ChVectorDynamic<>& Qc, const double c, const double c_vel) {
     double mCt = -m_func->GetVal(this->GetChTime());
     if (mask.GetConstraint(m_actuated_idx).IsActive()) {
         Qc(off_L + m_actuated_idx) += c * mCt;
@@ -94,12 +94,12 @@ void ChLinkMotorLinearSpeed::IntStateScatter(const unsigned int off_x,  // offse
                                              const unsigned int off_v,  // offset in v state vector
                                              const ChStateDelta& v,     // state vector, speed part
                                              const double T,            // time
-                                             bool full_update           // perform complete update
+                                             UpdateFlags update_flags    // perform complete update?
 ) {
     // aux = x(off_x);
     aux_dt = v(off_v);
 
-    Update(T, full_update);
+    Update(T, update_flags);
 }
 
 void ChLinkMotorLinearSpeed::IntStateGatherAcceleration(const unsigned int off_a, ChStateDelta& a) {

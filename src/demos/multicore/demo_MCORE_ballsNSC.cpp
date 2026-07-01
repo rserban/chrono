@@ -18,10 +18,6 @@
 // in a fixed container.
 //
 // The global reference frame has Z up.
-//
-// If available, OpenGL is used for run-time rendering. Otherwise, the
-// simulation is carried out for a pre-defined duration and output files are
-// generated for post-processing with POV-Ray.
 // =============================================================================
 
 #include <cstdio>
@@ -32,10 +28,15 @@
 
 #include "chrono/ChConfig.h"
 #include "chrono/utils/ChUtilsCreators.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
-#ifdef CHRONO_OPENGL
-    #include "chrono_opengl/ChVisualSystemOpenGL.h"
+#include "chrono/assets/ChVisualSystem.h"
+#ifdef CHRONO_VSG
+    #include "chrono_vsg/ChVisualSystemVSG.h"
+#endif
+
+#ifdef CHRONO_POSTPROCESS
+    #include "chrono_postprocess/ChGnuPlot.h"
 #endif
 
 using namespace chrono;
@@ -153,40 +154,79 @@ int main(int argc, char* argv[]) {
     auto container = AddContainer(&sys);
     AddFallingBalls(&sys);
 
+#ifdef CHRONO_VSG
+    // Create run-time visualization
+    // -----------------------------
+
+    auto vis = chrono_types::make_shared<vsg3d::ChVisualSystemVSG>();
+    vis->AttachSystem(&sys);
+    vis->SetWindowTitle("Balls NSC");
+    vis->SetCameraVertical(CameraVerticalDir::Z);
+    vis->AddCamera(ChVector3d(2, -4, 4), ChVector3d(0, 0, 0));
+    vis->SetWindowSize(1280, 720);
+    vis->SetBackgroundColor(ChColor(0.8f, 0.85f, 0.9f));
+    vis->EnableSkyTexture(SkyMode::BOX);
+    vis->SetCameraAngleDeg(40.0);
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->EnableShadows();
+    vis->Initialize();
+#else
+    double time_end = 10;
+#endif
+
+    // Set output
+    // ----------
+
+    const std::string out_dir = GetChronoOutputPath() + "MCORE_BALLS_NSC";
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return 1;
+    }
+
+    std::string out_file = out_dir + "/force.txt";
+
     // Perform the simulation
     // ----------------------
 
-#ifdef CHRONO_OPENGL
-    opengl::ChVisualSystemOpenGL vis;
-    vis.AttachSystem(&sys);
-    vis.SetWindowTitle("Balls NSC");
-    vis.SetWindowSize(1280, 720);
-    vis.SetRenderMode(opengl::WIREFRAME);
-    vis.Initialize();
-    vis.AddCamera(ChVector3d(0, -6, 0), ChVector3d(0, 0, 0));
-    vis.SetCameraVertical(CameraVerticalDir::Z);
+    double time = 0;
+    double time_report = 2.5;
+    ChWriterCSV csv(" ");
 
     while (true) {
-        if (vis.Run()) {
-            sys.DoStepDynamics(time_step);
-            vis.Render();
-            ////  sys.CalculateContactForces();
-            ////  real3 frc = sys.GetBodyContactForce(container);
-            ////  std::cout << frc.x << "  " << frc.y << "  " << frc.z << std::endl;
-        } else {
+#ifdef CHRONO_VSG
+        if (!vis->Run())
             break;
-        }
-    }
+        vis->Render();
 #else
-    // Run simulation for specified time
-    double time_end = 2;
-    int num_steps = (int)std::ceil(time_end / time_step);
-    double time = 0;
+        if (time > time_end)
+            break;
+#endif
 
-    for (int i = 0; i < num_steps; i++) {
         sys.DoStepDynamics(time_step);
         time += time_step;
+
+        sys.CalculateContactForces();
+        real3 frc = sys.GetBodyContactForce(container);
+        csv << time << frc.x << frc.y << frc.z << std::endl;
+
+        if (time >= time_report && time < time_report + time_step)
+            std::cout << "Time = " << time << "  Vertical reaction force = " << frc.z << std::endl;
     }
+
+    csv.WriteToFile(out_file);
+
+#ifdef CHRONO_POSTPROCESS
+    // Plot results
+    // ------------
+
+    postprocess::ChGnuPlot gplot(out_dir + "/force.gpl");
+    gplot.SetGrid();
+    std::string speed_title = "Container reaction force";
+    gplot.SetTitle(speed_title);
+    gplot.SetLabelX("time (s)");
+    gplot.SetLabelY("force (N)");
+    gplot.Plot(out_file, 1, 4, "", " with lines lt -1 lc rgb'#00AAEE' ");
 #endif
 
     return 0;

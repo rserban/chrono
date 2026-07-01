@@ -14,8 +14,6 @@
 //
 // Main driver function for a tracked vehicle specified through JSON files.
 //
-// If using the Irrlicht interface, driver inputs are obtained from the keyboard.
-//
 // The vehicle reference frame has Z up, X towards the front of the vehicle, and
 // Y pointing to the left.
 //
@@ -23,22 +21,21 @@
 
 #include <vector>
 
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 
 #include "chrono_vehicle/driver/ChDataDriver.h"
-#include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
+#include "chrono_vehicle/driver/ChInteractiveDriver.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 #include "chrono_vehicle/utils/ChVehiclePath.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 #include "chrono_vehicle/tracked_vehicle/track_shoe/ChTrackShoeDoublePin.h"
 #include "chrono_vehicle/tracked_vehicle/vehicle/TrackedVehicle.h"
-#include "chrono_vehicle/tracked_vehicle/ChTrackedVehicleVisualSystemIrrlicht.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
+#include "chrono_vehicle/tracked_vehicle/ChTrackedVehicleVisualSystemVSG.h"
 
 #include "demos/SetChronoSolver.h"
 
@@ -83,7 +80,7 @@ class M113_SinglePin : public Vehicle_Model {
         ////return "M113/powertrain/M113_AutomaticTransmissionShafts.json";
     }
     virtual ChVector3d CameraPoint() const override { return ChVector3d(0, 0, 0); }
-    virtual double CameraDistance() const override { return 6.0; }
+    virtual double CameraDistance() const override { return 10.0; }
 };
 
 class M113_DoublePin : public Vehicle_Model {
@@ -103,7 +100,7 @@ class M113_DoublePin : public Vehicle_Model {
         ////return "M113/powertrain/M113_AutomaticTransmissionShafts.json";
     }
     virtual ChVector3d CameraPoint() const override { return ChVector3d(0, 0, 0); }
-    virtual double CameraDistance() const override { return 6.0; }
+    virtual double CameraDistance() const override { return 10.0; }
 };
 
 class M113_RS_SinglePin : public Vehicle_Model {
@@ -123,7 +120,7 @@ class M113_RS_SinglePin : public Vehicle_Model {
         ////return "M113_RS/powertrain/M113_AutomaticTransmissionShafts.json";
     }
     virtual ChVector3d CameraPoint() const override { return ChVector3d(4, 0, 0); }
-    virtual double CameraDistance() const override { return 6.0; }
+    virtual double CameraDistance() const override { return 10.0; }
 };
 
 class Marder_SinglePin : public Vehicle_Model {
@@ -139,7 +136,7 @@ class Marder_SinglePin : public Vehicle_Model {
         return "Marder/powertrain/Marder_AutomaticTransmissionSimpleMap.json";
     }
     virtual ChVector3d CameraPoint() const override { return ChVector3d(0, 0, 0); }
-    virtual double CameraDistance() const override { return 8.0; }
+    virtual double CameraDistance() const override { return 10.0; }
 };
 
 // =============================================================================
@@ -166,7 +163,7 @@ ChQuaternion<> initRot(1, 0, 0, 0);
 
 // Specification of vehicle inputs
 enum class DriverMode {
-    KEYBOARD,  // interactive (Irrlicht) driver
+    KEYBOARD,  // interactive driver
     DATAFILE,  // inputs from data file
     PATH       // drives in a straight line
 };
@@ -261,7 +258,7 @@ int main(int argc, char* argv[]) {
 
     // Create the vehicle system
     cout << "VEHICLE: " << vehicle_model.ModelName() << endl;
-    TrackedVehicle vehicle(vehicle::GetDataFile(vehicle_model.VehicleJSON()), contact_method);
+    TrackedVehicle vehicle(GetVehicleDataFile(vehicle_model.VehicleJSON()), contact_method);
 
     // Change collision shape for road wheels and idlers (true: cylinder; false: cylshell)
     ////vehicle.GetTrackAssembly(LEFT)->SetWheelCollisionType(false, false, false);
@@ -298,8 +295,8 @@ int main(int argc, char* argv[]) {
     ////vehicle.SetRenderContactForces(true, 1e-4);
 
     // Create and initialize the powertrain system
-    auto engine = ReadEngineJSON(vehicle::GetDataFile(vehicle_model.EngineJSON()));
-    auto transmission = ReadTransmissionJSON(vehicle::GetDataFile(vehicle_model.TransmissionJSON()));
+    auto engine = ReadEngineJSON(GetVehicleDataFile(vehicle_model.EngineJSON()));
+    auto transmission = ReadTransmissionJSON(GetVehicleDataFile(vehicle_model.TransmissionJSON()));
     auto powertrain = chrono_types::make_shared<ChPowertrainAssembly>(engine, transmission);
     vehicle.InitializePowertrain(powertrain);
 
@@ -318,7 +315,7 @@ int main(int argc, char* argv[]) {
     vehicle.GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // Create the terrain
-    RigidTerrain terrain(vehicle.GetSystem(), vehicle::GetDataFile(rigidterrain_file));
+    RigidTerrain terrain(vehicle.GetSystem(), GetVehicleDataFile(rigidterrain_file));
     terrain.Initialize();
 
     // Compatibility checks
@@ -329,32 +326,26 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Create the run-time visualization system
-    auto vis = chrono_types::make_shared<ChTrackedVehicleVisualSystemIrrlicht>();
-    vis->SetWindowTitle("JSON Tracked Vehicle Demo");
-    vis->SetChaseCamera(vehicle_model.CameraPoint(), vehicle_model.CameraDistance(), 0.5);
-    vis->Initialize();
-    vis->AddLightDirectional();
-    vis->AddSkyBox();
-    vis->AddLogo();
-
+    // ------------------------
     // Create the driver system
+    // ------------------------
+
     std::shared_ptr<ChDriver> driver;
     switch (driver_mode) {
         case DriverMode::KEYBOARD: {
-            auto irr_driver = chrono_types::make_shared<ChInteractiveDriverIRR>(*vis);
+            auto vsg_driver = chrono_types::make_shared<ChInteractiveDriver>(vehicle);
             double steering_time = 0.5;  // time to go from 0 to +1 (or from 0 to -1)
             double throttle_time = 1.0;  // time to go from 0 to +1
             double braking_time = 0.3;   // time to go from 0 to +1
-            irr_driver->SetSteeringDelta(render_step_size / steering_time);
-            irr_driver->SetThrottleDelta(render_step_size / throttle_time);
-            irr_driver->SetBrakingDelta(render_step_size / braking_time);
-            irr_driver->SetGains(2, 5, 5);
-            driver = irr_driver;
+            vsg_driver->SetSteeringDelta(render_step_size / steering_time);
+            vsg_driver->SetThrottleDelta(render_step_size / throttle_time);
+            vsg_driver->SetBrakingDelta(render_step_size / braking_time);
+            vsg_driver->SetGains(2, 5, 5);
+            driver = vsg_driver;
             break;
         }
         case DriverMode::DATAFILE: {
-            auto data_driver = chrono_types::make_shared<ChDataDriver>(vehicle, vehicle::GetDataFile(driver_file));
+            auto data_driver = chrono_types::make_shared<ChDataDriver>(vehicle, GetVehicleDataFile(driver_file));
             driver = data_driver;
             break;
         }
@@ -366,12 +357,28 @@ int main(int argc, char* argv[]) {
             path_driver->GetSteeringController().SetGains(0.5, 0, 0);
             path_driver->GetSpeedController().SetGains(0.4, 0, 0);
             driver = path_driver;
+            break;
         }
+        default:
+            break;
     }
 
     driver->Initialize();
 
+    // -----------------------------------------
+    // Create the vehicle run-time visualization
+    // -----------------------------------------
+
+    std::string title = "JSON tracked vehicle demo - " + vehicle_model.ModelName();
+    auto vis = chrono_types::make_shared<ChTrackedVehicleVisualSystemVSG>();
+    vis->SetWindowTitle(title);
+    vis->SetWindowSize(1280, 800);
+    vis->SetWindowPosition(100, 100);
+    vis->EnableSkyTexture(SkyMode::DOME);
+    vis->SetChaseCamera(vehicle_model.CameraPoint(), vehicle_model.CameraDistance(), 0.5);
     vis->AttachVehicle(&vehicle);
+    vis->AttachDriver(driver.get());
+    vis->Initialize();
 
     // Solver and integrator settings
     double step_size = 1e-3;
@@ -397,6 +404,9 @@ int main(int argc, char* argv[]) {
     // ---------------
     // Simulation loop
     // ---------------
+
+    std::cout << "\n============ Vehicle subsystems ============" << std::endl;
+    vehicle.LogSubsystemTypes();
 
     // Number of simulation steps between two 3D view render frames
     int render_steps = (int)std::ceil(render_step_size / step_size);

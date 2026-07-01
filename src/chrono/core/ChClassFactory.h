@@ -479,7 +479,7 @@ class ChClassRegistration : public ChClassRegistrationBase {
     }
     template <class Tc = t>
     typename enable_if<!ChDetect_ArchiveIn<Tc>::value, void>::type _archive_in(ChArchiveIn& archive_in, void* ptr) {
-        // do nothing, ArchiveIn does not esist for this type
+        // do nothing, ArchiveIn does not exists for this type
     }
 
     template <class Tc = t>
@@ -488,7 +488,7 @@ class ChClassRegistration : public ChClassRegistrationBase {
     }
     template <class Tc = t>
     typename enable_if<!ChDetect_ArchiveOut<Tc>::value, void>::type _archive_out(ChArchiveOut& archive_out, void* ptr) {
-        // do nothing, ArchiveIn does not esist for this type
+        // do nothing, ArchiveIn does not exists for this type
     }
 
     template <class Tc = t>
@@ -501,7 +501,7 @@ class ChClassRegistration : public ChClassRegistrationBase {
     typename enable_if<!ChDetect_ArchiveOutConstructor<Tc>::value, void>::type _archive_out_constructor(
         ChArchiveOut& archive_out,
         void* ptr) {
-        // do nothing, ArchiveOutConstructor does not esist for this type
+        // do nothing, ArchiveOutConstructor does not exists for this type
     }
 
     template <class Tc = t>
@@ -561,11 +561,11 @@ class ChClassRegistration : public ChClassRegistrationBase {
 /// derived class have different values: Derived d; Derived* d_ptr = &d; Base*    b_ptr = &d; Usually d_ptr == b_ptr,
 /// but if Derived is defined with multiple inheritance, then d_ptr != b_ptr This is usually not a problem, since the
 /// conversion between pointers of different types is usually done automatically; However during serialization the
-/// type-erasure impedes this automatic conversion. This can have distruptive consequences: Suppose that (as during
+/// type-erasure impedes this automatic conversion. This can have disruptive consequences: Suppose that (as during
 /// serialization):
 /// - an object of type Derived is created: `Derived d;`
-/// - a pointer to such object is type-erased to void* (e.g. to be stored in a common container): `void* v_ptr =
-/// getVoidPointer<Derived>(&d);`
+/// - a pointer to such object is type-erased to void* (e.g. to be stored in a common container): 
+/// `void* v_ptr = getVoidPointer<Derived>(&d);`
 /// - another object might contain a pointer *of upper class type* (e.g. `Base* b_ptr`) that needs to be bound to the
 /// object above;
 /// - however, assigning the type-erased pointer (e.g. `b_ptr = v_ptr) will not trigger any automatic conversion, thus
@@ -579,8 +579,9 @@ class ChClassRegistration : public ChClassRegistrationBase {
 ///     `CH_UPCASTING(DerivedType, BaseType2)`
 /// Whenever a conversion is needed, it suffices to call `ConversionMap::Convert(std::string("source_classname"),
 /// std::string("destination_classname"), <void* to object>)` or
-/// `ConversionMap::Convert(std::type_index(typeid(SourceClassType)), std::type_index(typeid(DestinationClassType)),
-/// <void* to object>)` e.g. \code{.cpp} CH_UPCASTING(ChBody, ChBodyFrame) CH_UPCASTING(ChBody, ChPhysicsItem)
+/// `ConversionMap::Convert(std::type_index(typeid(SourceClassType)), std::type_index(typeid(DestinationClassType)), <void* to object>)` e.g. 
+/// \code{.cpp}
+/// CH_UPCASTING(ChBody, ChBodyFrame) CH_UPCASTING(ChBody, ChPhysicsItem)
 /// CH_UPCASTING(ChBody, etc....)
 /// \endcode
 /// then, assuming that:
@@ -591,10 +592,12 @@ class ChClassRegistration : public ChClassRegistrationBase {
 /// then
 /// \code{.cpp}
 /// void* bf_ptr ConversionMap::Convert("ChBody", "ChBodyFrame", vptr);
-/// ChBodyFrame* bframe_ptr = bf_ptr; // CORRECT
+/// ChBodyFrame* bframe_ptr = bf_ptr;
 /// \endcode
 /// in fact, this would have been wrong:
-///     `ChBodyFrame* bframe_ptr = vptr; // WRONG`
+/// \code{.cpp}
+/// ChBodyFrame* bframe_ptr = vptr;
+/// \endcode
 /// Refer to \ref ConversionMap for further details.
 #define CH_UPCASTING(FROM, TO)                                                                                         \
     namespace class_factory {                                                                                          \

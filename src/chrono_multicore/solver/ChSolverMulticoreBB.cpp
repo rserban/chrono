@@ -12,6 +12,8 @@
 // Authors: Hammad Mazhar
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono_multicore/solver/ChSolverMulticore.h"
 
 using namespace chrono;
@@ -19,32 +21,27 @@ using namespace chrono;
 ChSolverMulticoreBB::ChSolverMulticoreBB() : ChSolverMulticore() {}
 
 void ChSolverMulticoreBB::UpdateR() {
-    const SubMatrixType& D_n_T = _DNT_;
-    const DynamicVector<real>& M_invk = data_manager->host_data.M_invk;
-    const DynamicVector<real>& b = data_manager->host_data.b;
-    DynamicVector<real>& R = data_manager->host_data.R;
-    DynamicVector<real>& s = data_manager->host_data.s;
+    const SparseMatrixType& D_n_T = _DNT_;
+    const VectorType& M_invk = data_manager->host_data.M_invk;
+    const VectorType& b = data_manager->host_data.b;
+    VectorType& R = data_manager->host_data.R;
+    VectorType& s = data_manager->host_data.s;
 
     uint num_contacts = data_manager->cd_data->num_rigid_contacts;
 
     s.resize(num_contacts);
-    reset(s);
+    s.setZero();
 
     rigid_rigid->Build_s();
 
-    ConstSubVectorType b_n = blaze::subvector(b, 0, num_contacts);
-    SubVectorType R_n = blaze::subvector(R, 0, num_contacts);
-    SubVectorType s_n = blaze::subvector(s, 0, num_contacts);
+    ConstSubVectorType b_n = b.segment(0, num_contacts);
+    SubVectorType R_n = R.segment(0, num_contacts);
+    SubVectorType s_n = s.segment(0, num_contacts);
 
     R_n = -b_n - D_n_T * M_invk + s_n;
 }
 
-uint ChSolverMulticoreBB::Solve(ChSchurProduct& SchurProduct,
-                                ChProjectConstraints& Project,
-                                const uint max_iter,
-                                const uint size,
-                                const DynamicVector<real>& r,
-                                DynamicVector<real>& gamma) {
+uint ChSolverMulticoreBB::Solve(ChSchurProduct& SchurProduct, ChProjectConstraints& Project, const uint max_iter, const uint size, const VectorType& r, VectorType& gamma) {
     if (size == 0) {
         return 0;
     }
@@ -65,15 +62,15 @@ uint ChSolverMulticoreBB::Solve(ChSchurProduct& SchurProduct,
     mdir.resize(size);
     ml_p.resize(size);
 
-    temp = 0;
-    ml = 0;
-    mg = 0;
-    mg_p = 0;
-    ml_candidate = 0;
-    ms = 0;
-    my = 0;
-    mdir = 0;
-    ml_p = 0;
+    temp.setZero();
+    ml.setZero();
+    mg.setZero();
+    mg_p.setZero();
+    ml_candidate.setZero();
+    ms.setZero();
+    my.setZero();
+    mdir.setZero();
+    ml_p.setZero();
 
     // Tuning of the spectral gradient search
     real a_min = 1e-13;
@@ -95,12 +92,11 @@ uint ChSolverMulticoreBB::Solve(ChSchurProduct& SchurProduct,
             alpha = 0.0001;
         }
     } else if (data_manager->settings.solver.use_power_iteration) {
-        data_manager->measures.solver.lambda_max =
-            LargestEigenValue(SchurProduct, temp, data_manager->measures.solver.lambda_max);
+        data_manager->measures.solver.lambda_max = LargestEigenValue(SchurProduct, temp, data_manager->measures.solver.lambda_max);
         alpha = 1.95 / data_manager->measures.solver.lambda_max;
     }
     real gmma = 1e-4;
-    real gdiff = 1.0 / pow(size, 2.0);
+    real gdiff = 1.0 / std::pow(size, 2.0);
     real neg_BB1_fallback = 0.11;
     real neg_BB2_fallback = 0.12;
     ml = gamma;
@@ -123,7 +119,7 @@ uint ChSolverMulticoreBB::Solve(ChSchurProduct& SchurProduct,
         Project(temp.data());
         mdir = temp - ml;
 
-        real dTg = (mdir, mg);
+        real dTg = mdir.dot(mg);
         real lambda = 1.0;
         int n_backtracks = 0;
         bool armijo_repeat = true;
@@ -134,12 +130,12 @@ uint ChSolverMulticoreBB::Solve(ChSchurProduct& SchurProduct,
 
             SchurProduct(ml_p, temp);
             mg_p = temp - r;
-            mf_p = (ml_p, 0.5 * temp - r);
+            mf_p = 0.5 * ml_p.dot(temp) - ml_p.dot(r);
 
             f_hist.push_back(mf_p);
 
             real max_compare = 10e29;
-            for (int h = 1; h <= Min(current_iteration, n_armijo); h++) {
+            for (int h = 1; h <= std::min(current_iteration, n_armijo); h++) {
                 real compare = f_hist[current_iteration - h] + gmma * lambda * dTg;
                 if (compare > max_compare)
                     max_compare = compare;
@@ -149,7 +145,7 @@ uint ChSolverMulticoreBB::Solve(ChSchurProduct& SchurProduct,
                 if (current_iteration > 0)
                     mf = f_hist[current_iteration - 1];
                 real lambdanew = -lambda * lambda * dTg / (2 * (mf_p - mf - lambda * dTg));
-                lambda = Max(sigma_min * lambda, Min(sigma_max * lambda, lambdanew));
+                lambda = std::max(sigma_min * lambda, std::min(sigma_max * lambda, lambdanew));
                 printf("Repeat Armijo, new lambda = %f \n", lambda);
             } else {
                 armijo_repeat = false;
@@ -166,27 +162,27 @@ uint ChSolverMulticoreBB::Solve(ChSchurProduct& SchurProduct,
         mg = mg_p;
 
         if (current_iteration % 2 == 0) {
-            real sDs = (ms, ms);
-            real sy = (ms, my);
+            real sDs = ms.dot(ms);
+            real sy = ms.dot(my);
             if (sy <= 0) {
                 alpha = neg_BB1_fallback;
             } else {
-                alpha = Min(a_max, Max(a_min, sDs / sy));
+                alpha = std::min(a_max, std::max(a_min, sDs / sy));
             }
         } else {
-            real sy = (ms, my);
-            real yDy = (my, my);
+            real sy = ms.dot(my);
+            real yDy = my.dot(my);
             if (sy <= 0) {
                 alpha = neg_BB2_fallback;
             } else {
-                alpha = Min(a_max, Max(a_min, sy / yDy));
+                alpha = std::min(a_max, std::max(a_min, sy / yDy));
             }
         }
         temp = ml - gdiff * mg;
         Project(temp.data());
         temp = (ml - temp) / (-gdiff);
 
-        real g_proj_norm = Sqrt((temp, temp));
+        real g_proj_norm = temp.norm();
         if (g_proj_norm < lastgoodres) {
             lastgoodres = g_proj_norm;
             objective_value = mf_p;

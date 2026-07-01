@@ -37,10 +37,12 @@ ChLinkUniversal::ChLinkUniversal(const ChLinkUniversal& other) : ChLink(other) {
     m_frame1 = other.m_frame1;
     m_frame2 = other.m_frame2;
 
-    m_cnstr_x.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_y.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_z.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_dot.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+     if (other.m_body1 && other.m_body2) {
+        m_cnstr_x.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_y.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_z.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_dot.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+    }
 
     m_multipliers[0] = other.m_multipliers[0];
     m_multipliers[1] = other.m_multipliers[1];
@@ -112,9 +114,9 @@ void ChLinkUniversal::Initialize(std::shared_ptr<ChBody> body1,
 // -----------------------------------------------------------------------------
 // Link update function
 // -----------------------------------------------------------------------------
-void ChLinkUniversal::Update(double time, bool update_assets) {
+void ChLinkUniversal::Update(double time, UpdateFlags update_flags) {
     // Inherit time changes of parent class
-    ChLink::UpdateTime(time);
+    ChLink::Update(time, update_flags);
 
     // Express the joint frames in absolute frame
     ChFrame<> frame1_abs = m_frame1 >> *m_body1;
@@ -267,6 +269,7 @@ void ChLinkUniversal::IntLoadResidual_CqL(const unsigned int off_L,    ///< offs
 void ChLinkUniversal::IntLoadConstraint_C(const unsigned int off_L,  ///< offset in Qc residual
                                           ChVectorDynamic<>& Qc,     ///< result: the Qc residual, Qc += c*C
                                           const double c,            ///< a scaling factor
+                                          const double c_vel,        ///< the scaling factor if the constraint is at speed level
                                           bool do_clamp,             ///< apply clamping to c*C?
                                           double recovery_clamp      ///< value for min/max clamping of c*C
 ) {

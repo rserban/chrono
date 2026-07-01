@@ -41,7 +41,7 @@ void ChLoaderUVWdistributed::ComputeQ(ChVectorDynamic<>* state_x, ChVectorDynami
             // Compute mNF= N(u,v,w)'*F
             loadable->ComputeNF(Ulroots[i], Vlroots[i], Wlroots[i], mNF, detJ, mF, state_x, state_w);
             // Compute Q+= mNF * detJ * wi * 1/6
-            mNF *= (detJ * weight[i] * (1. / 6.));  // (the 1/6 coefficient is not in the table);
+            mNF *= (detJ * weight[i] * CH_1_6);  // (the 1/6 coefficient is not in the table);
             Q += mNF;
         }
     } else if (loadable->IsTrianglePrismIntegrationNeeded()) {
@@ -125,20 +125,5 @@ void ChLoaderUVWatomic::SetApplication(double u, double v, double w) {
     Pw = w;
 }
 
-//--------------------------------------------------------------------------------
-
-void ChLoaderGravity::ComputeF(double U,
-                               double V,
-                               double W,
-                               ChVectorDynamic<>& F,
-                               ChVectorDynamic<>* state_x,
-                               ChVectorDynamic<>* state_w) {
-    if ((F.size() == 3) || (F.size() == 6) || (F.size() == 9)) {
-        // only for force or wrench fields
-        F(0) = G_acc.x() * loadable->GetDensity();
-        F(1) = G_acc.y() * loadable->GetDensity();
-        F(2) = G_acc.z() * loadable->GetDensity();
-    }
-}
 
 }  // end namespace chrono

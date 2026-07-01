@@ -14,8 +14,6 @@
 //
 // Main driver function for a generic vehicle, using rigid tire-terrain contact.
 //
-// If using the Irrlicht interface, driver inputs are obtained from the keyboard.
-//
 // The vehicle reference frame has Z up, X towards the front of the vehicle, and
 // Y pointing to the left.
 //
@@ -23,27 +21,16 @@
 
 #include <vector>
 
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
+#include "chrono_vehicle/driver/ChInteractiveDriver.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 
 #include "chrono_models/vehicle/generic/Generic_Vehicle.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-
-#ifdef CHRONO_IRRLICHT
-    #include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
-    #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
-using namespace chrono::irrlicht;
-#endif
-
-#ifdef CHRONO_VSG
-    #include "chrono_vehicle/driver/ChInteractiveDriverVSG.h"
-    #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
-using namespace chrono::vsg3d;
-#endif
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
 
 using namespace chrono;
 using namespace chrono::vehicle;
@@ -62,9 +49,6 @@ TransmissionModelType transmission_type = TransmissionModelType::AUTOMATIC_SHAFT
 TireModelType tire_type = TireModelType::PAC02;
 
 // =============================================================================
-
-// Run-time visualization system (IRRLICHT or VSG)
-ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
 // Initial vehicle position
 ChVector3d initLoc(0, 0, 0.6);
@@ -90,7 +74,7 @@ double render_step_size = 1.0 / 50;  // FPS = 50
 // Time interval between two output frames
 double output_step_size = 1.0 / 1;  // once a second
 
-// Point on chassis tracked by the camera (Irrlicht only)
+// Point on chassis tracked by the camera
 ChVector3d trackPoint(0.0, 0.0, 1.75);
 
 // End time (used only if no run-time visualization)
@@ -146,84 +130,38 @@ int main(int argc, char* argv[]) {
     patch_mat->SetRestitution(0.01f);
     auto patch = terrain.AddPatch(patch_mat, CSYSNORM, terrainLength, terrainWidth);
     patch->SetColor(ChColor(0.5f, 0.8f, 0.5f));
-    patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
+    patch->SetTexture(GetVehicleDataFile("terrain/textures/tile4.jpg"), 200, 200);
     terrain.Initialize();
-
-    // ----------------------------------------------------------------------
-    // Create the run-time visualization interface and the interactive driver
-    // ----------------------------------------------------------------------
-
-#ifndef CHRONO_IRRLICHT
-    if (vis_type == ChVisualSystem::Type::IRRLICHT)
-        vis_type = ChVisualSystem::Type::VSG;
-#endif
-#ifndef CHRONO_VSG
-    if (vis_type == ChVisualSystem::Type::VSG)
-        vis_type = ChVisualSystem::Type::IRRLICHT;
-#endif
 
     // Set the time response for steering and throttle keyboard inputs.
     double steering_time = 1.0;  // time to go from 0 to +1 (or from 0 to -1)
     double throttle_time = 1.0;  // time to go from 0 to +1
     double braking_time = 0.3;   // time to go from 0 to +1
 
-    std::shared_ptr<ChVehicleVisualSystem> vis;
-    std::shared_ptr<ChDriver> driver;
-    switch (vis_type) {
-        case ChVisualSystem::Type::IRRLICHT: {
-#ifdef CHRONO_IRRLICHT
-            // Create the vehicle Irrlicht interface
-            auto vis_irr = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
-            vis_irr->SetWindowTitle("Generic Vehicle Demo");
-            vis_irr->SetChaseCamera(trackPoint, 6.0, 0.5);
-            vis_irr->Initialize();
-            vis_irr->AddLightDirectional();
-            vis_irr->AddSkyBox();
-            vis_irr->AddLogo();
-            vis_irr->AttachVehicle(&vehicle);
+    // Create the interactive driver system
+    ChInteractiveDriver driver(vehicle);
+    driver.SetSteeringDelta(render_step_size / steering_time);
+    driver.SetThrottleDelta(render_step_size / throttle_time);
+    driver.SetBrakingDelta(render_step_size / braking_time);
+    driver.Initialize();
 
-            // Create the interactive Irrlicht driver system
-            auto driver_irr = chrono_types::make_shared<ChInteractiveDriverIRR>(*vis_irr);
-            driver_irr->SetSteeringDelta(render_step_size / steering_time);
-            driver_irr->SetThrottleDelta(render_step_size / throttle_time);
-            driver_irr->SetBrakingDelta(render_step_size / braking_time);
-            driver_irr->Initialize();
+    // ----------------------------------------------------------------------
+    // Create the run-time visualization interface and the interactive driver
+    // ----------------------------------------------------------------------
 
-            vis = vis_irr;
-            driver = driver_irr;
-#endif
-            break;
-        }
-        default:
-        case ChVisualSystem::Type::VSG: {
-#ifdef CHRONO_VSG
-            // Create the vehicle VSG interface
-            auto vis_vsg = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
-            vis_vsg->SetWindowTitle("Generic Vehicle Demo");
-            vis_vsg->AttachVehicle(&vehicle);
-            vis_vsg->SetChaseCamera(trackPoint, 8.0, 0.5);
-            vis_vsg->SetWindowSize(ChVector2<int>(1200, 900));
-            vis_vsg->SetWindowPosition(ChVector2<int>(100, 300));
-            vis_vsg->SetUseSkyBox(true);
-            vis_vsg->SetCameraAngleDeg(40);
-            vis_vsg->SetLightIntensity(1.0f);
-            vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
-            vis_vsg->SetShadows(true);
-            vis_vsg->Initialize();
-
-            // Create the interactive VSG driver system
-            auto driver_vsg = chrono_types::make_shared<ChInteractiveDriverVSG>(*vis_vsg);
-            driver_vsg->SetSteeringDelta(render_step_size / steering_time);
-            driver_vsg->SetThrottleDelta(render_step_size / throttle_time);
-            driver_vsg->SetBrakingDelta(render_step_size / braking_time);
-            driver_vsg->Initialize();
-
-            vis = vis_vsg;
-            driver = driver_vsg;
-#endif
-            break;
-        }
-    }
+    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
+    vis->SetWindowTitle("Generic Vehicle Demo");
+    vis->AttachVehicle(&vehicle);
+    vis->AttachDriver(&driver);
+    vis->SetChaseCamera(trackPoint, 8.0, 0.5);
+    vis->SetWindowSize(1280, 800);
+    vis->SetWindowPosition(100, 100);
+    vis->EnableSkyTexture(SkyMode::DOME);
+    vis->SetCameraAngleDeg(40);
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->EnableShadows();
+    vis->Initialize();
 
     // ---------------
     // Simulation loop
@@ -259,18 +197,18 @@ int main(int argc, char* argv[]) {
         }
 
         // Driver inputs
-        DriverInputs driver_inputs = driver->GetInputs();
+        DriverInputs driver_inputs = driver.GetInputs();
 
         // Update modules (process inputs from other modules)
 
-        driver->Synchronize(time);
+        driver.Synchronize(time);
         terrain.Synchronize(time);
         vehicle.Synchronize(time, driver_inputs, terrain);
         if (vis)
             vis->Synchronize(time, driver_inputs);
 
         // Advance simulation for one timestep for all modules
-        driver->Advance(step_size);
+        driver.Advance(step_size);
         terrain.Advance(step_size);
         vehicle.Advance(step_size);
         if (vis)

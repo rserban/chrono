@@ -16,12 +16,12 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChVisualShapeTriangleMesh.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
-#include "chrono_vehicle/tracked_vehicle/track_wheel/SingleTrackWheel.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
+#include <filesystem>
 
-#include "chrono_thirdparty/filesystem/path.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
+#include "chrono_vehicle/tracked_vehicle/track_wheel/SingleTrackWheel.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 
 using namespace rapidjson;
 
@@ -76,11 +76,10 @@ void SingleTrackWheel::CreateContactMaterial(ChContactMethod contact_method) {
 
 void SingleTrackWheel::AddVisualizationAssets(VisualizationType vis) {
     if (vis == VisualizationType::MESH && m_has_mesh) {
-        auto trimesh = ChTriangleMeshConnected::CreateFromWavefrontFile(vehicle::GetDataFile(m_meshFile), true, true);
+        auto trimesh = ChTriangleMeshConnected::CreateFromWavefrontFile(GetVehicleDataFile(m_meshFile), true, true);
         auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh);
-        trimesh_shape->SetName(filesystem::path(m_meshFile).stem());
-        trimesh_shape->SetMutable(false);
+        trimesh_shape->SetName(std::filesystem::path(m_meshFile).stem().string());
         m_wheel->AddVisualShape(trimesh_shape);
     } else {
         ChSingleTrackWheel::AddVisualizationAssets(vis);

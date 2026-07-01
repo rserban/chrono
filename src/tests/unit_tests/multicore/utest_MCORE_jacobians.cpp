@@ -18,16 +18,16 @@
 
 #include "chrono_multicore/constraints/ChConstraintUtils.h"
 #include "chrono_multicore/physics/ChSystemMulticore.h"
-#include "chrono_multicore/solver/ChSystemDescriptorMulticore.h"
 
 #include "chrono/ChConfig.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
 
-#include "unit_testing.h"
+#include "../ut_utils.h"
 
-#ifdef CHRONO_OPENGL
-    #include "chrono_opengl/ChVisualSystemOpenGL.h"
+#ifdef CHRONO_VSG
+    #include "chrono_vsg/ChVisualSystemVSG.h"
+using namespace chrono::vsg3d;
 #endif
 
 // Comment the following line to use multicore collision detection
@@ -161,53 +161,53 @@ void CompareContacts(ChMulticoreDataManager* data_manager,
 
         int off = data_manager->cd_data->num_rigid_contacts;
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.x * 6 + 0), -U.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.x * 6 + 1), -U.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.x * 6 + 2), -U.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.x * 6 + 0), -U.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.x * 6 + 1), -U.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.x * 6 + 2), -U.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.x * 6 + 3), T3.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.x * 6 + 4), T3.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.x * 6 + 5), T3.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.x * 6 + 3), T3.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.x * 6 + 4), T3.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.x * 6 + 5), T3.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.y * 6 + 0), U.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.y * 6 + 1), U.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.y * 6 + 2), U.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.y * 6 + 0), U.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.y * 6 + 1), U.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.y * 6 + 2), U.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.y * 6 + 3), -T6.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.y * 6 + 4), -T6.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(row * 1 + 0, body_id.y * 6 + 5), -T6.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.y * 6 + 3), -T6.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.y * 6 + 4), -T6.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(row * 1 + 0, body_id.y * 6 + 5), -T6.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.x * 6 + 0), -V.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.x * 6 + 1), -V.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.x * 6 + 2), -V.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.x * 6 + 0), -V.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.x * 6 + 1), -V.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.x * 6 + 2), -V.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.x * 6 + 3), T4.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.x * 6 + 4), T4.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.x * 6 + 5), T4.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.x * 6 + 3), T4.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.x * 6 + 4), T4.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.x * 6 + 5), T4.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.x * 6 + 0), -W.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.x * 6 + 1), -W.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.x * 6 + 2), -W.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.x * 6 + 0), -W.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.x * 6 + 1), -W.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.x * 6 + 2), -W.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.x * 6 + 3), T5.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.x * 6 + 4), T5.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.x * 6 + 5), T5.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.x * 6 + 3), T5.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.x * 6 + 4), T5.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.x * 6 + 5), T5.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.y * 6 + 0), V.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.y * 6 + 1), V.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.y * 6 + 2), V.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.y * 6 + 0), V.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.y * 6 + 1), V.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.y * 6 + 2), V.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.y * 6 + 3), -T7.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.y * 6 + 4), -T7.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 0, body_id.y * 6 + 5), -T7.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.y * 6 + 3), -T7.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.y * 6 + 4), -T7.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 0, body_id.y * 6 + 5), -T7.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.y * 6 + 0), W.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.y * 6 + 1), W.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.y * 6 + 2), W.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.y * 6 + 0), W.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.y * 6 + 1), W.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.y * 6 + 2), W.z);
 
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.y * 6 + 3), -T8.x);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.y * 6 + 4), -T8.y);
-        ASSERT_EQ((real)data_manager->host_data.D_T(off + row * 2 + 1, body_id.y * 6 + 5), -T8.z);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.y * 6 + 3), -T8.x);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.y * 6 + 4), -T8.y);
+        ASSERT_EQ((real)data_manager->host_data.D_T.coeff(off + row * 2 + 1, body_id.y * 6 + 5), -T8.z);
     }
 }
 
@@ -234,20 +234,24 @@ TEST(ChronoMulticore, jacobians) {
     sys->DoStepDynamics(time_step);
 
     if (animate) {
-#ifdef CHRONO_OPENGL
-        opengl::ChVisualSystemOpenGL vis;
-        vis.AttachSystem(sys);
-        vis.SetWindowTitle("Jacobians");
-        vis.SetWindowSize(1280, 720);
-        vis.SetRenderMode(opengl::WIREFRAME);
-        vis.Initialize();
-        vis.AddCamera(ChVector3d(6, -6, 1), ChVector3d(0, 0, 0));
-        vis.SetCameraVertical(CameraVerticalDir::Z);
+#ifdef CHRONO_VSG
+        auto vis = chrono_types::make_shared<ChVisualSystemVSG>();
+        vis->AttachSystem(sys);
+        vis->SetWindowTitle("Unit test");
+        vis->SetCameraVertical(CameraVerticalDir::Z);
+        vis->AddCamera(ChVector3d(6, -6, 1), ChVector3d(0, 0, 0));
+        vis->SetWindowSize(1280, 720);
+        vis->SetBackgroundColor(ChColor(0.8f, 0.85f, 0.9f));
+        vis->EnableSkyTexture(SkyMode::BOX);
+        vis->SetCameraAngleDeg(40.0);
+        vis->SetLightIntensity(1.0f);
+        vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+        vis->EnableShadows();
+        vis->Initialize();
 
-        // Loop until reaching the end time...
         while (time < time_end) {
-            if (vis.Run()) {
-                vis.Render();
+            if (vis->Run()) {
+                vis->Render();
             }
             auto pos_rigid = sys->data_manager->host_data.pos_rigid;
             auto rot_rigid = sys->data_manager->host_data.rot_rigid;
@@ -256,7 +260,7 @@ TEST(ChronoMulticore, jacobians) {
             time += time_step;
         }
 #else
-        std::cout << "OpenGL support not available.  Cannot animate mechanism." << std::endl;
+        std::cout << "Run-time visualization not available.  Cannot animate mechanism." << std::endl;
         return;
 #endif
     } else {

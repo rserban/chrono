@@ -10,6 +10,8 @@
 //
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono_irrlicht/ChIrrMeshTools.h"
 
 namespace chrono {
@@ -130,16 +132,16 @@ createEllipticalMesh(f32 radiusH, f32 radiusV, f32 Ylow, f32 Yhigh, f32 offset, 
     // calculate the angle which separates all points in a circle
     f64 r_low, alpha_low, r_high, alpha_high;
     if (disc_high) {
-        r_high = radiusH * sqrt(1 - pow(Yhigh / radiusV, 2));
-        alpha_high = atan((radiusH / radiusV) * (Yhigh / r_high));
+        r_high = radiusH * std::sqrt(1 - std::pow(Yhigh / radiusV, 2));
+        alpha_high = std::atan((radiusH / radiusV) * (Yhigh / r_high));
     } else {
         r_high = 0;
         alpha_high = irr::core::PI / 2;
     }
 
     if (disc_low) {
-        r_low = radiusH * sqrt(1 - pow(Ylow / radiusV, 2));
-        alpha_low = atan((radiusH / radiusV) * (Ylow / r_low));
+        r_low = radiusH * std::sqrt(1 - std::pow(Ylow / radiusV, 2));
+        alpha_low = std::atan((radiusH / radiusV) * (Ylow / r_low));
     } else {
         r_low = 0;
         alpha_low = -(irr::core::PI / 2);
@@ -162,22 +164,22 @@ createEllipticalMesh(f32 radiusH, f32 radiusV, f32 Ylow, f32 Yhigh, f32 offset, 
         ay += AngleY;
 
     for (u32 y = 0; y < polyCountY; ++y) {
-        const f64 sinay = sin(ay);
-        const f64 cosay = cos(ay);
+        const f64 sinay = std::sin(ay);
+        const f64 cosay = std::cos(ay);
         axz = 0;
 
         // calculate the necessary vertices without the doubled one
         for (u32 xz = 0; xz < polyCountX; ++xz) {
             // calculate points position
 
-            irr::core::vector3df pos((f32)(radiusH * cos(axz) * sinay), (f32)(radiusV * cosay),
-                                     (f32)(radiusH * sin(axz) * sinay));
+            irr::core::vector3df pos((f32)(radiusH * std::cos(axz) * sinay), (f32)(radiusV * cosay),
+                                     (f32)(radiusH * std::sin(axz) * sinay));
             // for spheres the normal is the position
             irr::core::vector3df normal(pos);
             normal.normalize();
 
             // add the offset
-            irr::core::vector3df Roffset((f32)(offset * cos(axz)), 0, (f32)(offset * sin(axz)));
+            irr::core::vector3df Roffset((f32)(offset * std::cos(axz)), 0, (f32)(offset * std::sin(axz)));
             pos += Roffset;
 
             // calculate texture coordinates via sphere mapping
@@ -185,7 +187,8 @@ createEllipticalMesh(f32 radiusH, f32 radiusV, f32 Ylow, f32 Yhigh, f32 offset, 
             f32 tu = 0.5f;
             if (y == 0) {
                 if (normal.Y != -1.0f && normal.Y != 1.0f)
-                    tu = (f32)(acos(irr::core::clamp(normal.X / sinay, -1.0, 1.0)) * 0.5 * irr::core::RECIPROCAL_PI64);
+                    tu = (f32)(std::acos(irr::core::clamp(normal.X / sinay, -1.0, 1.0)) * 0.5 *
+                               irr::core::RECIPROCAL_PI64);
                 if (normal.Z < 0.0f)
                     tu = 1 - tu;
             } else
@@ -331,15 +334,15 @@ IMesh* createCubeMesh(const irr::core::vector3df& size) {
 // -----------------------------------------------------------------------------
 // Create cone
 // -----------------------------------------------------------------------------
-IMesh* createConeMesh(f32 radius, f32 length, u32 tesselation) {
-    return createTruncatedConeMesh(0, radius, length, tesselation);
+IMesh* createConeMesh(f32 radius, f32 length, u32 tessellation) {
+    return createTruncatedConeMesh(0, radius, length, tessellation);
 }
 
 // -----------------------------------------------------------------------------
 // No shared normals between caps and hull
 // -----------------------------------------------------------------------------
-IMesh* createCylinderMesh(f32 radius, f32 length, u32 tesselation) {
-    return createTruncatedConeMesh(radius, radius, length, tesselation);
+IMesh* createCylinderMesh(f32 radius, f32 length, u32 tessellation) {
+    return createTruncatedConeMesh(radius, radius, length, tessellation);
 }
 
 // -----------------------------------------------------------------------------
@@ -444,12 +447,12 @@ IMesh* createCapsuleMesh(f32 radius, f32 hlen, u32 numSegV, u32 numSegR) {
 // No shared normals between caps and hull
 // -----------------------------------------------------------------------------
 
-IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 tesselation) {
+IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 tessellation) {
     irr::video::SColor color(255, 255, 255, 255);
 
     SMeshBuffer* buffer = new SMeshBuffer();
 
-    const f32 recTesselation = 1 / (f32)tesselation;
+    const f32 recTesselation = 1 / (f32)tessellation;
     const f32 angleStep = (2 * irr::core::PI) * recTesselation;
 
     // HULL
@@ -461,7 +464,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 
     auto beta = atan2f(radius_low - radius_top, length * 2);
 
-    for (i = 0; i <= tesselation; ++i) {
+    for (i = 0; i <= tessellation; ++i) {
         const f32 angle = angleStep * i;
 
         v.Pos.X = -radius_low * cosf(angle);
@@ -484,7 +487,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
     }
 
     // indices for the main hull part
-    for (i = 0; i < tesselation * 2; i += 2) {
+    for (i = 0; i < tessellation * 2; i += 2) {
         buffer->Indices.push_back(i + 2);
         buffer->Indices.push_back(i + 1);
         buffer->Indices.push_back(i + 0);
@@ -498,7 +501,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 
     u32 index_bottom = buffer->Vertices.size();
 
-    for (i = 0; i <= tesselation; ++i) {
+    for (i = 0; i <= tessellation; ++i) {
         const f32 angle = angleStep * i;
         v.Pos.X = -radius_low * cosf(angle);
         v.Pos.Y = radius_low * sinf(angle);
@@ -519,7 +522,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 
     u32 index_center = buffer->Vertices.size() - 1;
 
-    for (i = 0; i < tesselation; ++i) {
+    for (i = 0; i < tessellation; ++i) {
         buffer->Indices.push_back(index_center);
         buffer->Indices.push_back(index_bottom + i + 1);
         buffer->Indices.push_back(index_bottom + i + 0);
@@ -529,7 +532,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
     if (radius_top) {
         u32 index_top = buffer->Vertices.size();
 
-        for (i = 0; i <= tesselation; ++i) {
+        for (i = 0; i <= tessellation; ++i) {
             const f32 angle = angleStep * i;
             v.Pos.X = -radius_top * cosf(angle);
             v.Pos.Y = radius_top * sinf(angle);
@@ -550,7 +553,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 
         index_center = buffer->Vertices.size() - 1;
 
-        for (i = 0; i < tesselation; ++i) {
+        for (i = 0; i < tessellation; ++i) {
             buffer->Indices.push_back(index_center);
             buffer->Indices.push_back(index_top + i + 0);
             buffer->Indices.push_back(index_top + i + 1);
@@ -567,12 +570,12 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 }
 
 /*
-IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 tesselation) {
+IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 tessellation) {
     irr::video::SColor color(255, 255, 255, 255);
 
     SMeshBuffer* buffer = new SMeshBuffer();
 
-    const f32 recTesselation = irr::core::reciprocal((f32)tesselation);
+    const f32 recTesselation = irr::core::reciprocal((f32)tessellation);
     const f32 angleStep = (irr::core::PI * 2.f) * recTesselation;
 
     // HULL
@@ -584,7 +587,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 
     auto beta = atan2f(radius_low - radius_top, length * 2);
 
-    for (i = 0; i <= tesselation; ++i) {
+    for (i = 0; i <= tessellation; ++i) {
         const f32 angle = angleStep * i;
         v.Pos.X = -radius_low * cosf(angle);
         v.Pos.Y = -length;
@@ -605,7 +608,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
     }
 
     // indices for the main hull part
-    for (i = 0; i < tesselation * 2; i += 2) {
+    for (i = 0; i < tessellation * 2; i += 2) {
         buffer->Indices.push_back(i + 2);
         buffer->Indices.push_back(i + 0);
         buffer->Indices.push_back(i + 1);
@@ -619,7 +622,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 
     u32 index_bottom = buffer->Vertices.size();
 
-    for (i = 0; i <= tesselation; ++i) {
+    for (i = 0; i <= tessellation; ++i) {
         const f32 angle = angleStep * i;
         v.Pos.X = -radius_low * cosf(angle);
         v.Pos.Y = -length;
@@ -642,7 +645,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 
     u32 index_center = buffer->Vertices.size() - 1;
 
-    for (i = 0; i < tesselation; ++i) {
+    for (i = 0; i < tessellation; ++i) {
         buffer->Indices.push_back(index_center);
         buffer->Indices.push_back(index_bottom + i + 0);
         buffer->Indices.push_back(index_bottom + i + 1);
@@ -652,7 +655,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
     if (radius_top) {
         u32 index_top = buffer->Vertices.size();
 
-        for (i = 0; i <= tesselation; ++i) {
+        for (i = 0; i <= tessellation; ++i) {
             const f32 angle = angleStep * i;
             v.Pos.X = -radius_top * cosf(angle);
             v.Pos.Y = length;
@@ -675,7 +678,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 
         index_center = buffer->Vertices.size() - 1;
 
-        for (i = 0; i < tesselation; ++i) {
+        for (i = 0; i < tessellation; ++i) {
             buffer->Indices.push_back(index_center);
             buffer->Indices.push_back(index_top + i + 1);
             buffer->Indices.push_back(index_top + i + 0);
@@ -696,7 +699,7 @@ IMesh* createTruncatedConeMesh(f32 radius_top, f32 radius_low, f32 length, u32 t
 // This function is based on a modified version of the irrlicht_bullet demo,
 // see  http://www.continuousphysics.com
 // It is used to convert an Irrlicht mesh into a ChTriangleMesh, which is used
-// for collision detection in Chrono::Engine.
+// for collision detection in Chrono.
 // -----------------------------------------------------------------------------
 void fillChTrimeshFromIrlichtMesh(chrono::ChTriangleMesh* chTrimesh, IMesh* pMesh) {
     chrono::ChVector3d vertices[3];
@@ -717,8 +720,7 @@ void fillChTrimeshFromIrlichtMesh(chrono::ChTriangleMesh* chTrimesh, IMesh* pMes
                 for (k = 0; k < 3; k++) {                   // three verts per triangle
                     index = mb_indices[j + k];
                     if (index > numVertices)
-                        throw std::runtime_error(
-                            "Cannot convert corrupted Irrlicht mesh in ChronoEngine ChTriangleMesh.");
+                        throw std::runtime_error("Cannot convert corrupted Irrlicht mesh in Chrono ChTriangleMesh.");
                     vertices[k] = chrono::ChVector3d(mb_vertices[index].Pos.X, mb_vertices[index].Pos.Y,
                                                      mb_vertices[index].Pos.Z);
                 }
@@ -733,8 +735,7 @@ void fillChTrimeshFromIrlichtMesh(chrono::ChTriangleMesh* chTrimesh, IMesh* pMes
                 for (k = 0; k < 3; k++) {
                     index = mb_indices[j + k];
                     if (index > numVertices)
-                        throw std::runtime_error(
-                            "Cannot convert corrupted Irrlicht mesh in ChronoEngine ChTriangleMesh.");
+                        throw std::runtime_error("Cannot convert corrupted Irrlicht mesh in Chrono ChTriangleMesh.");
                     vertices[k] = chrono::ChVector3d(mb_vertices[index].Pos.X, mb_vertices[index].Pos.Y,
                                                      mb_vertices[index].Pos.Z);
                 }

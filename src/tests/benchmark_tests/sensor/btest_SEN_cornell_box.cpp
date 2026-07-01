@@ -24,7 +24,6 @@
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/utils/ChUtilsCreators.h"
-#include "chrono_thirdparty/filesystem/path.h"
 
 #include "chrono_sensor/sensors/ChCameraSensor.h"
 #include "chrono_sensor/ChSensorManager.h"
@@ -42,14 +41,6 @@ using namespace chrono::sensor;
 // Camera parameters
 // -----------------------------------------------------------------------------
 
-// Noise model attached to the sensor
-enum NoiseModel {
-    CONST_NORMAL,     // Gaussian noise with constant mean and standard deviation
-    PIXEL_DEPENDENT,  // Pixel dependent gaussian noise
-    NONE              // No noise model
-};
-NoiseModel noise_model = PIXEL_DEPENDENT;
-
 // Camera lens model
 // Either PINHOLE or SPHERICAL
 CameraLensModelType lens_model = CameraLensModelType::PINHOLE;
@@ -62,7 +53,7 @@ unsigned int image_width = 1280;
 unsigned int image_height = 720;
 
 // Camera's horizontal field of view
-float fov = (float)CH_PI / 2.;
+float fov = (float)CH_PI_2;
 
 // Lag (in seconds) between sensing and when data becomes accessible
 float lag = .05f;
@@ -71,6 +62,9 @@ float lag = .05f;
 float exposure_time = 0.02f;
 
 int alias_factor = 2;
+
+Integrator cam_integrator = Integrator::LEGACY;
+// Integrator cam_integrator = Integrator::PATH;
 
 // -----------------------------------------------------------------------------
 // Simulation parameters
@@ -98,6 +92,7 @@ int main(int argc, char* argv[]) {
     // Create the system
     // -----------------
     ChSystemNSC sys;
+    sys.SetGravityY();
 
     // ---------------------------------------
     // add set of boxes to be visualized by camera
@@ -108,7 +103,6 @@ int main(int argc, char* argv[]) {
     auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     trimesh_shape->SetMesh(mmesh);
     trimesh_shape->SetName("Box");
-    trimesh_shape->SetMutable(false);
 
     auto mesh_body = chrono_types::make_shared<ChBody>();
     mesh_body->SetPos({0, 0, 0});
@@ -116,96 +110,96 @@ int main(int argc, char* argv[]) {
     mesh_body->SetFixed(true);
     sys.Add(mesh_body);
 
-    // auto box_body = chrono_types::make_shared<ChBodyEasyBox>(1, 1, 1, 1000, true, false);
-    // // auto box_body = chrono_types::make_shared<ChBodyEasySphere>(.5, 1000, true, false);
-    // // auto box_body = chrono_types::make_shared<ChBodyEasyCylinder>(ChAxis::Y, .25, 1, 1000, true, false);
-    // box_body->SetPos({0, 0, 2});
-    // box_body->SetFixed(true);
-    // sys.Add(box_body);
-
     auto floor = chrono_types::make_shared<ChBodyEasyBox>(1, 1, 1, 1000, false, false);
     floor->SetPos({0, 0, 0});
     floor->SetFixed(true);
     sys.Add(floor);
 
-    // auto red = chrono_types::make_shared<ChVisualMaterial>();
-    // red->SetDiffuseColor({1, 0, 0});
-    // red->SetSpecularColor({1.f, 1.f, 1.f});
+    /*
+    auto red = chrono_types::make_shared<ChVisualMaterial>();
+    red->SetDiffuseColor({1, 0, 0});
+    red->SetSpecularColor({1.f, 1.f, 1.f});
 
-    // auto green = chrono_types::make_shared<ChVisualMaterial>();
-    // green->SetDiffuseColor({0, 1, 0});
-    // green->SetSpecularColor({1.f, 1.f, 1.f});
+    auto green = chrono_types::make_shared<ChVisualMaterial>();
+    green->SetDiffuseColor({0, 1, 0});
+    green->SetSpecularColor({1.f, 1.f, 1.f});
 
-    // auto grey = chrono_types::make_shared<ChVisualMaterial>();
-    // grey->SetDiffuseColor({.5, .5, .5});
-    // grey->SetSpecularColor({.5f, .5f, .5f});
+    auto grey = chrono_types::make_shared<ChVisualMaterial>();
+    grey->SetDiffuseColor({.5, .5, .5});
+    grey->SetSpecularColor({.5f, .5f, .5f});
 
-    // auto floor = chrono_types::make_shared<ChBodyEasyBox>(4, 4, .1, 1000, true, false);
-    // floor->SetPos({0, 0, 0});
-    // floor->SetFixed(true);
-    // sys.Add(floor);
-    // floor->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
+    auto floor = chrono_types::make_shared<ChBodyEasyBox>(4, 4, .1, 1000, true, false);
+    floor->SetPos({0, 0, 0});
+    floor->SetFixed(true);
+    sys.Add(floor);
+    floor->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
 
-    // auto ceiling = chrono_types::make_shared<ChBodyEasyBox>(4, 4, .1, 1000, true, false);
-    // ceiling->SetPos({0, 0, 4});
-    // ceiling->SetFixed(true);
-    // sys.Add(ceiling);
-    // ceiling->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
+    auto ceiling = chrono_types::make_shared<ChBodyEasyBox>(4, 4, .1, 1000, true, false);
+    ceiling->SetPos({0, 0, 4});
+    ceiling->SetFixed(true);
+    sys.Add(ceiling);
+    ceiling->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
 
-    // auto left_wall = chrono_types::make_shared<ChBodyEasyBox>(4, .1, 4, 1000, true, false);
-    // left_wall->SetPos({0, 2, 2});
-    // left_wall->SetFixed(true);
-    // sys.Add(left_wall);
-    // left_wall->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(red);
+    auto left_wall = chrono_types::make_shared<ChBodyEasyBox>(4, .1, 4, 1000, true, false);
+    left_wall->SetPos({0, 2, 2});
+    left_wall->SetFixed(true);
+    sys.Add(left_wall);
+    left_wall->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(red);
 
-    // auto right_wall = chrono_types::make_shared<ChBodyEasyBox>(4, .1, 4, 1000, true, false);
-    // right_wall->SetPos({0, -2, 2});
-    // right_wall->SetFixed(true);
-    // sys.Add(right_wall);
-    // right_wall->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(green);
+    auto right_wall = chrono_types::make_shared<ChBodyEasyBox>(4, .1, 4, 1000, true, false);
+    right_wall->SetPos({0, -2, 2});
+    right_wall->SetFixed(true);
+    sys.Add(right_wall);
+    right_wall->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(green);
 
-    // auto back_wall = chrono_types::make_shared<ChBodyEasyBox>(.1, 4, 4, 1000, true, false);
-    // back_wall->SetPos({2, 0, 2});
-    // back_wall->SetFixed(true);
-    // sys.Add(back_wall);
-    // back_wall->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
+    auto back_wall = chrono_types::make_shared<ChBodyEasyBox>(.1, 4, 4, 1000, true, false);
+    back_wall->SetPos({2, 0, 2});
+    back_wall->SetFixed(true);
+    sys.Add(back_wall);
+    back_wall->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
 
-    // double box1_height = 2.5;
-    // auto box1 = chrono_types::make_shared<ChBodyEasyBox>(1, 1, box1_height, 1000, true, false);
-    // box1->SetPos({.75, .75, box1_height / 2});
-    // box1->SetRot(QuatFromAngleZ(CH_PI / 3));
-    // box1->SetFixed(true);
-    // sys.Add(box1);
-    // box1->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
+    double box1_height = 2.5;
+    auto box1 = chrono_types::make_shared<ChBodyEasyBox>(1, 1, box1_height, 1000, true, false);
+    box1->SetPos({.75, .75, box1_height / 2});
+    box1->SetRot(QuatFromAngleZ(CH_PI / 3));
+    box1->SetFixed(true);
+    sys.Add(box1);
+    box1->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
 
-    // double box2_height = 1.5;
-    // auto box2 = chrono_types::make_shared<ChBodyEasyBox>(1, 1, box2_height, 1000, true, false);
-    // box2->SetPos({-.75, -.75, box2_height / 2});
-    // box2->SetRot(QuatFromAngleZ(-CH_PI / 3));
-    // box2->SetFixed(true);
-    // sys.Add(box2);
-    // box2->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
+    double box2_height = 1.5;
+    auto box2 = chrono_types::make_shared<ChBodyEasyBox>(1, 1, box2_height, 1000, true, false);
+    box2->SetPos({-.75, -.75, box2_height / 2});
+    box2->SetRot(QuatFromAngleZ(-CH_PI / 3));
+    box2->SetFixed(true);
+    sys.Add(box2);
+    box2->GetVisualModel()->GetShapeInstances()[0].first->AddMaterial(grey);
+    */
 
     // -----------------------
     // Create a sensor manager
     // -----------------------
     auto manager = chrono_types::make_shared<ChSensorManager>(&sys);
-    //manager->scene->AddPointLight({0.0f, 0.0f, 3.8f}, {2.0f / 2, 1.8902f / 2, 1.7568f / 2}, 5.0f);
-    manager->scene->AddAreaLight({0.0f, 0.0f, 3.8f}, {2.0f/2, 1.8902f/2, 1.7568f/2}, 5.0f, {1.0f, 0.0f, 0.0f}, {0.0f, -1.0f, 0.0f});
+    ////unsigned int light_idx = manager->scene->AddPointLight({0.0f, 0.0f, 3.8f}, {2.0f / 2, 1.8902f / 2, 1.7568f / 2}, 5.0f);
+    ////unsigned int light_idx = manager->scene->AddRectangleLight({0.0f, 0.0f, 4.24f}, {50.f, 50.f, 50.f}, 8.0f, {2.0f, 0.0f, 0.0f}, {0.0f, -2.0f, 0.0f}, true);
+
     // -------------------------------------------------------
     // Create a camera and add it to the sensor manager
     // -------------------------------------------------------
     chrono::ChFrame<double> offset_pose2({-7, 0, 2}, QUNIT);
     // chrono::ChFrame<double> offset_pose2({-3, 0, 0}, QUNIT);
-    auto cam = chrono_types::make_shared<ChCameraSensor>(floor,         // body camera is attached to
-                                                         update_rate,   // update rate in Hz
-                                                         offset_pose2,  // offset pose
-                                                         image_width,   // image width
-                                                         image_height,  // image height
-                                                         fov,           // camera's horizontal field of view
-                                                         alias_factor,  // supersample factor for antialiasing
-                                                         lens_model,    // FOV
-                                                         true);         // use global illumination or not
+    auto cam = chrono_types::make_shared<ChCameraSensor>(floor,           // body camera is attached to
+                                                         update_rate,     // update rate in Hz
+                                                         offset_pose2,    // offset pose
+                                                         image_width,     // image width
+                                                         image_height,    // image height
+                                                         fov,             // camera's horizontal field of view
+                                                         alias_factor,    // supersample factor for antialiasing
+                                                         lens_model,      // FOV
+                                                         true,            // whether consider diffuse reflection
+                                                         true,            // whether use OptiX denoiser
+                                                         cam_integrator,  // integrator algorithm for rendering
+                                                         2.2,             // gamma correction
+                                                         false);          // whether account for fog effect
     cam->SetName("Global Illum Camera");
     cam->SetLag(lag);
     cam->SetCollectionWindow(exposure_time);
@@ -215,15 +209,19 @@ int main(int argc, char* argv[]) {
         cam->PushFilter(chrono_types::make_shared<ChFilterSave>(out_dir + "globalillum/"));
     manager->AddSensor(cam);
 
-    auto cam2 = chrono_types::make_shared<ChCameraSensor>(floor,         // body camera is attached to
-                                                          update_rate,   // update rate in Hz
-                                                          offset_pose2,  // offset pose
-                                                          image_width,   // image width
-                                                          image_height,  // image height
-                                                          fov,           // camera's horizontal field of view
-                                                          alias_factor,  // supersample factor for antialiasing
-                                                          lens_model,    // FOV
-                                                          false);        // use global illumination or not
+    auto cam2 = chrono_types::make_shared<ChCameraSensor>(floor,           // body camera is attached to
+                                                          update_rate,     // update rate in Hz
+                                                          offset_pose2,    // offset pose
+                                                          image_width,     // image width
+                                                          image_height,    // image height
+                                                          fov,             // camera's horizontal field of view
+                                                          alias_factor,    // supersample factor for antialiasing
+                                                          lens_model,      // FOV
+                                                          false,           // whether consider diffuse reflection
+                                                          false,           // whether use OptiX denoiser
+                                                          cam_integrator,  // integrator algorithm for rendering
+                                                          2.2,             // gamma correction
+                                                          false);          // whether account for fog effect
     cam2->SetName("Whitted Camera");
     cam2->SetLag(lag);
     cam2->SetCollectionWindow(exposure_time);

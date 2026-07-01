@@ -30,17 +30,14 @@ namespace chrono {
 // Register into the object factory, to enable run-time dynamic creation and persistence
 CH_FACTORY_REGISTER(ChSystemSMC)
 
-ChSystemSMC::ChSystemSMC()
-    : ChSystem(),
+ChSystemSMC::ChSystemSMC(const std::string& name)
+    : ChSystem(name),
       m_use_mat_props(true),
       m_contact_model(Hertz),
       m_adhesion_model(AdhesionForceModel::Constant),
       m_tdispl_model(OneStep),
       m_stiff_contact(false),
       m_force_algo(new ChDefaultContactForceTorqueSMC) {
-    // Set the system descriptor
-    descriptor = chrono_types::make_shared<ChSystemDescriptor>();
-
     // Set default solver
     SetSolverType(ChSolver::Type::PSOR);
 
@@ -56,7 +53,20 @@ ChSystemSMC::ChSystemSMC()
     m_characteristicVelocity = 1;
 }
 
-ChSystemSMC::ChSystemSMC(const ChSystemSMC& other) : ChSystem(other) {}
+ChSystemSMC::ChSystemSMC(const ChSystemSMC& other) : ChSystem(other) {
+    m_use_mat_props = other.m_use_mat_props;
+    m_contact_model = other.m_contact_model;
+    m_adhesion_model = other.m_adhesion_model;
+    m_tdispl_model = other.m_tdispl_model;
+    m_stiff_contact = other.m_stiff_contact;
+    m_minSlipVelocity = other.m_minSlipVelocity;
+    m_characteristicVelocity = other.m_characteristicVelocity;
+
+    // Note that the contact container and the force algorithm are not copied, but rather new default ones are created.
+    contact_container = chrono_types::make_shared<ChContactContainerSMC>();
+    contact_container->SetSystem(this);
+    m_force_algo = chrono_types::make_unique<ChDefaultContactForceTorqueSMC>();
+}
 
 void ChSystemSMC::SetContactContainer(std::shared_ptr<ChContactContainer> container) {
     if (std::dynamic_pointer_cast<ChContactContainerSMC>(container))

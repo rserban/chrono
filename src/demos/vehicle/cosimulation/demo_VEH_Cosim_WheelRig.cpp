@@ -12,7 +12,7 @@
 // Authors: Radu Serban
 // =============================================================================
 //
-// Demo for single-wheel rig cosimulation framework
+// Demo for single-wheel rig co-simulation framework
 //
 // Global reference frame: Z up, X towards the front, and Y pointing to the left
 //
@@ -24,26 +24,29 @@
 
 #include "chrono/ChConfig.h"
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 
 #include "chrono_thirdparty/cxxopts/ChCLI.h"
 
 #include "chrono_vehicle/cosim/mbs/ChVehicleCosimRigNode.h"
 #include "chrono_vehicle/cosim/tire/ChVehicleCosimTireNodeRigid.h"
-#include "chrono_vehicle/cosim/tire/ChVehicleCosimTireNodeFlexible.h"
 #include "chrono_vehicle/cosim/terrain/ChVehicleCosimTerrainNodeRigid.h"
 #include "chrono_vehicle/cosim/terrain/ChVehicleCosimTerrainNodeSCM.h"
+#ifdef CHRONO_FEA
+    #include "chrono_vehicle/cosim/tire/ChVehicleCosimTireNodeFlexible.h"
+#endif
 #ifdef CHRONO_MULTICORE
     #include "chrono_vehicle/cosim/terrain/ChVehicleCosimTerrainNodeGranularOMP.h"
 #endif
-#ifdef CHRONO_FSI
+#ifdef CHRONO_FSI_SPH
     #include "chrono_vehicle/cosim/terrain/ChVehicleCosimTerrainNodeGranularSPH.h"
 #endif
-#ifdef CHRONO_GPU
-    #include "chrono_vehicle/cosim/terrain/ChVehicleCosimTerrainNodeGranularGPU.h"
+#ifdef CHRONO_DEM
+    #include "chrono_vehicle/cosim/terrain/ChVehicleCosimTerrainNodeGranularDEM.h"
 #endif
 
-#include "chrono_thirdparty/filesystem/path.h"
+#undef CHRONO_MUMPS
+#include "demos/SetChronoSolver.h"
 
 using std::cout;
 using std::cin;
@@ -58,8 +61,8 @@ using namespace chrono::vehicle;
 bool GetProblemSpecs(int argc,
                      char** argv,
                      int rank,
-                     std::string& terrain_specfile,
-                     std::string& tire_specfile,
+                     std::string& terrain_file,
+                     std::string& tire_file,
                      int& nthreads_tire,
                      int& nthreads_terrain,
                      double& step_size,
@@ -83,6 +86,16 @@ bool GetProblemSpecs(int argc,
                      bool& render,
                      bool& verbose,
                      std::string& suffix);
+
+// =============================================================================
+// Default JSON specification files
+
+////std::string tire_specfile = GetVehicleDataFile("cosim/tire/ReissnerTire.json");
+std::string tire_specfile = GetVehicleDataFile("cosim/tire/RigidTire_mesh_coarse.json");
+
+////std::string terrain_specfile = GetVehicleDataFile("cosim/terrain/rigid.json");
+////std::string terrain_specfile = GetVehicleDataFile("cosim/terrain/granular_sph.json");
+std::string terrain_specfile = GetVehicleDataFile("cosim/terrain/scm_soft.json");
 
 // =============================================================================
 
@@ -109,14 +122,12 @@ int main(int argc, char** argv) {
 
     if (num_procs != 3) {
         if (rank == 0)
-            std::cout << "\n\nSingle wheel cosimulation code must be run on exactly 3 ranks!\n\n" << std::endl;
-        MPI_Abort(MPI_COMM_WORLD, 1);
+            std::cout << "\n\nSingle wheel co-simulation code must be run on exactly 3 ranks!\n\n" << std::endl;
+        MPI_Finalize();
         return 1;
     }
 
     // Parse command line arguments
-    std::string terrain_specfile;
-    std::string tire_specfile;
     auto act_type = ChVehicleCosimDBPRigImposedSlip::ActuationType::SET_ANG_VEL;
     int nthreads_tire = 1;
     int nthreads_terrain = 1;
@@ -126,7 +137,7 @@ int main(int argc, char** argv) {
     double settling_time = 0.4;
     double sim_time = 10;
     double base_vel = 1.0;
-    double slip = 0;
+    double slip = 0.5;
     bool use_checkpoint = false;
     double output_fps = 100;
     double vis_output_fps = 100;
@@ -142,10 +153,9 @@ int main(int argc, char** argv) {
     double dbp_filter_window = 0.1;
     std::string suffix = "";
     bool verbose = true;
-    if (!GetProblemSpecs(argc, argv, rank, terrain_specfile, tire_specfile, nthreads_tire, nthreads_terrain, step_size,
-                         fixed_settling_time, KE_threshold, settling_time, sim_time, act_type, base_vel, slip,
-                         total_mass, toe_angle, dbp_filter_window, use_checkpoint, output_fps, vis_output_fps,
-                         render_fps, sim_output, settling_output, vis_output, renderRT, verbose, suffix)) {
+    if (!GetProblemSpecs(argc, argv, rank, terrain_specfile, tire_specfile, nthreads_tire, nthreads_terrain, step_size, fixed_settling_time, KE_threshold, settling_time, sim_time,
+                         act_type, base_vel, slip, total_mass, toe_angle, dbp_filter_window, use_checkpoint, output_fps, vis_output_fps, render_fps, sim_output, settling_output,
+                         vis_output, renderRT, verbose, suffix)) {
         MPI_Finalize();
         return 1;
     }
@@ -162,6 +172,8 @@ int main(int argc, char** argv) {
     // Peek in spec file and extract terrain type
     auto terrain_type = ChVehicleCosimTerrainNodeChrono::GetTypeFromSpecfile(terrain_specfile);
     if (terrain_type == ChVehicleCosimTerrainNodeChrono::Type::UNKNOWN) {
+        if (rank == 0)
+            cout << "Unknown terrain type!" << endl;
         MPI_Finalize();
         return 1;
     }
@@ -169,46 +181,46 @@ int main(int argc, char** argv) {
     // Terrain dimensions and spindle initial location
     double terrain_length = 6;
     double terrain_width = 2;
-    ChVector3d init_loc(-terrain_length / 2 + 1, 0, 0.425);
+    ChVector3d init_loc(1, 0, 0.425);
 
 // Check if required modules are enabled
 #ifndef CHRONO_MULTICORE
     if (terrain_type == ChVehicleCosimTerrainNodeChrono::Type::GRANULAR_OMP) {
         if (rank == 0)
             cout << "Chrono::Multicore is required for GRANULAR_OMP terrain type!" << endl;
-        MPI_Abort(MPI_COMM_WORLD, 1);
+        MPI_Finalize();
         return 1;
     }
 #endif
-#ifndef CHRONO_GPU
-    if (terrain_type == ChVehicleCosimTerrainNodeChrono::Type::GRANULAR_GPU) {
+#ifndef CHRONO_DEM
+    if (terrain_type == ChVehicleCosimTerrainNodeChrono::Type::GRANULAR_DEM) {
         if (rank == 0)
-            cout << "Chrono::Gpu is required for GRANULAR_GPU terrain type!" << endl;
-        MPI_Abort(MPI_COMM_WORLD, 1);
+            cout << "Chrono::Dem is required for GRANULAR_DEM terrain type!" << endl;
+        MPI_Finalize();
         return 1;
     }
 #endif
-#ifndef CHRONO_FSI
+#ifndef CHRONO_FSI_SPH
     if (terrain_type == ChVehicleCosimTerrainNodeChrono::Type::GRANULAR_SPH) {
         if (rank == 0)
             cout << "Chrono::FSI is required for GRANULAR_SPH terrain type!" << endl;
-        MPI_Abort(MPI_COMM_WORLD, 1);
+        MPI_Finalize();
         return 1;
     }
 #endif
 
-    // Prepare output directory.
+    // Prepare output directory
     std::string out_dir_top = GetChronoOutputPath() + "RIG_COSIM";
     std::string out_dir = out_dir_top + "/" +                                             //
                           ChVehicleCosimTireNode::GetTireTypeAsString(tire_type) + "_" +  //
                           ChVehicleCosimTerrainNodeChrono::GetTypeAsString(terrain_type);
     if (rank == 0) {
-        if (!filesystem::create_directory(filesystem::path(out_dir_top))) {
+        if (!CreateOutputDirectory(std::filesystem::path(out_dir_top))) {
             cout << "Error creating directory " << out_dir_top << endl;
             MPI_Abort(MPI_COMM_WORLD, 1);
             return 1;
         }
-        if (!filesystem::create_directory(filesystem::path(out_dir))) {
+        if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
             cout << "Error creating directory " << out_dir << endl;
             MPI_Abort(MPI_COMM_WORLD, 1);
             return 1;
@@ -232,13 +244,13 @@ int main(int argc, char** argv) {
             cout << "[Rig node    ] rank = " << rank << " running on: " << procname << endl;
 
         auto dbp_rig = chrono_types::make_shared<ChVehicleCosimDBPRigImposedSlip>(act_type, base_vel, slip);
+        ////auto dbp_rig = chrono_types::make_shared<ChVehicleCosimDBPRigImposedAngVel>(base_vel, 1.0);
         dbp_rig->SetDBPFilterWindow(dbp_filter_window);
 
         auto mbs = new ChVehicleCosimRigNode();
         mbs->SetVerbose(verbose);
         mbs->SetInitialLocation(init_loc);
         mbs->SetStepSize(step_size);
-        mbs->SetNumThreads(1);
         mbs->SetTotalMass(total_mass);
         mbs->SetOutDir(out_dir, suffix);
         mbs->AttachDrawbarPullRig(dbp_rig);
@@ -257,18 +269,19 @@ int main(int argc, char** argv) {
                 auto tire = new ChVehicleCosimTireNodeRigid(0, tire_specfile);
                 tire->SetVerbose(verbose);
                 tire->SetStepSize(step_size);
-                tire->SetNumThreads(1);
                 tire->SetOutDir(out_dir, suffix);
+
+                tire->GetSystem().SetNumThreads(1);
 
                 node = tire;
                 break;
             }
+#ifdef CHRONO_FEA
             case ChVehicleCosimTireNode::TireType::FLEXIBLE: {
                 auto tire = new ChVehicleCosimTireNodeFlexible(0, tire_specfile);
                 tire->EnableTirePressure(true);
                 tire->SetVerbose(verbose);
                 tire->SetStepSize(step_size);
-                tire->SetNumThreads(nthreads_tire);
                 tire->SetOutDir(out_dir, suffix);
                 if (renderRT)
                     tire->EnableRuntimeVisualization(render_fps, writeRT);
@@ -276,9 +289,27 @@ int main(int argc, char** argv) {
                     tire->EnablePostprocessVisualization(render_fps);
                 tire->SetCameraPosition(ChVector3d(0, 2 * terrain_width, 1.0));
 
+                auto& sys = tire->GetSystem();
+                auto solver_type = ChSolver::Type::PARDISO_MKL;
+                auto integrator_type = ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED;
+                int num_threads_chrono = std::min(8, ChOMP::GetNumProcs());
+                int num_threads_collision = 1;
+                int num_threads_eigen = 1;
+                int num_threads_pardiso = std::min(8, ChOMP::GetNumProcs());
+                SetChronoSolver(sys, solver_type, integrator_type, num_threads_pardiso);
+                sys.SetNumThreads(num_threads_chrono, num_threads_collision, num_threads_eigen);
+                if (auto hht = std::dynamic_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper())) {
+                    hht->SetAlpha(-0.2);
+                    hht->SetMaxIters(5);
+                    hht->SetAbsTolerances(1e-2);
+                    hht->SetStepControl(false);
+                    hht->SetMinStepSize(1e-4);
+                }
+
                 node = tire;
                 break;
             }
+#endif
             default:
                 break;
         }
@@ -368,9 +399,9 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            case ChVehicleCosimTerrainNodeChrono::Type::GRANULAR_GPU: {
-#ifdef CHRONO_GPU
-                auto terrain = new ChVehicleCosimTerrainNodeGranularGPU(terrain_specfile);
+            case ChVehicleCosimTerrainNodeChrono::Type::GRANULAR_DEM: {
+#ifdef CHRONO_DEM
+                auto terrain = new ChVehicleCosimTerrainNodeGranularDEM(terrain_specfile);
                 terrain->SetDimensions(terrain_length, terrain_width);
                 terrain->SetVerbose(verbose);
                 terrain->SetStepSize(step_size);
@@ -401,7 +432,7 @@ int main(int argc, char** argv) {
             }
 
             case ChVehicleCosimTerrainNodeChrono::Type::GRANULAR_SPH: {
-#ifdef CHRONO_FSI
+#ifdef CHRONO_FSI_SPH
                 auto terrain = new ChVehicleCosimTerrainNodeGranularSPH(terrain_specfile);
                 terrain->SetDimensions(terrain_length, terrain_width);
                 terrain->SetVerbose(verbose);
@@ -447,8 +478,7 @@ int main(int argc, char** argv) {
         node->Synchronize(is, time);
         node->Advance(step_size);
         if (verbose)
-            cout << "Node" << rank << " sim time = " << node->GetStepExecutionTime() << "  ["
-                 << node->GetTotalExecutionTime() << "]" << endl;
+            cout << "Node" << rank << " sim time = " << node->GetStepExecutionTime() << "  [" << node->GetTotalExecutionTime() << "]" << endl;
 
         if (sim_output && is % output_steps == 0) {
             node->OutputData(output_frame);
@@ -477,8 +507,8 @@ int main(int argc, char** argv) {
 bool GetProblemSpecs(int argc,
                      char** argv,
                      int rank,
-                     std::string& terrain_specfile,
-                     std::string& tire_specfile,
+                     std::string& terrain_file,
+                     std::string& tire_file,
                      int& nthreads_tire,
                      int& nthreads_terrain,
                      double& step_size,
@@ -504,29 +534,23 @@ bool GetProblemSpecs(int argc,
                      std::string& suffix) {
     ChCLI cli(argv[0], "Single-wheel test rig simulation (run on 3 MPI ranks)");
 
-    cli.AddOption<std::string>("Experiment", "terrain_specfile", "Terrain specification file [JSON format]");
-    cli.AddOption<std::string>("Experiment", "tire_specfile", "Tire specification file [JSON format]");
+    cli.AddOption<std::string>("Experiment", "terrain_specfile", "Terrain specification file [JSON format]", terrain_file);
+    cli.AddOption<std::string>("Experiment", "tire_specfile", "Tire specification file [JSON format]", tire_file);
 
-    cli.AddOption<std::string>("Experiment", "actuation_type", "Actuation type (SET_LIN_VEL or SET_ANG_VEL)",
-                               ChVehicleCosimDBPRigImposedSlip::GetActuationTypeAsString(act_type));
+    cli.AddOption<std::string>("Experiment", "actuation_type", "Actuation type (SET_LIN_VEL or SET_ANG_VEL)", ChVehicleCosimDBPRigImposedSlip::GetActuationTypeAsString(act_type));
     cli.AddOption<double>("Experiment", "base_vel", "Base velocity [m/s or rad/s]", std::to_string(base_vel));
     cli.AddOption<double>("Experiment", "slip", "Longitudinal slip", std::to_string(slip));
     cli.AddOption<double>("Experiment", "total_mass", "Total mass [kg]", std::to_string(total_mass));
     cli.AddOption<double>("Experiment", "toe_angle", "Wheel toe angle [rad]", std::to_string(toe_angle));
-    cli.AddOption<double>("Experiment", "filter_window", "Time window for running average filter",
-                          std::to_string(dbp_filter_window));
+    cli.AddOption<double>("Experiment", "filter_window", "Time window for running average filter", std::to_string(dbp_filter_window));
 
-    cli.AddOption<double>("Simulation", "settling_time", "Duration of settling phase [s]",
-                          std::to_string(settling_time));
+    cli.AddOption<double>("Simulation", "settling_time", "Duration of settling phase [s]", std::to_string(settling_time));
     cli.AddOption<double>("Simulation", "KE_threshold", "KE threshold for settling [J] (default: infinity)");
-    cli.AddOption<double>("Simulation", "sim_time", "Simulation length after settling phase [s]",
-                          std::to_string(sim_time));
+    cli.AddOption<double>("Simulation", "sim_time", "Simulation length after settling phase [s]", std::to_string(sim_time));
     cli.AddOption<double>("Simulation", "step_size", "Integration step size [s]", std::to_string(step_size));
 
-    cli.AddOption<int>("Simulation", "threads_tire", "Number of OpenMP threads for the tire node",
-                       std::to_string(nthreads_tire));
-    cli.AddOption<int>("Simulation", "threads_terrain", "Number of OpenMP threads for the terrain node",
-                       std::to_string(nthreads_terrain));
+    cli.AddOption<int>("Simulation", "threads_tire", "Number of OpenMP threads for the tire node", std::to_string(nthreads_tire));
+    cli.AddOption<int>("Simulation", "threads_terrain", "Number of OpenMP threads for the terrain node", std::to_string(nthreads_terrain));
 
     cli.AddOption<bool>("Simulation", "use_checkpoint", "Initialize from checkpoint file");
 
@@ -535,8 +559,7 @@ bool GetProblemSpecs(int argc,
     cli.AddOption<bool>("Output", "no_settling_output", "Disable generation of settling output files");
     cli.AddOption<bool>("Output", "no_vis_output", "Disable generation of post-processing visualization output files");
     cli.AddOption<double>("Output", "output_fps", "Output frequency [fps]", std::to_string(output_fps));
-    cli.AddOption<double>("Output", "vis_output_fps", "Visualization output frequency [fps]",
-                          std::to_string(vis_output_fps));
+    cli.AddOption<double>("Output", "vis_output_fps", "Visualization output frequency [fps]", std::to_string(vis_output_fps));
     cli.AddOption<std::string>("Output", "suffix", "Suffix for output directory names", suffix);
 
     cli.AddOption<bool>("Visualization", "no_render", "Disable run-time rendering");
@@ -549,7 +572,7 @@ bool GetProblemSpecs(int argc,
     }
 
     try {
-        terrain_specfile = cli.Get("terrain_specfile").as<std::string>();
+        terrain_file = cli.Get("terrain_specfile").as<std::string>();
     } catch (std::domain_error&) {
         if (rank == 0) {
             cout << "\nERROR: Missing terrain specification file!\n\n" << endl;
@@ -559,7 +582,7 @@ bool GetProblemSpecs(int argc,
     }
 
     try {
-        tire_specfile = cli.Get("tire_specfile").as<std::string>();
+        tire_file = cli.Get("tire_specfile").as<std::string>();
     } catch (std::domain_error&) {
         if (rank == 0) {
             cout << "\nERROR: Missing tire specification file!\n\n" << endl;
@@ -568,8 +591,7 @@ bool GetProblemSpecs(int argc,
         return false;
     }
 
-    act_type =
-        ChVehicleCosimDBPRigImposedSlip::GetActuationTypeFromString(cli.GetAsType<std::string>("actuation_type"));
+    act_type = ChVehicleCosimDBPRigImposedSlip::GetActuationTypeFromString(cli.GetAsType<std::string>("actuation_type"));
     if (act_type == ChVehicleCosimDBPRigImposedSlip::ActuationType::UNKNOWN) {
         if (rank == 0) {
             cout << "\nERROR: Unrecognized actuation type!\n\n" << endl;
@@ -583,9 +605,7 @@ bool GetProblemSpecs(int argc,
 
     if (act_type == ChVehicleCosimDBPRigImposedSlip::ActuationType::SET_LIN_VEL && slip > 0.95) {
         if (rank == 0) {
-            cout << "\nERROR: Slip value " << slip << " too large for "
-                 << ChVehicleCosimDBPRigImposedSlip::GetActuationTypeAsString(act_type) << " actuation mode!\n\n"
-                 << endl;
+            cout << "\nERROR: Slip value " << slip << " too large for " << ChVehicleCosimDBPRigImposedSlip::GetActuationTypeAsString(act_type) << " actuation mode!\n\n" << endl;
             cli.Help();
         }
         return false;

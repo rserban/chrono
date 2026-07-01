@@ -17,9 +17,11 @@
 
 #include <cstdlib>
 #include <cmath>
+#include <set>
 
 #include "chrono/core/ChTimer.h"
 #include "chrono/physics/ChIndexedNodes.h"
+#include "chrono/physics/ChMassProperties.h"
 #include "chrono/fea/ChContinuumMaterial.h"
 #include "chrono/fea/ChContactSurface.h"
 #include "chrono/fea/ChElementBase.h"
@@ -67,16 +69,18 @@ class ChApi ChMesh : public ChIndexedNodes {
     const std::vector<std::shared_ptr<ChElementBase>>& GetElements() const { return velements; }
 
     /// Access the N-th node
-    virtual std::shared_ptr<ChNodeBase> GetNode(unsigned int n) override { return vnodes[n]; }
+    virtual std::shared_ptr<ChNodeBase> GetNode(unsigned int n) const override { return vnodes[n]; }
 
     /// Access the N-th element
-    std::shared_ptr<ChElementBase> GetElement(unsigned int n) { return velements[n]; }
+    std::shared_ptr<ChElementBase> GetElement(unsigned int n) const { return velements[n]; }
 
     /// Get the number of nodes in the mesh.
     virtual unsigned int GetNumNodes() const override { return (unsigned int)vnodes.size(); }
 
     /// Get the number of elements in the mesh.
-    unsigned int GetNumElements() { return (unsigned int)velements.size(); }
+    unsigned int GetNumElements() const { return (unsigned int)velements.size(); }
+
+
 
     virtual unsigned int GetNumCoordsPosLevel() override { return n_dofs; }
     virtual unsigned int GetNumCoordsVelLevel() override { return n_dofs_w; }
@@ -146,7 +150,7 @@ class ChApi ChMesh : public ChIndexedNodes {
 
     /// Update time dependent data, for all elements.
     /// Updates all [A] coord.systems for all (corotational) elements.
-    virtual void Update(double m_time, bool update_assets = true) override;
+    virtual void Update(double m_time, UpdateFlags update_flags) override;
 
     /// Add the mesh contact surfaces (if any) to the provided collision system.
     virtual void AddCollisionModelsToSystem(ChCollisionSystem* coll_sys) const override;
@@ -159,7 +163,7 @@ class ChApi ChMesh : public ChIndexedNodes {
 
     /// If true, as by default, this mesh will add automatically a gravity load
     /// to all contained elements (that support gravity) using the G value from the ChSystem.
-    /// So this saves you from adding many ChLoad<ChLoaderGravity> to all elements.
+    /// So this saves you from adding many ChLoad<fea::ChLoaderGravity> to all elements.
     void SetAutomaticGravity(bool mg, int num_points = 1) {
         automatic_gravity_load = mg;
         num_points_gravity = num_points;
@@ -167,12 +171,16 @@ class ChApi ChMesh : public ChIndexedNodes {
     /// Tell if this mesh will add automatically a gravity load to all contained elements.
     bool GetAutomaticGravity() { return automatic_gravity_load; }
 
-    /// Get ChMesh mass properties. The inertia tensor is solved with respect to the absolute frame,
-    /// and also aligned with the absolute frame, NOT at the center of mass.
+    /// Calculate and load ChMesh mass properties.
+    /// The inertia tensor is calculated with respect to the absolute frame and also aligned with the absolute frame.
     void ComputeMassProperties(double& mass,          ///< ChMesh object mass
                                ChVector3d& com,       ///< ChMesh center of gravity
                                ChMatrix33<>& inertia  ///< ChMesh inertia tensor
     );
+
+    /// Calculate and return ChMesh mass properties.
+    /// The inertia tensor is calculated with respect to the absolute frame and also aligned with the absolute frame.
+    ChMassProperties ComputeMassProperties();
 
     // STATE FUNCTIONS
 
@@ -187,7 +195,7 @@ class ChApi ChMesh : public ChIndexedNodes {
                                  const unsigned int off_v,
                                  const ChStateDelta& v,
                                  const double T,
-                                 bool full_update) override;
+                                 UpdateFlags update_flags) override;
     virtual void IntStateGatherAcceleration(const unsigned int off_a, ChStateDelta& a) override;
     virtual void IntStateScatterAcceleration(const unsigned int off_a, const ChStateDelta& a) override;
     virtual void IntStateIncrement(const unsigned int off_x,
@@ -200,6 +208,7 @@ class ChApi ChMesh : public ChIndexedNodes {
                                       const ChState& x,
                                       const unsigned int off_v,
                                       ChStateDelta& Dv) override;
+    virtual void IntStateOnEndStep(double T) override;
     virtual void IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, const double c) override;
     virtual void IntLoadResidual_Mv(const unsigned int off,
                                     ChVectorDynamic<>& R,
@@ -284,6 +293,7 @@ class ChApi ChMesh : public ChIndexedNodes {
 
     std::vector<std::shared_ptr<ChContactSurface>> vcontactsurfaces;  ///<  contact surfaces
     std::vector<std::shared_ptr<ChMeshSurface>> vmeshsurfaces;        ///<  mesh surfaces, ex.for loads
+
 
     bool automatic_gravity_load;
     int num_points_gravity;

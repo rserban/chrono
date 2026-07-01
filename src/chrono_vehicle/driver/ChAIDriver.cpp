@@ -22,13 +22,12 @@
 #include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/driver/ChAIDriver.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 
 namespace chrono {
 namespace vehicle {
 
-ChAIDriver::ChAIDriver(ChVehicle& vehicle)
-    : ChDriver(vehicle), m_target_speed(0), m_last_time(0), m_last_speed(0), m_throttle_threshold(0.2) {
+ChAIDriver::ChAIDriver(ChVehicle& vehicle) : ChDriver(vehicle), m_target_speed(0), m_last_time(0), m_last_speed(0), m_throttle_threshold(0.2) {
     m_speedPID.Reset(m_vehicle.GetRefFrame());
 }
 

@@ -14,6 +14,8 @@
 
 // #define BEAM_VERBOSE
 
+#include <cmath>
+
 #include "chrono/fea/ChElementBeamTaperedTimoshenko.h"
 
 namespace chrono {
@@ -323,16 +325,16 @@ void ChElementBeamTaperedTimoshenko::GetFieldDt(ChVectorDynamic<>& mD_dt) {
 void ChElementBeamTaperedTimoshenko::GetFieldDt2(ChVectorDynamic<>& mD_dtdt) {
     mD_dtdt.resize(12);
 
-    // Node 0, accelaration (in local element frame, corotated back by A' )
+    // Node 0, acceleration (in local element frame, corotated back by A' )
     mD_dtdt.segment(0, 3) = q_element_abs_rot.RotateBack(nodes[0]->Frame().GetPosDt2()).eigen();
 
-    // Node 0, x,y,z ang.accelaration (in local element frame, corotated back by A' )
+    // Node 0, x,y,z ang.acceleration (in local element frame, corotated back by A' )
     mD_dtdt.segment(3, 3) = q_element_abs_rot.RotateBack(nodes[0]->Frame().GetAngAccParent()).eigen();
 
-    // Node 1, accelaration (in local element frame, corotated back by A' )
+    // Node 1, acceleration (in local element frame, corotated back by A' )
     mD_dtdt.segment(6, 3) = q_element_abs_rot.RotateBack(nodes[1]->Frame().GetPosDt2()).eigen();
 
-    // Node 1, x,y,z ang.accelaration (in local element frame, corotated back by A' )
+    // Node 1, x,y,z ang.acceleration (in local element frame, corotated back by A' )
     mD_dtdt.segment(9, 3) = q_element_abs_rot.RotateBack(nodes[1]->Frame().GetAngAccParent()).eigen();
 }
 
@@ -376,9 +378,9 @@ void ChElementBeamTaperedTimoshenko::ComputeTransformMatrix() {
     double dCy = Cy2 - Cy1;
     double dCz = Cz2 - Cz1;
     double LN = L;
-    double LG = pow(LN * LN - dCy * dCy - dCz * dCz, 0.5);
+    double LG = std::sqrt(LN * LN - dCy * dCy - dCz * dCz);
     double LA = LG;
-    double LB = pow(LG * LG + dCy * dCy, 0.5);
+    double LB = std::sqrt(LG * LG + dCy * dCy);
     ChMatrix33<> rc;
     rc.setIdentity();
     rc(0, 0) = LA / LN;
@@ -418,15 +420,15 @@ void ChElementBeamTaperedTimoshenko::ComputeTransformMatrix() {
 
     // In case the section has a shear center displacement:
     // The shear center offset is respect to the centerline of beam element.
-    /*Sy1 = Sy1 - Cy1;  // Unnecessary to do this substraction
+    /*Sy1 = Sy1 - Cy1;  // Unnecessary to do this subtraction
     Sz1 = Sz1 - Cz1;
     Sy2 = Sy2 - Cy2;
     Sz2 = Sz2 - Cz2;*/
     double dSy = Sy1 - Sy2;
     double dSz = Sz1 - Sz2;
 
-    double Lsy = pow(LG * LG + dSy * dSy, 0.5);
-    double Lsyz = pow(LG * LG + dSy * dSy + dSz * dSz, 0.5);
+    double Lsy = std::sqrt(LG * LG + dSy * dSy);
+    double Lsyz = std::sqrt(LG * LG + dSy * dSy + dSz * dSz);
     double C1 = Lsyz / LG;
     double C2 = dSy * Lsyz / (LG * Lsy);
     double C3 = dSz / Lsy;
@@ -480,7 +482,7 @@ void ChElementBeamTaperedTimoshenko::ComputeTransformMatrixAtPoint(ChMatrixDynam
     // double L = this->length;
 
     // The shear center offset is respect to the centerline of beam element.
-    /*Sy1 = Sy1 - Cy1;  // Unnecessary to do this substraction
+    /*Sy1 = Sy1 - Cy1;  // Unnecessary to do this subtraction
     Sz1 = Sz1 - Cz1;
     Sy2 = Sy2 - Cy2;
     Sz2 = Sz2 - Cz2;*/
@@ -609,15 +611,16 @@ void ChElementBeamTaperedTimoshenko::ComputeDampingMatrix() {
     double phiy = this->tapered_section->GetAverageSectionParameters()->phiy;
     double phiz = this->tapered_section->GetAverageSectionParameters()->phiz;
 
-    double bx2 = pow(this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.bx, 2.0);
-    double by2 = pow(this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.by, 2.0);
-    double bz2 = pow(this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.bz, 2.0);
-    double bt2 = pow(this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.bt, 2.0);
+    double bx2 = std::pow(this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.bx, 2.0);
+    double by2 = std::pow(this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.by, 2.0);
+    double bz2 = std::pow(this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.bz, 2.0);
+    double bt2 = std::pow(this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.bt, 2.0);
     double rdamping_alpha = this->tapered_section->GetAverageSectionParameters()->rdamping_coeff.alpha;
 
     // Correction for the structural damping in the shear deformation, to improve the numerical stability in long-time
     // simulation. It might be helpful, also possible to be useless at all.
-    double cc2 = pow(this->tapered_section->GetAverageSectionParameters()->artificial_factor_for_shear_damping, 2.0);
+    double cc2 =
+        std::pow(this->tapered_section->GetAverageSectionParameters()->artificial_factor_for_shear_damping, 2.0);
     double ccphiy = (1 + phiy * cc2) / (1. + phiy);
     double ccphiz = (1 + phiz * cc2) / (1. + phiz);
     double ccbz = (EIyy / L * phiz * bz2 * (cc2 - 1)) / (1. + phiz);
@@ -719,7 +722,7 @@ void ChElementBeamTaperedTimoshenko::ComputeGeometricStiffnessMatrix() {
     double PL2_15_z = 2. * L / (15.);  // optional [2]: ...+ 4*IyA /(L);
     double PL_30_y = L / (30.);        // optional [2]: ...+ 2*IyA /(L);
     double PL_30_z = L / (30.);        // optional [2]: ...+ 2*IyA /(L);
-    /*  DONOT use the axial terms:
+    /*  DO NOT use the axial terms:
     this->Kg(0, 0) =  P_L;
     this->Kg(6, 6) =  P_L;
     this->Kg(0, 6) = -P_L;
@@ -780,9 +783,9 @@ void ChElementBeamTaperedTimoshenko::ComputeAccurateTangentStiffnessMatrix(ChMat
         double rot_angle = displ.segment(3 + 6 * i, 3).norm();
         ChVector3d rot_vector = displ.segment(3 + 6 * i, 3).normalized();
         ChVector3d Theta = displ.segment(3 + 6 * i, 3);
-        // double eta = (1 - 0.5 * rot_angle * cos(0.5 * rot_angle) / sin(0.5 * rot_angle)) / (rot_angle * rot_angle);
-        double eta = 1.0 / 12.0 + 1.0 / 720.0 * pow(rot_angle, 2) + 1.0 / 30240.0 * pow(rot_angle, 4) +
-                     1.0 / 1209600.0 * pow(rot_angle, 6);
+        // double eta = (1 - 0.5 * rot_angle * std::cos(0.5 * rot_angle) / std::sin(0.5 * rot_angle)) / (rot_angle * rot_angle);
+        double eta = 1.0 / 12.0 + 1.0 / 720.0 * std::pow(rot_angle, 2) + 1.0 / 30240.0 * std::pow(rot_angle, 4) +
+                     1.0 / 1209600.0 * std::pow(rot_angle, 6);
         ChMatrix33<> Lambda =
             I33 - 0.5 * ChStarMatrix33<>(Theta) + eta * ChStarMatrix33<>(Theta) * ChStarMatrix33<>(Theta);
         ChMatrixNM<double, 6, 6> Hn;
@@ -833,16 +836,16 @@ void ChElementBeamTaperedTimoshenko::ComputeAccurateTangentStiffnessMatrix(ChMat
         double rot_angle = displ.segment(3 + 6 * i, 3).norm();
         ChVector3d rot_vector = displ.segment(3 + 6 * i, 3).normalized();
         ChVector3d Theta = displ.segment(3 + 6 * i, 3);
-        // double eta = (1 - 0.5 * rot_angle * cos(0.5 * rot_angle) / sin(0.5 * rot_angle)) / (rot_angle * rot_angle);
-        double eta = 1.0 / 12.0 + 1.0 / 720.0 * pow(rot_angle, 2) + 1.0 / 30240.0 * pow(rot_angle, 4) +
-                     1.0 / 1209600.0 * pow(rot_angle, 6);
+        // double eta = (1 - 0.5 * rot_angle * std::cos(0.5 * rot_angle) / std::sin(0.5 * rot_angle)) / (rot_angle * rot_angle);
+        double eta = 1.0 / 12.0 + 1.0 / 720.0 * std::pow(rot_angle, 2) + 1.0 / 30240.0 * std::pow(rot_angle, 4) +
+                     1.0 / 1209600.0 * std::pow(rot_angle, 6);
         ChMatrix33<> Lambda =
             I33 - 0.5 * ChStarMatrix33<>(Theta) + eta * ChStarMatrix33<>(Theta) * ChStarMatrix33<>(Theta);
 
-        // double miu = (rot_angle*rot_angle+4*cos(rot_angle)+rot_angle*sin(rot_angle)-4)/(4*pow(rot_angle,
-        // 4)*pow(0.5*rot_angle, 2));
-        double miu = 1.0 / 360.0 + 1.0 / 7560.0 * pow(rot_angle, 2) + 1.0 / 201600.0 * pow(rot_angle, 4) +
-                     1.0 / 5987520.0 * pow(rot_angle, 6);
+        // double miu = (rot_angle*rot_angle+4*std::cos(rot_angle)+rot_angle*std::sin(rot_angle)-4)/(4*std::pow(rot_angle,
+        // 4)*std::pow(0.5*rot_angle, 2));
+        double miu = 1.0 / 360.0 + 1.0 / 7560.0 * std::pow(rot_angle, 2) + 1.0 / 201600.0 * std::pow(rot_angle, 4) +
+                     1.0 / 5987520.0 * std::pow(rot_angle, 6);
         ChVector3d m_loc = Fi_temp.segment(3 + 6 * i, 3);
 
         ChMatrix33<> Li =

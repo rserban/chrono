@@ -23,8 +23,6 @@
 
 #include "chrono_postprocess/ChPovRay.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-
 using namespace chrono;
 using namespace chrono::postprocess;
 
@@ -33,13 +31,14 @@ int main(int argc, char* argv[]) {
 
     // Create output directory
     std::string out_dir = GetChronoOutputPath() + "POVRAY_2";
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
 
     // Create a Chrono system and set the associated collision system
     ChSystemNSC sys;
+    sys.SetGravityY();
     ChCollisionModel::SetDefaultSuggestedEnvelope(1e-3);
     ChCollisionModel::SetDefaultSuggestedMargin(1e-3);
     sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
@@ -89,7 +88,7 @@ int main(int argc, char* argv[]) {
             body->SetInertiaXX(ChVector3d((2.0 / 5.0) * (0.01 * 0.01) * 0.02));
 
             auto body_ct_shape = chrono_types::make_shared<ChCollisionShapeBox>(floor_ct_mat, 0.02, 0.02, 0.02);
-            floor->AddCollisionShape(body_ct_shape);
+            body->AddCollisionShape(body_ct_shape);
             body->EnableCollision(true);
 
             auto body_vis_shape = chrono_types::make_shared<ChVisualShapeBox>(0.02, 0.02, 0.02);

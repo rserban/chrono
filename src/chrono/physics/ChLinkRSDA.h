@@ -65,7 +65,7 @@ class ChApi ChLinkRSDA : public ChLink {
     /// Meaningful only if no torque functor is provided.
     double GetDampingCoefficient() const { return m_r; }
 
-    /// Get the constant acutation torque.
+    /// Get the constant actuation torque.
     /// Meaningful only if no torque functor is provided.
     double GetActuatorTorque() const { return m_t; }
 
@@ -149,7 +149,7 @@ class ChApi ChLinkRSDA : public ChLink {
     virtual void ArchiveIn(ChArchiveIn& archive_in) override;
 
   private:
-    virtual void Update(double time, bool update_assets = true) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
     virtual void IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, const double c) override;
     virtual void ConstraintsFbLoadForces(double factor = 1) override;
 
@@ -171,7 +171,7 @@ class ChApi ChLinkRSDA : public ChLink {
     int m_turns;             ///< number of revolutions
     bool m_auto_rest_angle;  ///< if true, rest angle set at initialization
     double m_rest_angle;     ///< undeformed length
-    double m_last_angle;     ///< angle at previuous evaluation
+    double m_last_angle;     ///< angle at previous evaluation
     double m_angle;          ///< current angle
     double m_angle_dt;       ///< current angle rate of change
     double m_torque;         ///< resulting torque along relative axis of rotation

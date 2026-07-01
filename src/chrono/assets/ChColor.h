@@ -52,10 +52,12 @@ class ChApi ChColor {
     /// Set from HSV.
     static ChColor HSV2RGB(const ChVector3f& hsv);
 
-    /// Compute a false color from a scalar value. Uses a cold-to-hot colormap.
-    /// The 'v' scalar value is mapped in the vmin-vmax range.
-    /// If out_of_range_as_bw option is true, then return white for v>vmax and black for v<vmin.
-    static ChColor ComputeFalseColor(double v, double vmin, double vmax, bool out_of_range_as_bw = false);
+    /// Linearly interpolate between two colors.
+    /// The interpolation fraction f must be in [0,1].
+    static ChColor Interp(const ChColor& c1, const ChColor& c2, double f);
+
+    /// Mix two colors.
+    static ChColor Mix(const ChColor& c1, const ChColor& c2);
 
     /// Method to allow serialization of transient data to archives.
     void ArchiveOut(ChArchiveOut& archive_out);

@@ -12,22 +12,23 @@
 // Authors: Hammad Mazhar, Radu Serban
 // =============================================================================
 
-#include "chrono_multicore/collision/ChContactContainerMulticore.h"
-#include "chrono_multicore/physics/ChSystemMulticore.h"
-//
 #include "chrono/physics/ChSystem.h"
 #include "chrono/physics/ChBody.h"
 #include "chrono/physics/ChParticleCloud.h"
 
+#include "chrono/multicore_math/thrust.h"
+
+#include "chrono_multicore/collision/ChContactContainerMulticore.h"
+#include "chrono_multicore/physics/ChSystemMulticore.h"
+
 namespace chrono {
 
 ChContactContainerMulticore::ChContactContainerMulticore(ChMulticoreDataManager* dc) : data_manager(dc) {
-    contactlist_6_6.clear();
-    n_added_6_6 = 0;
+    contacts.clear();
+    n_added = 0;
 }
 
-ChContactContainerMulticore::ChContactContainerMulticore(const ChContactContainerMulticore& other)
-    : ChContactContainer(other) {
+ChContactContainerMulticore::ChContactContainerMulticore(const ChContactContainerMulticore& other) : ChContactContainer(other) {
     //// TODO
 }
 
@@ -36,32 +37,32 @@ ChContactContainerMulticore::~ChContactContainerMulticore() {
 }
 
 void ChContactContainerMulticore::RemoveAllContacts() {
-    std::list<ChContact_6_6*>::iterator itercontact = contactlist_6_6.begin();
-    while (itercontact != contactlist_6_6.end()) {
-        delete (*itercontact);
-        (*itercontact) = 0;
-        ++itercontact;
+    auto iter = contacts.begin();
+    while (iter != contacts.end()) {
+        delete *iter;
+        *iter = nullptr;
+        ++iter;
     }
-    contactlist_6_6.clear();
-    lastcontact_6_6 = contactlist_6_6.begin();
-    n_added_6_6 = 0;
+    contacts.clear();
+    last_contact = contacts.begin();
+    n_added = 0;
 }
 
 void ChContactContainerMulticore::BeginAddContact() {
-    lastcontact_6_6 = contactlist_6_6.begin();
-    n_added_6_6 = 0;
+    last_contact = contacts.begin();
+    n_added = 0;
 }
 
 void ChContactContainerMulticore::EndAddContact() {
     // remove contacts that are beyond last contact
-    while (lastcontact_6_6 != contactlist_6_6.end()) {
-        delete (*lastcontact_6_6);
-        lastcontact_6_6 = contactlist_6_6.erase(lastcontact_6_6);
+    while (last_contact != contacts.end()) {
+        delete *last_contact;
+        last_contact = contacts.erase(last_contact);
     }
 }
 
 void ChContactContainerMulticore::ReportAllContacts(std::shared_ptr<ReportContactCallback> callback) {
-    // Readibility
+    // Readability
     auto& cd_data = data_manager->cd_data;
     const auto& ptA = cd_data->cpta_rigid_rigid;
     const auto& ptB = cd_data->cptb_rigid_rigid;
@@ -72,8 +73,7 @@ void ChContactContainerMulticore::ReportAllContacts(std::shared_ptr<ReportContac
 
     // NSC-specific
     auto mode = data_manager->settings.solver.local_solver_mode;
-    const DynamicVector<real>& gamma_u =
-        blaze::subvector(data_manager->host_data.gamma, 0, data_manager->num_unilaterals);
+    const VectorType& gamma_u = data_manager->host_data.gamma.segment(0, data_manager->num_unilaterals);
 
     // SMC-specific
     const auto& ct_force = data_manager->host_data.ct_force;
@@ -115,12 +115,9 @@ void ChContactContainerMulticore::ReportAllContacts(std::shared_ptr<ReportContac
                 double t_u = 0;
                 double t_v = 0;
                 if (mode == SolverMode::SPINNING) {
-                    t_n = (double)(gamma_u[3 * cd_data->num_rigid_contacts + 3 * i + 0] /
-                                   data_manager->settings.step_size);
-                    t_u = (double)(gamma_u[3 * cd_data->num_rigid_contacts + 3 * i + 1] /
-                                   data_manager->settings.step_size);
-                    t_v = (double)(gamma_u[3 * cd_data->num_rigid_contacts + 3 * i + 2] /
-                                   data_manager->settings.step_size);
+                    t_n = (double)(gamma_u[3 * cd_data->num_rigid_contacts + 3 * i + 0] / data_manager->settings.step_size);
+                    t_u = (double)(gamma_u[3 * cd_data->num_rigid_contacts + 3 * i + 1] / data_manager->settings.step_size);
+                    t_v = (double)(gamma_u[3 * cd_data->num_rigid_contacts + 3 * i + 2] / data_manager->settings.step_size);
                 }
                 torque = ChVector3d(t_n, t_u, t_v);
                 break;
@@ -141,7 +138,7 @@ void ChContactContainerMulticore::ReportAllContacts(std::shared_ptr<ReportContac
         }
 
         // Invoke callback function
-        bool proceed = callback->OnReportContact(pA, pB, contact_plane, depth[i], erad[i], force, torque, bodyA, bodyB);
+        bool proceed = callback->OnReportContact(pA, pB, contact_plane, depth[i], erad[i], force, torque, bodyA, bodyB, -1);
         if (!proceed)
             break;
     }
@@ -155,7 +152,7 @@ void ChContactContainerMulticore::ComputeContactForces() {
 ChVector3d ChContactContainerMulticore::GetContactableForce(ChContactable* contactable) {
     // If contactable is a body, defer to associated system
     if (auto body = dynamic_cast<ChBody*>(contactable)) {
-        std::shared_ptr<ChBody> pbody(body, [](ChBody*) {}); 
+        std::shared_ptr<ChBody> pbody(body, [](ChBody*) {});
         real3 frc = static_cast<ChSystemMulticore*>(GetSystem())->GetBodyContactForce(pbody);
         return ToChVector(frc);
     }

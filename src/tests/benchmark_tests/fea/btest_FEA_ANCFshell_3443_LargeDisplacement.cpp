@@ -163,7 +163,7 @@ ANCFShellTest::ANCFShellTest(int num_elements, SolverType solver_type, int NumTh
     integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
     integrator->SetVerbose(false);
-    integrator->SetModifiedNewton(true);
+    integrator->SetJacobianUpdateMethod(ChTimestepperImplicit::JacobianUpdate::EVERY_STEP);
 
     // Mesh properties
     double length = 0.6;      // m
@@ -180,18 +180,18 @@ ANCFShellTest::ANCFShellTest(int num_elements, SolverType solver_type, int NumTh
     m_system->Add(mesh);
 
     // Setup visualization
-    auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizemesh->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizemesh->SetSmoothFaces(true);
     mesh->AddVisualShapeFEA(mvisualizemesh);
 
-    auto mvisualizemeshlines = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto mvisualizemeshlines = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizemeshlines->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizemeshlines->SetWireframe(true);
     mvisualizemeshlines->SetDrawInUndeformedReference(false);
     mesh->AddVisualShapeFEA(mvisualizemeshlines);
 
-    auto mvisualizemeshnode = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto mvisualizemeshnode = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizemeshnode->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
     mvisualizemeshnode->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     mvisualizemeshnode->SetSymbolsThickness(0.004);
@@ -273,9 +273,9 @@ void ANCFShellTest::SimulateVis() {
                   << std::endl;
         vis->BeginScene();
         vis->Render();
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(1, 0, 0), ChColor(1, 0, 0));
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 1, 0), ChColor(0, 1, 0));
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 0, 1), ChColor(0, 0, 1));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(1, 0, 0), ChColor(1, 0, 0));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 1, 0), ChColor(0, 1, 0));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 0, 1), ChColor(0, 0, 1));
         ExecuteStep();
         vis->EndScene();
     }

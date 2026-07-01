@@ -23,6 +23,7 @@
 #include <algorithm>
 
 #include "chrono/physics/ChSystem.h"
+#include "chrono/physics/ChContactMaterialSMC.h"
 
 namespace chrono {
 
@@ -52,7 +53,7 @@ class ChApi ChSystemSMC : public ChSystem {
     };
 
     /// Constructor for ChSystemSMC.
-    ChSystemSMC();
+    ChSystemSMC(const std::string& name = "");
 
     /// Copy constructor
     ChSystemSMC(const ChSystemSMC& other);
@@ -114,7 +115,7 @@ class ChApi ChSystemSMC : public ChSystem {
     double GetCharacteristicImpactVelocity() const { return m_characteristicVelocity; }
 
     /// Base class for contact force calculation.
-    /// A user can override thie default implementation by attaching a custom derived class; see
+    /// A user can override this default implementation by attaching a custom derived class; see
     /// SetContactForceTorqueAlgorithm.
     class ChApi ChContactForceTorqueSMC {
       public:

@@ -22,7 +22,7 @@ namespace vehicle {
 ChManualTransmissionShafts::ChManualTransmissionShafts(const std::string& name) : ChManualTransmission(name) {}
 
 ChManualTransmissionShafts::~ChManualTransmissionShafts() {
-    if (!m_initialized)
+    if (!IsInitialized())
         return;
 
     auto sys = m_motorshaft->GetSystem();
@@ -59,7 +59,7 @@ void ChManualTransmissionShafts::Initialize(std::shared_ptr<ChChassis> chassis) 
     ChVector3d dir_transmissionblock(1, 0, 0);
 
     // Create the motor block.
-    // ChShaftsThermalEngine connects this motor block to the motorshaft and applies the engine torque between them.
+    // ChShaftsThermalEngine connects this motor block to the motor shaft and applies the engine torque between them.
     m_transmissionblock = chrono_types::make_shared<ChShaft>();
     m_transmissionblock->SetInertia(GetTransmissionBlockInertia());
     sys->AddShaft(m_transmissionblock);
@@ -69,10 +69,9 @@ void ChManualTransmissionShafts::Initialize(std::shared_ptr<ChChassis> chassis) 
     m_transmissionblock_to_body->Initialize(m_transmissionblock, chassis->GetBody(), dir_transmissionblock);
     sys->Add(m_transmissionblock_to_body);
 
-    // Create the clutch, replacing the torque converter above. The clutch connects the crankshaft with what,
-    // for lack of a better word, I call clutchshaft now.
+    // Create the clutch, replacing the torque converter above. The clutch connects the crankshaft with the clutch shaft.
     m_clutchShaft = chrono_types::make_shared<ChShaft>();  // TODO what's the name of this shaft?
-    m_clutchShaft->SetInertia(GetIngearShaftInertia());    // TODO for now re-use this one, naming?
+    m_clutchShaft->SetInertia(GetIngearShaftInertia());    // TODO for now reuse this one, naming?
     sys->AddShaft(m_clutchShaft);
     m_clutch = chrono_types::make_shared<ChShaftsClutch>();
     m_clutch->Initialize(m_motorshaft, m_clutchShaft);
@@ -87,6 +86,8 @@ void ChManualTransmissionShafts::Initialize(std::shared_ptr<ChChassis> chassis) 
     m_gears->Initialize(m_clutchShaft, m_driveshaft, chassis->GetBody(), dir_transmissionblock);
     m_gears->SetTransmissionRatio(m_current_gear_ratio);
     sys->Add(m_gears);
+
+    ChPart::Initialize();
 }
 
 // -----------------------------------------------------------------------------
@@ -112,8 +113,7 @@ void ChManualTransmissionShafts::Synchronize(double time,
     // Clutch
     if (GetCurrentGear() == 0) {
         m_clutch->SetModulation(0.0);
-    }
-    else {
+    } else {
         m_clutch->SetModulation(1.0 - driver_inputs.m_clutch);
     }
 }
@@ -124,6 +124,17 @@ double ChManualTransmissionShafts::GetOutputDriveshaftTorque() const {
 
 double ChManualTransmissionShafts::GetOutputMotorshaftSpeed() const {
     return m_motorshaft->GetPosDt();
+}
+
+// -----------------------------------------------------------------------------
+
+void ChManualTransmissionShafts::PopulateComponentList() {
+    m_components.shafts.push_back(m_motorshaft);
+    m_components.shafts.push_back(m_driveshaft);
+    m_components.shafts.push_back(m_transmissionblock);
+    m_components.shafts.push_back(m_clutchShaft);
+
+    m_components.couples.push_back(m_clutch);
 }
 
 }  // end namespace vehicle

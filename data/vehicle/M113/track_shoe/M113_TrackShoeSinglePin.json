@@ -1,5 +1,5 @@
 {
-    "Name": "M113 SinglePin TrackShoe Left",
+    "Name": "M113 SinglePin TrackShoe",
     "Type": "TrackShoe",
     "Template": "TrackShoeSinglePin",
 
@@ -133,7 +133,7 @@
     },
 
     "Visualization": {
-        "Mesh": "M113/meshes/TrackShoeSinglePin.obj",
+        "Mesh": "vehicle/M113/meshes/TrackShoeSinglePin.obj",
 
         "Primitives": [
             // Visualization of the collision boxes

@@ -28,8 +28,6 @@
 #include "chrono/collision/multicore/ChBroadphase.h"
 #include "chrono/collision/multicore/ChNarrowphase.h"
 
-#include "chrono/multicore_math/ChMulticoreMath.h"
-
 namespace chrono {
 
 // forward references
@@ -45,6 +43,9 @@ class ChApi ChCollisionSystemMulticore : public ChCollisionSystem {
   public:
     ChCollisionSystemMulticore();
     virtual ~ChCollisionSystemMulticore();
+
+    /// Return type of the collision system.
+    virtual Type GetType() const override { return Type::MULTICORE; }
 
     /// Clears all data instanced by this algorithm
     /// if any (like persistent contact manifolds)
@@ -118,19 +119,22 @@ class ChApi ChCollisionSystemMulticore : public ChCollisionSystem {
     /// Return the time (in seconds) for narrowphase collision detection.
     virtual double GetTimerCollisionNarrow() const override;
 
-    /// Fill in the provided contact container with collision information after Run().
-    virtual void ReportContacts(ChContactContainer* container) override;
+    /// Report contacts (fill the provided 'contact container').
+    /// This function, which should only be called after `Run()`, must add to the contact container contacts
+    /// corresponding to all detected pairwise collisions.
+    virtual void ReportContacts(ChContactContainer* contact_container) override;
 
-    /// Fill in the provided proximity container with near point information after Run().
+    /// Report proximities (fill in the provided 'proximity container').
+    /// This function, which should only be called after `Run()`, must add to the contact container contacts
+    /// corresponding to all detected pairwise collisions.
     /// Not used.
-    virtual void ReportProximities(ChProximityContainer* mproximitycontainer) override {}
+    virtual void ReportProximities(ChProximityContainer* proximity_container) override {}
 
     /// Perform a ray-hit test with all collision models.
-    /// Currently not implemented.
     virtual bool RayHit(const ChVector3d& from, const ChVector3d& to, ChRayhitResult& result) const override;
 
     /// Perform a ray-hit test with the specified collision model.
-    /// Currently not implemented.
+    /// Currently NOT implemented.
     virtual bool RayHit(const ChVector3d& from,
                         const ChVector3d& to,
                         ChCollisionModel* model,

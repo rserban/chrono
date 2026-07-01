@@ -137,17 +137,12 @@ class ChApi ChForce : public ChObj {
     /// and torque vector (in body coords).
     void GetBodyForceTorque(ChVector3d& body_force, ChVector3d& body_torque) const;
 
-    //
     // UPDATING
-    //
 
-    void UpdateTime(double mytime);
     void UpdateState();
-    void Update(double mytime);
+    virtual void Update(double time, UpdateFlags update_flags) override;
 
-    //
     // SERIALIZATION
-    //
 
     /// Method to allow serialization of transient data to archives.
     virtual void ArchiveOut(ChArchiveOut& archive_out) override;
@@ -186,11 +181,11 @@ class ChApi ChForce : public ChObj {
     std::shared_ptr<ChFunction> move_z;  ///< motion z  ""
     ChVector3d restpos;                  ///< t=0 position (abs or rel, depends on 'frame')
 
-    std::shared_ptr<ChFunction> f_x;  ///< fv strengh x (abs or rel, see 'align')
-    std::shared_ptr<ChFunction> f_y;  ///< fv strengh y  ""
-    std::shared_ptr<ChFunction> f_z;  ///< fv strengh z  ""
+    std::shared_ptr<ChFunction> f_x;  ///< fv strength x (abs or rel, see 'align')
+    std::shared_ptr<ChFunction> f_y;  ///< fv strength y  ""
+    std::shared_ptr<ChFunction> f_z;  ///< fv strength z  ""
 
-    double mforce;                       ///< fm scalar force strenght
+    double mforce;                       ///< fm scalar force strength
     std::shared_ptr<ChFunction> modula;  ///< scalar force fm modulation
 
     ChVector3d vdir;     ///< force/torque abs.direction

@@ -19,9 +19,12 @@
 
 #include <memory>
 #include <string>
-#include "chrono_sensor/sensors/ChSensorBuffer.h"
-#include "chrono_sensor/ChApiSensor.h"
+
 #include "chrono/core/ChTypes.h"
+
+#include "chrono_sensor/ChApiSensor.h"
+#include "chrono_sensor/ChConfigSensor.h"
+#include "chrono_sensor/sensors/ChSensorBuffer.h"
 
 namespace chrono {
 namespace sensor {
@@ -36,8 +39,8 @@ class ChSensor;
 /// to a sensor must inherit from here.
 class CH_SENSOR_API ChFilter {
   public:
-    /// Virtual class desctructor
-    virtual ~ChFilter(){};
+    /// Virtual class destructor
+    virtual ~ChFilter() {}
 
     /// Virtual apply function. This will be called sequentially for all filters in a filter list. This should contain
     /// the necessary processing during the simulation. This must be threadsafe when applied to a ChOptixSensor.

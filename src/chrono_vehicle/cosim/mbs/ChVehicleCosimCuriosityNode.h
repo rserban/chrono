@@ -26,6 +26,10 @@
 #include "chrono_models/robot/curiosity/Curiosity.h"
 #include "chrono_vehicle/cosim/ChVehicleCosimWheeledMBSNode.h"
 
+#ifdef CHRONO_VSG
+    #include "chrono_vsg/ChVisualSystemVSG.h"
+#endif
+
 namespace chrono {
 namespace vehicle {
 
@@ -90,14 +94,16 @@ class CH_VEHICLE_API ChVehicleCosimCuriosityNode : public ChVehicleCosimWheeledM
     /// Impose spindle angular speed as dictated by an attached DBP rig.
     virtual void OnInitializeDBPRig(std::shared_ptr<ChFunction> func) override;
 
-    void WriteBodyInformation(utils::ChWriterCSV& csv);
+    void WriteBodyInformation(ChWriterCSV& csv);
 
     virtual void OnRender() override;
 
   private:
     std::shared_ptr<curiosity::Curiosity> m_curiosity;     ///< Curiosity rover;
     std::shared_ptr<curiosity::CuriosityDriver> m_driver;  ///< Curiosity driver
-    std::shared_ptr<ChVisualSystem> m_vsys;                ///< run-time visualization system
+#ifdef CHRONO_VSG
+    std::shared_ptr<vsg3d::ChVisualSystemVSG> m_vsys;  ///< run-time visualization system
+#endif
 
     ChVector3d m_init_loc;  ///< initial rover location (relative to center of terrain top surface)
     double m_init_yaw;      ///< initial rover yaw

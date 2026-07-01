@@ -1,68 +1,79 @@
 #--------------------------------------------------------------
 # List of all sensor demos
 
-# Demos that show the sensor framework
 set(DEMOS
-  demo_SEN_buildtest
-  demo_SEN_camera
-  demo_SEN_JSON
-  demo_SEN_lidar
   demo_SEN_GPSIMU
-  demo_SEN_radar
-  demo_SEN_tachometer
-  demo_SEN_radar1
 )
 
-# Demos that combine sensor simulation with vehicle dynamics
-if(ENABLE_MODULE_IRRLICHT AND ENABLE_MODULE_VEHICLE AND ENABLE_MODULE_VEHICLE_MODELS)
-    set(DEMOS ${DEMOS}
-      demo_SEN_HMMWV
-      demo_SEN_Gator
-      demo_SEN_deformableSoil
-    )
-endif()
+if(CH_USE_SENSOR_OPTIX)
 
-# Demos that require tensorrt
-if(USE_TENSOR_RT)
-    set(DEMOS ${DEMOS}
-      demo_SEN_NNCamera
-    )
+  set(DEMOS ${DEMOS}
+      demo_SEN_buildtest
+      demo_SEN_JSON
+      demo_SEN_camera
+      demo_SEN_cornell_box
+      demo_SEN_phys_cam
+      demo_SEN_lidar
+      demo_SEN_radar
+      demo_SEN_radar1
+      demo_SEN_tachometer  
+  )
+
+  # Demos that combine sensor simulation with vehicle dynamics
+  if(CH_ENABLE_MODULE_IRRLICHT AND CH_ENABLE_MODULE_VEHICLE AND CH_ENABLE_MODULE_VEHICLE_MODELS)
+      set(DEMOS ${DEMOS}
+        demo_SEN_HMMWV
+        demo_SEN_Gator
+        demo_SEN_deformableSoil
+      )
+  endif()
+
+  if(CH_ENABLE_MODULE_FSI_SPH AND CH_ENABLE_MODULE_VEHICLE)
+      set(DEMOS ${DEMOS}
+        demo_SEN_CRM_Rendering
+      )
+  endif()
+  
 endif()
 
 #--------------------------------------------------------------
-# Include directories, compiler flags, libraries
+# Dependency libraries
 
-set(COMPILER_FLAGS "${CH_CXX_FLAGS}")
-set(LINKER_FLAGS "${CH_LINKERFLAG_EXE}")
-list(APPEND LIBRARIES "ChronoEngine")
-list(APPEND LIBRARIES "ChronoEngine_sensor")
+list(APPEND LIBRARIES Chrono_core)
+list(APPEND LIBRARIES ChronoModels_robot)
+list(APPEND LIBRARIES Chrono_sensor)
 
-if(ENABLE_MODULE_IRRLICHT)
-    include_directories(${CH_IRRLICHT_INCLUDES})
-    set(COMPILER_FLAGS "${COMPILER_FLAGS} ${CH_IRRLICHT_CXX_FLAGS}")
-    list(APPEND LIBRARIES "ChronoEngine_irrlicht")
-endif()
-
-if(ENABLE_MODULE_VEHICLE) 
-   if(ENABLE_MODULE_IRRLICHT)
-      list(APPEND LIBRARIES "ChronoEngine_vehicle_irrlicht")
-   endif()
-   if(ENABLE_MODULE_VEHICLE_MODELS)
-      list(APPEND LIBRARIES "ChronoModels_vehicle")
+if(CH_ENABLE_MODULE_VEHICLE) 
+   list(APPEND LIBRARIES Chrono_vehicle)
+   if(CH_ENABLE_MODULE_VEHICLE_MODELS)
+      list(APPEND LIBRARIES ChronoModels_vehicle)
    endif()
 endif()
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set(LINKER_FLAGS  "${LINKER_FLAGS} -framework IOKit -framework Cocoa -framework OpenGL")
+if(CH_ENABLE_MODULE_IRRLICHT)
+   list(APPEND LIBRARIES Chrono_irrlicht)
+   if(CH_ENABLE_MODULE_VEHICLE) 
+      list(APPEND LIBRARIES Chrono_vehicle_irrlicht)
+   endif()
+endif()
+
+if(CH_ENABLE_MODULE_VSG)
+    list(APPEND LIBRARIES Chrono_vsg)
+    if(CH_ENABLE_MODULE_VEHICLE) 
+       list(APPEND LIBRARIES Chrono_vehicle_vsg)
+    endif()
+    if(CH_ENABLE_MODULE_FSI_SPH)
+       list(APPEND LIBRARIES Chrono_fsisph_vsg)
+    endif()
 endif()
 
 #--------------------------------------------------------------
 # Add executables
 
-message(STATUS "Demo programs for Sensor module...")
+message(STATUS "Add demo programs for SENSOR module")
 
 foreach(PROGRAM ${DEMOS})
-  message(STATUS "...add ${PROGRAM}")
+  # MESSAGE(STATUS "...add ${PROGRAM}")
 
   add_executable(${PROGRAM}  "${PROGRAM}.cpp")
   source_group(""  FILES  "${PROGRAM}.cpp")
@@ -70,15 +81,11 @@ foreach(PROGRAM ${DEMOS})
   # Visual Studio needs to have the debugger working directory set explicitly to the output directory
   # (specifically, so that the data directory is found when running demos in the debugger)
   set_property(TARGET ${PROGRAM} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${PROGRAM}>")
-
-  set_target_properties(${PROGRAM} PROPERTIES COMPILE_FLAGS "${COMPILER_FLAGS}" LINK_FLAGS "${LINKER_FLAGS}")
   target_link_libraries(${PROGRAM} ${LIBRARIES})
+  if(MSVC)
+    set_target_properties(${PROGRAM} PROPERTIES MSVC_RUNTIME_LIBRARY ${CH_MSVC_RUNTIME_LIBRARY})
+  endif()
 
-  install(TARGETS ${PROGRAM} DESTINATION ${CH_INSTALL_DEMO})
+  install(TARGETS ${PROGRAM} CONFIGURATIONS Release DESTINATION ${CH_INSTALL_DEMO})
 
 endforeach()
-
-#--------------------------------------------------------------
-# Demos that are self-determining
-
-add_subdirectory(demo_SEN_rl_infer)

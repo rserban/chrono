@@ -92,9 +92,9 @@ class CH_VEHICLE_API ChSprocket : public ChPart {
     /// Initialize this sprocket subsystem.
     /// The sprocket subsystem is initialized by attaching it to the specified chassis body at the specified location
     /// (with respect to and expressed in the reference frame of the chassis).
-    virtual void Initialize(std::shared_ptr<ChChassis> chassis,  ///< [in] associated chassis
-                            const ChVector3d& location,          ///< [in] location relative to the chassis frame
-                            ChTrackAssembly* track               ///< [in] pointer to containing track assembly
+    void Initialize(std::shared_ptr<ChChassis> chassis,  ///< [in] associated chassis
+                    const ChVector3d& location,          ///< [in] location relative to the chassis frame
+                    ChTrackAssembly* track               ///< [in] pointer to containing track assembly
     );
 
     /// Apply the provided torque to the sprocket's axle (for debugging and testing).
@@ -103,9 +103,9 @@ class CH_VEHICLE_API ChSprocket : public ChPart {
     void ApplyAxleTorque(double torque);
 
     /// Utility function to create a sprocket visualization mesh.
-    std::shared_ptr<ChTriangleMeshConnected> CreateVisualizationMesh(double radius,  ///< inner radius
-                                                                     double width,   ///< gear width
-                                                                     double delta,   ///< arclength between points
+    std::shared_ptr<ChTriangleMeshConnected> CreateVisualizationMesh(double radius,                    ///< inner radius
+                                                                     double width,                     ///< gear width
+                                                                     double delta,                     ///< arclength between points
                                                                      ChColor color = ChColor(1, 1, 1)  ///< mesh color
     ) const;
 
@@ -151,15 +151,9 @@ class CH_VEHICLE_API ChSprocket : public ChPart {
     virtual void CreateContactMaterial(ChContactMethod contact_method) = 0;
 
     /// Return the custom collision callback object.
-    virtual std::shared_ptr<ChSystem::CustomCollisionCallback> GetCollisionCallback(
-        ChTrackAssembly* track  ///< [in] pointer to containing track assembly
-        ) = 0;
+    virtual std::shared_ptr<ChSystem::CustomCollisionCallback> GetCollisionCallback(ChTrackAssembly* track) = 0;
 
-    /// Export this subsystem's component list to the specified JSON object.
-    virtual void ExportComponentList(rapidjson::Document& jsonDocument) const override;
-
-    /// Output data for this subsystem's component list to the specified database.
-    virtual void Output(ChVehicleOutput& database) const override;
+    virtual void PopulateComponentList() override;
 
     ChVector3d m_rel_loc;                                    ///< sprocket subsystem location relative to chassis
     std::shared_ptr<ChBody> m_gear;                          ///< sprocket gear body
@@ -170,7 +164,7 @@ class CH_VEHICLE_API ChSprocket : public ChPart {
 
     std::shared_ptr<ChSystem::CustomCollisionCallback> m_callback;  ///< cached collision callback
 
-    bool m_lateral_contact;  ///< if 'true', enable lateral conatact to prevent detracking
+    bool m_lateral_contact;  ///< if 'true', enable lateral contact to prevent detracking
 
     friend class ChTrackAssembly;
 };

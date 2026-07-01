@@ -105,7 +105,7 @@ vis.AttachSystem(sys)
 vis.SetWindowSize(1024,768)
 vis.SetWindowTitle('Actuated prismatic joint demo')
 vis.Initialize()
-vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
+vis.AddLogo(chrono.GetChronoDataFile('logo_chrono_alpha.png'))
 vis.AddSkyBox()
 vis.AddCamera(chrono.ChVector3d(-1, 1.5, -6))
 vis.AddTypicalLights()
@@ -115,7 +115,7 @@ x0 = slider1.GetPos().x
 while vis.Run():
     vis.BeginScene() 
     vis.Render()
-    irr.drawAllLinkframes(vis, 1)
+    irr.DrawAllLinkframes(vis, 1)
     vis.EndScene()
     sys.DoStepDynamics(1e-3)
 

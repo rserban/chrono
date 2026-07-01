@@ -16,11 +16,12 @@
 //
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono/physics/ChSystemSMC.h"
 #include "chrono/physics/ChLinkMate.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChLinkMotorLinearPosition.h"
-#include "chrono/timestepper/ChTimestepper.h"
 #include "chrono/solver/ChIterativeSolverLS.h"
 #include "chrono/utils/ChUtils.h"
 
@@ -34,8 +35,6 @@
 #include "chrono/physics/ChLinkMotorRotationAngle.h"
 
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
 
 #define USE_MKL
 
@@ -109,12 +108,12 @@ void MakeAndRunDemo0(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis)
 
     // Attach a visualization of the FEM mesh.
 
-    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamA->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizebeamA->SetSmoothFaces(true);
     my_mesh->AddVisualShapeFEA(mvisualizebeamA);
 
-    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamC->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_CSYS);
     mvisualizebeamC->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     mvisualizebeamC->SetSymbolsThickness(0.006);
@@ -191,12 +190,12 @@ void MakeAndRunDemo1(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis,
 
     // Attach a visualization of the FEM mesh.
 
-    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamA->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizebeamA->SetSmoothFaces(true);
     my_mesh->AddVisualShapeFEA(mvisualizebeamA);
 
-    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamC->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_CSYS);
     mvisualizebeamC->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     mvisualizebeamC->SetSymbolsThickness(0.006);
@@ -214,8 +213,8 @@ void MakeAndRunDemo1(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis,
     double poisson = melasticity->GetYoungModulus() / (2.0 * melasticity->GetShearModulus()) - 1.0;
     double Ks_y = 10.0 * (1.0 + poisson) / (12.0 + 11.0 * poisson);
     double analytic_timoshenko_displ =
-        (beam_tip_load * pow(beam_L, 3)) /
-            (3 * melasticity->GetYoungModulus() * (1. / 12.) * beam_wz * pow(beam_wy, 3)) +
+        (beam_tip_load * std::pow(beam_L, 3)) /
+            (3 * melasticity->GetYoungModulus() * (1. / 12.) * beam_wz * std::pow(beam_wy, 3)) +
         (beam_tip_load * beam_L) /
             (Ks_y * melasticity->GetShearModulus() * beam_wz * beam_wy);  // = (P*L^3)/(3*E*I) + (P*L)/(k*A*G)
     double numerical_displ =
@@ -299,12 +298,12 @@ void MakeAndRunDemo2(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis)
 
     // Attach a visualization of the FEM mesh.
 
-    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamA->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizebeamA->SetSmoothFaces(true);
     my_mesh->AddVisualShapeFEA(mvisualizebeamA);
 
-    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamC->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_CSYS);
     mvisualizebeamC->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     mvisualizebeamC->SetSymbolsThickness(0.006);
@@ -354,7 +353,7 @@ void MakeAndRunDemo3(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis,
     melasticity->SetAsRectangularSection(beam_wy, beam_wz);  // automatically sets A, Ixx, Iyy, Ksy, Ksz and J
 
     auto mplasticity = chrono_types::make_shared<ChPlasticityCosseratLumped>();
-    // The isotropic hardening curve. The value at zero absyssa is the initial yeld.
+    // The isotropic hardening curve. The value at zero abscissa is the initial yeld.
     mplasticity->n_yeld_x = chrono_types::make_shared<ChFunctionConst>(3000);
     // mplasticity->n_yeld_x = chrono_types::make_shared<ChFunctionRamp>(3000, 1e3);
     // The optional kinematic hardening curve:
@@ -398,12 +397,12 @@ void MakeAndRunDemo3(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis,
 
     // Attach a visualization of the FEM mesh.
 
-    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamA->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizebeamA->SetSmoothFaces(true);
     my_mesh->AddVisualShapeFEA(mvisualizebeamA);
 
-    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamC->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_CSYS);
     mvisualizebeamC->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     mvisualizebeamC->SetSymbolsThickness(0.006);
@@ -472,17 +471,17 @@ void MakeAndRunDemo4(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis,
 
     auto minertia = chrono_types::make_shared<ChInertiaCosseratSimple>();
     minertia->SetDensity(7800);
-    minertia->SetArea(CH_PI * (pow(beam_ro, 2) - pow(beam_ri, 2)));
-    minertia->SetIyy((CH_PI / 4.0) * (pow(beam_ro, 4) - pow(beam_ri, 4)));
-    minertia->SetIzz((CH_PI / 4.0) * (pow(beam_ro, 4) - pow(beam_ri, 4)));
+    minertia->SetArea(CH_PI * (std::pow(beam_ro, 2) - std::pow(beam_ri, 2)));
+    minertia->SetIyy((CH_PI / 4.0) * (std::pow(beam_ro, 4) - std::pow(beam_ri, 4)));
+    minertia->SetIzz((CH_PI / 4.0) * (std::pow(beam_ro, 4) - std::pow(beam_ri, 4)));
 
     auto melasticity = chrono_types::make_shared<ChElasticityCosseratSimple>();
     melasticity->SetYoungModulus(210e9);
     melasticity->SetShearModulusFromPoisson(0.3);
-    melasticity->SetArea(CH_PI * (pow(beam_ro, 2) - pow(beam_ri, 2)));
-    melasticity->SetIyy((CH_PI / 4.0) * (pow(beam_ro, 4) - pow(beam_ri, 4)));
-    melasticity->SetIzz((CH_PI / 4.0) * (pow(beam_ro, 4) - pow(beam_ri, 4)));
-    melasticity->SetJ((CH_PI / 2.0) * (pow(beam_ro, 4) - pow(beam_ri, 4)));
+    melasticity->SetArea(CH_PI * (std::pow(beam_ro, 2) - std::pow(beam_ri, 2)));
+    melasticity->SetIyy((CH_PI / 4.0) * (std::pow(beam_ro, 4) - std::pow(beam_ri, 4)));
+    melasticity->SetIzz((CH_PI / 4.0) * (std::pow(beam_ro, 4) - std::pow(beam_ri, 4)));
+    melasticity->SetJ((CH_PI / 2.0) * (std::pow(beam_ro, 4) - std::pow(beam_ri, 4)));
     // set the Timoshenko shear factors, if needed: melasticity->SetKsy(..) melasticity->SetKsy(..)
 
     auto msection = chrono_types::make_shared<ChBeamSectionCosserat>(minertia, melasticity);
@@ -553,11 +552,11 @@ void MakeAndRunDemo4(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis,
             double T3 = 1.25;
             double w = 60;
             if (x < T1)
-                return A1 * w * (1. - cos(CH_PI * x / T1)) / 2.0;
+                return A1 * w * (1. - std::cos(CH_PI * x / T1)) / 2.0;
             else if (x > T1 && x <= T2)
                 return A1 * w;
             else if (x > T2 && x <= T3)
-                return A1 * w + (A2 - A1) * w * (1.0 - cos(CH_PI * (x - T2) / (T3 - T2))) / 2.0;
+                return A1 * w + (A2 - A1) * w * (1.0 - std::cos(CH_PI * (x - T2) / (T3 - T2))) / 2.0;
             else  // if (x > T3)
                 return A2 * w;
         }
@@ -568,12 +567,12 @@ void MakeAndRunDemo4(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis,
 
     // Attach a visualization of the FEM mesh.
 
-    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamA = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamA->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     mvisualizebeamA->SetSmoothFaces(true);
     my_mesh->AddVisualShapeFEA(mvisualizebeamA);
 
-    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizebeamC = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizebeamC->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_CSYS);
     mvisualizebeamC->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     mvisualizebeamC->SetSymbolsThickness(0.006);
@@ -590,7 +589,7 @@ void MakeAndRunDemo4(ChSystem& sys, std::shared_ptr<ChVisualSystemIrrlicht> vis,
     // sys.SetTimestepperType(ChTimestepper::Type::HHT);
     if (auto mystepper = std::dynamic_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper())) {
         mystepper->SetStepControl(false);
-        mystepper->SetModifiedNewton(false);
+        mystepper->SetJacobianUpdateMethod(ChTimestepperImplicit::JacobianUpdate::EVERY_ITERATION);
     }
 
     sys.DoStaticLinear();
@@ -609,12 +608,12 @@ int main(int argc, char* argv[]) {
 
     // Initialize output
     const std::string out_dir = GetChronoOutputPath() + "FEA_BEAMS_IGA";
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
 
-    // Create a Chrono::Engine physical system
+    // Create a Chrono physical system
     ChSystemSMC sys;
 
     std::string models[] = {"static analysis", "curved beam connected to body", "plasticity", "Jeffcott rotor"};

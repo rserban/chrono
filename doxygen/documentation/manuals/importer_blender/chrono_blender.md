@@ -1,37 +1,34 @@
 Chrono::Blender {#introduction_chrono_blender}
 ==========================
 
-Chrono::Blender is an add-on tool for the widespread 
-[Blender](http://www.blender.org) modeling and rendering software.
-Thanks to this add-on, you can generate high quality photorealistic
-animations of chrono simulations.
+Chrono::Blender is an add-on for the [Blender](http://www.blender.org) modeling and rendering software.
+With this add-on, you can generate high quality photo-realistic animations of Chrono simulations.
 
-![](http://projectchrono.org/assets/manual/blender_addin.jpg)
-
-This requires that you build the [postprocessing module](@ref module_postprocess_installation), 
-so that you can use the ChBlender class to export all Chrono visual assets into .py files in a 
-directory when you run the simulation. For each time step, a .py file will be generated. 
+Use of the Chrono::Blender requires that you build the [Chrono::Postprocess](@ref module_postprocess_installation) module, 
+so that you can use the ChBlender class to export all Chrono visual assets into .py files in a directory when you run the
+simulation. For each time step, a .py file will be generated. 
 
 Then you can open Blender, import those files from the **File/Import../Chrono** menu, and you
 will find all the Chrono assets being imported in the GUI of Blender. At this point, you can 
 modify the objects, add lights, cameras, effects, perform high quality rendering, videos, etc,
-as regularly done via the Blender GUI.
+as regularly done via the Blender GUI. <br>
 
+![](http://projectchrono.org/assets/manual/blender_addin.jpg)
 
 ## Overview
 
 This is a short overview of the main features of the add-on. 
 If you want to test the following features on your PC, first you must do these steps:
 
-- install the add-on in Blender
+- [install](@ref chrono_blender_installation) the add-on in Blender
 
-- if not yet enabled, turn on *ENABLE_MODULE_POSTPROCESSING* in CMake and rebuild Chrono
+- if not yet enabled, turn on `CH_ENABLE_MODULE_POSTPROCESS` in CMake and build Chrono
 
-- build *demo_POST_blender1* (also, look at the comments in the source *demo_POST_blender.cpp* in order to learn)
+- build *demo_POST_* (also, look at the comments in the source *demo_POST_blender.cpp* in order to learn)
 
-- run **demo_POST_blender1.exe** 
+- run **demo_POST_blender.exe** 
 
-After the executable has run, you will find new files in the subdirectory  /DEMO_OUTPUT/BLENDER_1  , residing in your executable directory.
+After the executable has run, you will find new files in the subdirectory '/DEMO_OUTPUT/BLENDER', residing in your executable directory.
 Those files are:
 
 - **exported.assets.py**, this file contains all the global settings such as render size etc., plus the definition of all assets that are persistent
@@ -68,7 +65,7 @@ You can enable this type of postprocessing also in your own projects: if you loo
   ![](http://projectchrono.org/assets/manual/blender_addin_tutorial_40.jpg)
   
 - useful hint: the default renderer in Blender is *Evee*, which is very fast but not photorealistic, i.e. you can use for large scale simulations like you
-  could do with Paraview etc., but if you aim at the maximum photorealism, we suggest to enable the *Cycles* renderer, whic can be done as in the following
+  could do with Paraview etc., but if you aim at the maximum photorealism, we suggest to enable the *Cycles* renderer, which can be done as in the following
   figure:
   ![](http://projectchrono.org/assets/manual/blender_addin_tutorial_50.jpg)
 
@@ -133,8 +130,8 @@ the Blender GUI, in many cases.
   - you see that you can change many properties of the arrow glyphs: 
     ![](http://projectchrono.org/assets/manual/blender_addin_tutorial_110.jpg)
 	For example we set *width* as constant, 0.04, and *length* as *Property*, where the property is the vector set *F* that is, the contact force (with 
-	some scaling factor). This doing, we have arrows of same thickness, but whose lenght depends on how strong is the contact force. 
-	Note that we could have preferred an alternative way, that is setting all contact arrows with the same lenght, but with width depending on the *F* property. Or both. 
+	some scaling factor). This doing, we have arrows of same thickness, but whose length depends on how strong is the contact force. 
+	Note that we could have preferred an alternative way, that is setting all contact arrows with the same length, but with width depending on the *F* property. Or both. 
 	
   - an interesting possibility is about controlling the color of the arrow glyphs, according to some property. There is a predefined set of falsecolor colormaps,
     use the *Min*, *Max* and *colormap* settings to see the effects. 
@@ -158,7 +155,7 @@ the Blender GUI, in many cases.
 - ChGlyphs are fully supported, in the sub types: points, coordsystems, vectors, tensors.
   ![](http://projectchrono.org/assets/manual/blender_addin_tutorial_150.jpg)
   
-- ChTriangleMeshConnected that have some vecotr/scalar/tensorial property attached, can be optionally rendered
+- ChTriangleMeshConnected that have some vector/scalar/tensorial property attached, can be optionally rendered
   with falsecolor colormaps for the desired property:
   ![](http://projectchrono.org/assets/manual/blender_addin_tutorial_160.jpg)
 

@@ -21,23 +21,13 @@
 //
 // =============================================================================
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 #include "chrono_vehicle/ChWorldFrame.h"
 
 #include "chrono_models/vehicle/hmmwv/HMMWV.h"
 
-#ifdef CHRONO_IRRLICHT
-    #include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
-    #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
-using namespace chrono::irrlicht;
-#endif
-
-#ifdef CHRONO_VSG
-    #include "chrono_vehicle/driver/ChInteractiveDriverVSG.h"
-    #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
-using namespace chrono::vsg3d;
-#endif
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
 
 using namespace chrono;
 using namespace chrono::vehicle;
@@ -56,9 +46,6 @@ auto contact_method = ChContactMethod::NSC;
 
 // Collision system
 auto collision_system_type = ChCollisionSystem::Type::BULLET;
-
-// Run-time visualization system (IRRLICHT or VSG)
-auto vis_type = ChVisualSystem::Type::VSG;
 
 // Simulation step size
 double step_size = 2e-3;
@@ -82,7 +69,8 @@ int main(int argc, char* argv[]) {
     hmmwv.SetChassisCollisionType(chassis_coll_type);
     hmmwv.SetInitPosition(ChCoordsys<>(ChVector3d(0, 0, 0.5), QUNIT));
     hmmwv.SetEngineType(EngineModelType::SHAFTS);
-    hmmwv.SetTransmissionType(TransmissionModelType::AUTOMATIC_SHAFTS);
+    // hmmwv.SetTransmissionType(TransmissionModelType::AUTOMATIC_SHAFTS);
+    hmmwv.SetTransmissionType(TransmissionModelType::AUTOMATIC_SIMPLE_CVT);
     hmmwv.SetDriveType(DrivelineTypeWV::AWD);
     hmmwv.UseTierodBodies(false);
     hmmwv.SetSteeringType(SteeringTypeWV::PITMAN_ARM);
@@ -113,11 +101,11 @@ int main(int argc, char* argv[]) {
     auto terrain_mat = minfo.CreateMaterial(hmmwv.GetSystem()->GetContactMethod());
 
     auto patch = terrain.AddPatch(terrain_mat, CSYSNORM, 100.0, 100.0);
-    patch->SetTexture(vehicle::GetDataFile("terrain/textures/dirt.jpg"), 20, 20);
+    patch->SetTexture(GetVehicleDataFile("terrain/textures/dirt.jpg"), 20, 20);
 
     auto slope = QuatFromAngleY(-15 * CH_DEG_TO_RAD);
     auto ramp = terrain.AddPatch(terrain_mat, ChCoordsys<>(ChVector3d(20, 3, 0), slope), 20, 6);
-    ramp->SetTexture(vehicle::GetDataFile("terrain/textures/concrete.jpg"), 2, 2);
+    ramp->SetTexture(GetVehicleDataFile("terrain/textures/concrete.jpg"), 2, 2);
 
     terrain.Initialize();
 
@@ -126,51 +114,18 @@ int main(int argc, char* argv[]) {
 
     // Create the vehicle run-time visualization
 
-#ifndef CHRONO_IRRLICHT
-    if (vis_type == ChVisualSystem::Type::IRRLICHT)
-        vis_type = ChVisualSystem::Type::VSG;
-#endif
-#ifndef CHRONO_VSG
-    if (vis_type == ChVisualSystem::Type::VSG)
-        vis_type = ChVisualSystem::Type::IRRLICHT;
-#endif
-
-    std::shared_ptr<ChVehicleVisualSystem> vis;
-    switch (vis_type) {
-        case ChVisualSystem::Type::IRRLICHT: {
-#ifdef CHRONO_IRRLICHT
-            auto vis_irr = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
-            vis_irr->SetWindowTitle("Rollover Demo");
-            vis_irr->SetChaseCamera(ChVector3d(0.0, 0.0, 2.0), 5.0, 0.05);
-            vis_irr->Initialize();
-            vis_irr->AddLightDirectional(70, 20);
-            vis_irr->AddSkyBox();
-            vis_irr->AddLogo();
-            vis_irr->AttachVehicle(&hmmwv.GetVehicle());
-            vis = vis_irr;
-#endif
-            break;
-        }
-        default:
-        case ChVisualSystem::Type::VSG: {
-#ifdef CHRONO_VSG
-            auto vis_vsg = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
-            vis_vsg->SetWindowTitle("Rollover Demo");
-            vis_vsg->SetWindowSize(ChVector2i(1200, 800));
-            vis_vsg->SetWindowPosition(ChVector2i(100, 300));
-            vis_vsg->AttachVehicle(&hmmwv.GetVehicle());
-            vis_vsg->SetChaseCamera(ChVector3d(0.0, 0.0, 2.0), 8.0, 0.3);
-            vis_vsg->SetUseSkyBox(true);
-            vis_vsg->SetCameraAngleDeg(40);
-            vis_vsg->SetLightIntensity(1.0f);
-            vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
-            vis_vsg->SetShadows(true);
-            vis_vsg->Initialize();
-            vis = vis_vsg;
-#endif
-            break;
-        }
-    }
+    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
+    vis->SetWindowTitle("Rollover Demo");
+    vis->SetWindowSize(1280, 800);
+    vis->SetWindowPosition(100, 100);
+    vis->AttachVehicle(&hmmwv.GetVehicle());
+    vis->SetChaseCamera(ChVector3d(0.0, 0.0, 2.0), 8.0, 0.3);
+    vis->EnableSkyTexture(SkyMode::DOME);
+    vis->SetCameraAngleDeg(40);
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->EnableShadows();
+    vis->Initialize();
 
     // Simulation loop
     hmmwv.GetVehicle().EnableRealtime(true);

@@ -68,7 +68,7 @@ class CH_VEHICLE_API ChTire : public ChPart {
     /// Set the contact surface type (default: NODE_CLOUD).
     /// 'dim' represents the radius of a collision sphere (for NODE_CLOUD) or the mesh thickness (for TRIANGLE_MESH).
     /// Derived classes (concrete tire models) may or may not use this setting.
-    void SetContactSurfaceType(ContactSurfaceType type, double dim = 0.001);
+    void SetContactSurfaceType(ContactSurfaceType type, double dim = 0.01, int collision_family = 13);
 
     /// Set the internal tire pressure [Pa] (default: 0).
     /// Derived classes (concrete tire models) may or may not use this setting.
@@ -131,6 +131,16 @@ class CH_VEHICLE_API ChTire : public ChPart {
     /// An empty string is returned if no mesh was specified.
     const std::string& GetMeshFilename() const { return m_vis_mesh_file; }
 
+    /// Get the associated wheel.
+    /// Note that a tire is associated with a wheel only during initialization.
+    std::shared_ptr<ChWheel> GetWheel() const { return m_wheel; }
+
+    /// Checkpoint the state of this tire to the given checkpoint file.
+    virtual void WriteCheckpoint(ChCheckpoint::Format format, const std::string& filename) const {}
+
+    /// Initialize this tire from the given checkpoint file.
+    virtual void ReadCheckpoint(ChCheckpoint::Format format, const std::string& filename) {}
+
   public:
     // NOTE: Typically, users should not directly call these functions. They are public for use in special cases and to
     // allow extensions to Chrono::Vehicle in user code.
@@ -144,6 +154,71 @@ class CH_VEHICLE_API ChTire : public ChPart {
 
     /// Advance the state of this tire by the specified time step.
     virtual void Advance(double step) {}
+
+  public:
+    /// Perform disc-terrain collision detection, using the specified method.
+    static bool DiscTerrainCollision(CollisionType method,                ///< collision detection method
+                                     const ChTerrain& terrain,            ///< reference to terrain system
+                                     const ChVector3d& C,                 ///< disc center (in global frame)
+                                     const ChVector3d& dn,                ///< disc normal (in global frame)
+                                     double r,                            ///< disc radius
+                                     double w,                            ///< tire width
+                                     const ChFunctionInterp& area2depth,  ///< contact frame (in global frame)
+                                     ChCoordsys<>& contact,               ///< contact frame (in global frame)
+                                     double& depth,                       ///< penetration (positive if contact)
+                                     float& mu                            ///< coefficient of friction
+    );
+
+    /// Utility function to construct a loopkup table for penetration depth as function of intersection area.
+    /// This table corresponds to a particular disc radius.
+    static void ConstructAreaDepthTable(double r, ChFunctionInterp& area2depth);
+
+    /// Perform disc-terrain collision detection.
+    /// This utility function checks for contact between a disc of specified radius with given position and orientation
+    /// (specified as the location of its center and a unit vector normal to the disc plane) and the terrain system
+    /// associated with this tire. It returns true if the disc contacts the terrain and false otherwise.  If contact
+    /// occurs, it returns a coordinate system with the Z axis along the contact normal and the X axis along the
+    /// "rolling" direction, as well as a positive penetration depth (i.e. the height below the terrain of the lowest
+    /// point on the disc).
+    static bool DiscTerrainCollision1pt(const ChTerrain& terrain,  ///< reference to terrain system
+                                        const ChVector3d& C,       ///< disc center (in global frame)
+                                        const ChVector3d& dn,      ///< disc normal (in global frame)
+                                        double r,                  ///< disc radius
+                                        ChCoordsys<>& contact,     ///< contact coord sys (in the global frame)
+                                        double& depth,             ///< penetration (positive if contact)
+                                        float& mu                  ///< coefficient of friction
+    );
+
+    /// Perform disc-terrain collision detection considering the curvature of the road surface.
+    /// The surface normal is calculated based on 4 different height values below the wheel center. The effective height
+    /// is calculated as average value of the four height values. This utility function checks for contact between a
+    /// disc of specified radius with given position and orientation (specified as the location of its center and a unit
+    /// vector normal to the disc plane) and the terrain system associated with this tire. It returns true if the disc
+    /// contacts the terrain and false otherwise.  If contact occurs, it returns a coordinate system with the Z axis
+    /// along the contact normal and the X axis along the "rolling" direction, as well as a positive penetration depth
+    /// (i.e. the height below the terrain of the lowest point on the disc).
+    static bool DiscTerrainCollision4pt(const ChTerrain& terrain,  ///< reference to terrain system
+                                        const ChVector3d& C,       ///< disc center (in global frame)
+                                        const ChVector3d& dn,      ///< disc normal (in global frame)
+                                        double r,                  ///< disc radius
+                                        double w,                  ///< tire width
+                                        ChCoordsys<>& contact,     ///< contact frame (in global frame)
+                                        double& depth,             ///< penetration (positive if contact)
+                                        float& mu                  ///< coefficient of friction
+    );
+
+    /// Collision algorithm based on a paper of J. Shane Sui and John A. Hirshey II:
+    /// "A New Analytical Tire Model for Vehicle Dynamic Analysis" presented at 2001 MSC User Meeting
+    static bool DiscTerrainCollisionEnvelope(const ChTerrain& terrain,            ///< reference to terrain system
+                                             const ChVector3d& C,                 ///< disc center (in global frame)
+                                             const ChVector3d& dn,                ///< disc normal (in global frame)
+                                             double r,                            ///< disc radius
+                                             double w,                            ///< tire width
+                                             const ChFunctionInterp& area2depth,  ///< depth from area lookup table
+                                             ChCoordsys<>& contact,               ///< contact frame (in global frame)
+                                             double& depth,                       ///< penetration (positive if contact)
+                                             float& mu                            ///< coefficient of friction
+    );
 
   protected:
     /// Construct a tire subsystem with given name.
@@ -185,80 +260,13 @@ class CH_VEHICLE_API ChTire : public ChPart {
     std::shared_ptr<ChVisualShapeTriangleMesh> AddVisualizationMesh(const std::string& mesh_file_left,
                                                                     const std::string& mesh_file_right);
 
-    /// Perform disc-terrain collision detection, using the specified method.
-    static bool DiscTerrainCollision(
-        CollisionType method,             ///< [in] tire-terrain collision detection method
-        const ChTerrain& terrain,         ///< [in] reference to terrain system
-        const ChVector3d& disc_center,    ///< [in] global location of the disc center
-        const ChVector3d& disc_normal,    ///< [in] disc normal, expressed in the global frame
-        double disc_radius,               ///< [in] disc radius
-        double width,                     ///< [in] tire width
-        const ChFunctionInterp& areaDep,  ///< [in] lookup table to calculate depth from intersection area
-        ChCoordsys<>& contact,            ///< [out] contact coordinate system (relative to the global frame)
-        double& depth,                    ///< [out] penetration depth (positive if contact occurred)
-        float& mu                         ///< [out] coefficient of friction at contact
-    );
-
-    /// Utility function to construct a loopkup table for penetration depth as function of intersection area,
-    /// for a given tire radius.  The return map can be used in DiscTerrainCollisionEnvelope.
-    static void ConstructAreaDepthTable(double disc_radius, ChFunctionInterp& areaDep);
-
-    /// Perform disc-terrain collision detection.
-    /// This utility function checks for contact between a disc of specified radius with given position and orientation
-    /// (specified as the location of its center and a unit vector normal to the disc plane) and the terrain system
-    /// associated with this tire. It returns true if the disc contacts the terrain and false otherwise.  If contact
-    /// occurs, it returns a coordinate system with the Z axis along the contact normal and the X axis along the
-    /// "rolling" direction, as well as a positive penetration depth (i.e. the height below the terrain of the lowest
-    /// point on the disc).
-    static bool DiscTerrainCollision1pt(
-        const ChTerrain& terrain,       ///< [in] reference to terrain system
-        const ChVector3d& disc_center,  ///< [in] global location of the disc center
-        const ChVector3d& disc_normal,  ///< [in] disc normal, expressed in the global frame
-        double disc_radius,             ///< [in] disc radius
-        ChCoordsys<>& contact,          ///< [out] contact coordinate system (relative to the global frame)
-        double& depth,                  ///< [out] penetration depth (positive if contact occurred)
-        float& mu                       ///< [out] coefficient of friction at contact
-    );
-
-    /// Perform disc-terrain collision detection considering the curvature of the road surface.
-    /// The surface normal is calculated based on 4 different height values below the wheel center. The effective height
-    /// is calculated as average value of the four height values. This utility function checks for contact between a
-    /// disc of specified radius with given position and orientation (specified as the location of its center and a unit
-    /// vector normal to the disc plane) and the terrain system associated with this tire. It returns true if the disc
-    /// contacts the terrain and false otherwise.  If contact occurs, it returns a coordinate system with the Z axis
-    /// along the contact normal and the X axis along the "rolling" direction, as well as a positive penetration depth
-    /// (i.e. the height below the terrain of the lowest point on the disc).
-    static bool DiscTerrainCollision4pt(
-        const ChTerrain& terrain,       ///< [in] reference to terrain system
-        const ChVector3d& disc_center,  ///< [in] global location of the disc center
-        const ChVector3d& disc_normal,  ///< [in] disc normal, expressed in the global frame
-        double disc_radius,             ///< [in] disc radius
-        double width,                   ///< [in] tire width
-        ChCoordsys<>& contact,          ///< [out] contact coordinate system (relative to the global frame)
-        double& depth,                  ///< [out] penetration depth (positive if contact occurred)
-        float& mu                       ///< [out] coefficient of friction at contact
-    );
-
-    /// Collsion algorithm based on a paper of J. Shane Sui and John A. Hirshey II:
-    /// "A New Analytical Tire Model for Vehicle Dynamic Analysis" presented at 2001 MSC User Meeting
-    static bool DiscTerrainCollisionEnvelope(
-        const ChTerrain& terrain,         ///< [in] reference to terrain system
-        const ChVector3d& disc_center,    ///< [in] global location of the disc center
-        const ChVector3d& disc_normal,    ///< [in] disc normal, expressed in the global frame
-        double disc_radius,               ///< [in] disc radius
-        double width,                     ///< [in] tire width
-        const ChFunctionInterp& areaDep,  ///< [in] lookup table to calculate depth from intersection area
-        ChCoordsys<>& contact,            ///< [out] contact coordinate system (relative to the global frame)
-        double& depth,                    ///< [out] penetration depth (positive if contact occurred)
-        float& mu                         ///< [out] coefficient of friction at contact
-    );
-
     std::shared_ptr<ChWheel> m_wheel;           ///< associated wheel subsystem
     double m_stepsize;                          ///< tire integration step size (if applicable)
     double m_pressure;                          ///< internal tire pressure
     CollisionType m_collision_type;             ///< method used for tire-terrain collision
     ContactSurfaceType m_contact_surface_type;  ///< type of contact surface model (node cloud or mesh)
     double m_contact_surface_dim;               ///< contact surface dimension (node radius or mesh thickness)
+    int m_collision_family;                     ///< collision family for this tire
     std::string m_vis_mesh_file;                ///< name of OBJ file for visualization of this tire (may be empty)
 
     double m_slip_angle;

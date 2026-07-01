@@ -1,0 +1,147 @@
+// =============================================================================
+// PROJECT CHRONO - http://projectchrono.org
+//
+// Copyright (c) 2025 projectchrono.org
+// All rights reserved.
+//
+// Use of this source code is governed by a BSD-style license that can be found
+// in the LICENSE file at the top level of the distribution and at
+// http://projectchrono.org/license-chrono.txt.
+//
+// =============================================================================
+// Authors: Radu Serban
+// =============================================================================
+
+#include "chrono/physics/ChSystem.h"
+
+#include "chrono/input_output/ChOutputASCII.h"
+#ifdef CHRONO_HAS_HDF5
+    #include "chrono/input_output/ChOutputHDF5.h"
+#endif
+
+#include "chrono_parsers/yaml/ChParserYAML.h"
+
+using std::cout;
+using std::cerr;
+using std::endl;
+
+namespace chrono {
+namespace parsers {
+
+ChParserYAML::ChParserYAML() : m_name("model"), m_verbose(false), m_use_degrees(true), m_output_dir(".") {}
+
+// -----------------------------------------------------------------------------
+
+ChParserYAML::YamlFileType ChParserYAML::ReadYamlFileType(const std::string& yaml_filename) {
+    auto path = std::filesystem::path(yaml_filename);
+    if (!exists(path) || !is_regular_file(path)) {
+        cerr << "Error: file '" << yaml_filename << "' not found." << endl;
+        throw std::runtime_error("File not found");
+    }
+    YAML::Node yaml = YAML::LoadFile(yaml_filename);
+    ChAssertAlways(yaml["type"]);
+    return ReadYamlFileType(yaml["type"]);
+}
+
+ChParserYAML::YamlFileType ChParserYAML::ReadYamlFileType(const YAML::Node& a) {
+    auto type = ChToUpper(a.as<std::string>());
+    if (type == "MBS")
+        return YamlFileType::MBS;
+    if (type == "SPH")
+        return YamlFileType::SPH;
+    if (type == "TDPF")
+        return YamlFileType::TDPF;
+    if (type == "FSI")
+        return YamlFileType::FSI;
+    if (type == "VEHICLE")
+        return YamlFileType::VEHICLE;
+    return YamlFileType::UNKNOWN;
+}
+
+// -----------------------------------------------------------------------------
+
+ChParserYAML::OutputParameters::OutputParameters() : format(ChOutput::Format::NONE), mode(ChOutput::Mode::FRAMES), fps(100) {}
+
+void ChParserYAML::OutputParameters::PrintInfo() {
+    if (format == ChOutput::Format::NONE) {
+        cout << "no output" << endl;
+        return;
+    }
+
+    cout << "output" << endl;
+    cout << "  format:               " << ChOutput::GetFormatAsString(format) << endl;
+    cout << "  mode:                 " << ChOutput::GetModeAsString(mode) << endl;
+    cout << "  output FPS:           " << fps << endl;
+}
+
+bool ChParserYAML::Output() const {
+    return m_output.format != ChOutput::Format::NONE;
+}
+
+void ChParserYAML::SetOutputDir(const std::string& out_dir) {
+    auto p = std::filesystem::path(out_dir);
+    if (!exists(p) || !is_directory(p)) {
+        std::cerr << "The specified path " << out_dir << " is not a valid directory." << std::endl;
+        throw std::runtime_error("Invalid directory");
+    }
+
+    m_output_dir = out_dir;
+
+    if (m_verbose) {
+        auto filename = m_output_dir + "/" + m_name;
+        switch (m_output.format) {
+            case ChOutput::Format::ASCII:
+                filename += ".txt";
+                break;
+            case ChOutput::Format::HDF5:
+#ifdef CHRONO_HAS_HDF5
+                filename += ".h5";
+                break;
+#else
+                return;
+#endif
+        }
+        cout << "Output file: " << filename << endl;
+    }
+}
+
+void ChParserYAML::ReadOutputParams(const YAML::Node& a) {
+    ChAssertAlways(a["format"]);
+    m_output.format = ReadOutputFormat(a["format"]);
+#ifndef CHRONO_HAS_HDF5
+    if (m_output.format == ChOutput::Format::HDF5) {
+        std::cerr << "HDF5 output support not available.\nOutput disabled." << std::endl;
+        m_output.format = ChOutput::Format::NONE;
+        return;
+    }
+#endif
+
+    if (a["mode"])
+        m_output.mode = ReadOutputMode(a["mode"]);
+    if (a["fps"])
+        m_output.fps = a["fps"].as<double>();
+}
+
+void ChParserYAML::WriteOutput(int frame, double time) {
+    if (m_output.format == ChOutput::Format::NONE)
+        return;
+
+    // Create the output DB if needed
+    if (!m_output_db) {
+        switch (m_output.format) {
+            case ChOutput::Format::ASCII:
+                m_output_db = chrono_types::make_shared<ChOutputASCII>(m_output_dir, m_name, m_output.mode);
+                break;
+            case ChOutput::Format::HDF5:
+#ifdef CHRONO_HAS_HDF5
+                m_output_db = chrono_types::make_shared<ChOutputHDF5>(m_output_dir, m_name, m_output.mode);
+                break;
+#else
+                return;
+#endif
+        }
+    }
+}
+
+}  // end namespace parsers
+}  // namespace chrono

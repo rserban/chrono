@@ -31,6 +31,11 @@ ChIrrNodeModel::ChIrrNodeModel(std::weak_ptr<ChPhysicsItem> physicsitem,
     m_clones = (std::dynamic_pointer_cast<ChParticleCloud>(m_physicsitem.lock()) != nullptr);
 }
 
+ChIrrNodeModel::~ChIrrNodeModel() {
+    removeAll();
+    remove();
+}
+
 void ChIrrNodeModel::OnRegisterSceneNode() {
     if (IsVisible)
         SceneManager->registerNodeForRendering(this);
@@ -98,7 +103,7 @@ void ChIrrNodeModel::OnAnimate(u32 timeMs) {
     if (IsVisible) {
         // reorient/reposition the scene node
         if (!m_clones) {
-            tools::alignIrrlichtNode(this, m_physicsitem.lock()->GetVisualModelFrame().GetCoordsys());
+            tools::AlignIrrlichtNode(this, m_physicsitem.lock()->GetVisualModelFrame());
         } else if (m_physicsitem.lock()->GetNumVisualModelClones() > 0) {
             // check that children clones are already as many as assets frame clones, and adjust if not
             if (SetupClones()) {
@@ -106,7 +111,7 @@ void ChIrrNodeModel::OnAnimate(u32 timeMs) {
                 unsigned int iclone = 0;
                 irr::core::list<ISceneNode*>::ConstIterator it = this->getChildren().begin();
                 for (; it != Children.end(); ++it) {
-                    tools::alignIrrlichtNode((*it), m_physicsitem.lock()->GetVisualModelFrame(iclone).GetCoordsys());
+                    tools::AlignIrrlichtNode((*it), m_physicsitem.lock()->GetVisualModelFrame(iclone));
                     ++iclone;
                 }
             }

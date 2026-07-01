@@ -45,8 +45,10 @@ ChLinkRevoluteSpherical::ChLinkRevoluteSpherical(const ChLinkRevoluteSpherical& 
     m_cur_dist = other.m_cur_dist;
     m_cur_dot = other.m_cur_dot;
 
-    m_cnstr_dist.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_dot.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+    if (other.m_body1 && other.m_body2) {
+        m_cnstr_dist.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_dot.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+    }
 
     m_multipliers[0] = other.m_multipliers[0];
     m_multipliers[1] = other.m_multipliers[1];
@@ -161,9 +163,9 @@ void ChLinkRevoluteSpherical::Initialize(std::shared_ptr<ChBody> body1,
 // -----------------------------------------------------------------------------
 // Link update function
 // -----------------------------------------------------------------------------
-void ChLinkRevoluteSpherical::Update(double time, bool update_assets) {
+void ChLinkRevoluteSpherical::Update(double time, UpdateFlags update_flags) {
     // Inherit time changes of parent class (ChLink)
-    ChLink::Update(time, update_assets);
+    ChLink::Update(time, update_flags);
 
     // Express the body locations and direction in absolute frame
     ChVector3d pos1_abs = m_body1->TransformPointLocalToParent(m_pos1);
@@ -290,6 +292,7 @@ void ChLinkRevoluteSpherical::IntLoadResidual_CqL(const unsigned int off_L,    /
 void ChLinkRevoluteSpherical::IntLoadConstraint_C(const unsigned int off_L,  ///< offset in Qc residual
                                                   ChVectorDynamic<>& Qc,     ///< result: the Qc residual, Qc += c*C
                                                   const double c,            ///< a scaling factor
+                                                  const double c_vel,        ///< the scaling factor if the constraint is at speed level
                                                   bool do_clamp,             ///< apply clamping to c*C?
                                                   double recovery_clamp      ///< value for min/max clamping of c*C
 ) {

@@ -1,7 +1,7 @@
 // =============================================================================
 // PROJECT CHRONO - http://projectchrono.org
 //
-// Copyright (c) 2014 projectchrono.org
+// Copyright (c) 2026 projectchrono.org
 // All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found
@@ -12,27 +12,19 @@
 // Authors: Radu Serban
 // =============================================================================
 //
-// Base class for a vehicle output database.
+// Definition of vehicle output data structures.
 //
 // =============================================================================
 
 #ifndef CH_VEHICLE_OUTPUT_H
 #define CH_VEHICLE_OUTPUT_H
 
-#include <vector>
-#include <string>
+#include "chrono_vehicle/ChConfigVehicle.h"
 
-#include "chrono_vehicle/ChApiVehicle.h"
-
-#include "chrono/physics/ChBody.h"
-#include "chrono/physics/ChBodyAuxRef.h"
-#include "chrono/physics/ChMarker.h"
-#include "chrono/physics/ChShaft.h"
-#include "chrono/physics/ChLink.h"
-#include "chrono/physics/ChShaftsCouple.h"
-#include "chrono/physics/ChLinkTSDA.h"
-#include "chrono/physics/ChLinkRSDA.h"
-#include "chrono/physics/ChLoadsBody.h"
+#include "chrono/input_output/ChOutputASCII.h"
+#ifdef CHRONO_HAS_HDF5
+    #include "chrono/input_output/ChOutputHDF5.h"
+#endif
 
 namespace chrono {
 namespace vehicle {
@@ -40,31 +32,13 @@ namespace vehicle {
 /// @addtogroup vehicle
 /// @{
 
-/// Base class for a vehicle output database.
-class CH_VEHICLE_API ChVehicleOutput {
-  public:
-    enum Type {
-        ASCII,  ///< ASCII text
-        JSON,   ///< JSON
-        HDF5    ///< HDF-5
-    };
+/// Output data for a vehicle subsystem.
+struct OutputData {
+    std::vector<const ChAssembly::Components*> comp;  ///< subsystem part components
+    std::unique_ptr<ChOutput> db;                     ///< output database
 
-    ChVehicleOutput() {}
-    virtual ~ChVehicleOutput() {}
-
-    virtual void WriteTime(int frame, double time) = 0;
-
-    virtual void WriteSection(const std::string& name) = 0;
-
-    virtual void WriteBodies(const std::vector<std::shared_ptr<ChBody>>& bodies) = 0;
-    virtual void WriteAuxRefBodies(const std::vector<std::shared_ptr<ChBodyAuxRef>>& bodies) = 0;
-    virtual void WriteMarkers(const std::vector<std::shared_ptr<ChMarker>>& markers) = 0;
-    virtual void WriteShafts(const std::vector<std::shared_ptr<ChShaft>>& shafts) = 0;
-    virtual void WriteJoints(const std::vector<std::shared_ptr<ChLink>>& joints) = 0;
-    virtual void WriteCouples(const std::vector<std::shared_ptr<ChShaftsCouple>>& couples) = 0;
-    virtual void WriteLinSprings(const std::vector<std::shared_ptr<ChLinkTSDA>>& springs) = 0;
-    virtual void WriteRotSprings(const std::vector<std::shared_ptr<ChLinkRSDA>>& springs) = 0;
-    virtual void WriteBodyLoads(const std::vector<std::shared_ptr<ChLoadBodyBody>>& loads) = 0;
+    /// Write the components to the output DB.
+    void Write(int frame, double time) const { db->Write(frame, time, comp); }
 };
 
 /// @} vehicle

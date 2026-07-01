@@ -17,7 +17,7 @@
 // The global reference frame has Z up.
 // =============================================================================
 
-// Run benchamrk tests for a number of threads between MIN and MAX (inclusive)
+// Run benchmark tests for a number of threads between MIN and MAX (inclusive)
 // in increments of STEP.
 #define TEST_MIN_THREADS 1
 #define TEST_MAX_THREADS 16
@@ -32,8 +32,8 @@
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGenerators.h"
 #include "chrono_multicore/physics/ChSystemMulticore.h"
-#ifdef CHRONO_OPENGL
-    #include "chrono_opengl/ChVisualSystemOpenGL.h"
+#ifdef CHRONO_VSG
+    #include "chrono_vsg/ChVisualSystemVSG.h"
 #endif
 
 using namespace chrono;
@@ -132,19 +132,23 @@ SettlingSMC::SettlingSMC() : m_system(new ChSystemMulticoreSMC), m_step(1e-3) {
 
 // Run settling simulation with visualization
 void SettlingSMC::SimulateVis() {
-#ifdef CHRONO_OPENGL
-    opengl::ChVisualSystemOpenGL vis;
-    vis.AttachSystem(m_system);
-    vis.SetWindowTitle("Settling test");
-    vis.SetWindowSize(1280, 720);
-    vis.SetRenderMode(opengl::WIREFRAME);
-    vis.Initialize();
-    vis.AddCamera(ChVector3d(0, -6, 0), ChVector3d(0, 0, 0));
-    vis.SetCameraVertical(CameraVerticalDir::Z);
+#ifdef CHRONO_VSG
+    auto vis = chrono_types::make_shared<vsg3d::ChVisualSystemVSG>();
+    vis->AttachSystem(m_system);
+    vis->SetWindowTitle("Settling test");
+    vis->SetCameraVertical(CameraVerticalDir::Z);
+    vis->AddCamera(ChVector3d(0, -6, 0), ChVector3d(0, 0, 0));
+    vis->SetWindowSize(1280, 720);
+    vis->SetBackgroundColor(ChColor(0.8f, 0.85f, 0.9f));
+    vis->EnableSkyTexture(SkyMode::BOX);
+    vis->SetCameraAngleDeg(40.0);
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->Initialize();
 
-    while (vis.Run()) {
+    while (vis->Run()) {
         ExecuteStep();
-        vis.Render();
+        vis->Render();
     }
 #endif
 }
@@ -152,7 +156,7 @@ void SettlingSMC::SimulateVis() {
 // =============================================================================
 
 #define NUM_SKIP_STEPS 500  // number of steps for hot start
-#define NUM_SIM_STEPS 500  // number of simulation steps for benchmarking
+#define NUM_SIM_STEPS 500   // number of simulation steps for benchmarking
 
 using TEST_NAME = chrono::utils::ChBenchmarkFixture<SettlingSMC, 0>;
 BENCHMARK_DEFINE_F(TEST_NAME, Settle)(benchmark::State& st) {
@@ -167,10 +171,10 @@ BENCHMARK_DEFINE_F(TEST_NAME, Settle)(benchmark::State& st) {
 #pragma omp master
     std::cout << "using " << ChOMP::GetNumThreads() << " threads." << std::endl;
 }
+
 BENCHMARK_REGISTER_F(TEST_NAME, Settle)
     ->Unit(benchmark::kMillisecond)
     ->Iterations(1)
-    ->Repetitions(1)
     ->UseRealTime()
     ->DenseRange(TEST_MIN_THREADS, TEST_MAX_THREADS, TEST_STEP_THREADS);
 

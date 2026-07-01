@@ -42,7 +42,7 @@
 #include "chrono/physics/ChLinkMotorRotationSpeed.h"
 #include "chrono/physics/ChLinkMotorRotationTorque.h"
 #include "chrono/physics/ChShaftBodyConstraint.h"
-#include "chrono/physics/ChInertiaUtils.h"
+#include "chrono/physics/ChMassProperties.h"
 
 #include "chrono/utils/ChUtils.h"
 
@@ -219,12 +219,11 @@ void ViperPart::Construct(ChSystem* system) {
         auto vis_mesh_file = GetChronoDataFile("robot/viper/obj/" + m_mesh_name + ".obj");
         auto trimesh_vis = ChTriangleMeshConnected::CreateFromWavefrontFile(vis_mesh_file, true, true);
         trimesh_vis->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetRotMat());  // translate/rotate/scale mesh
-        trimesh_vis->RepairDuplicateVertexes(1e-9);                               // if meshes are not watertight
+        trimesh_vis->RepairDuplicateVertices(1e-9);                               // if meshes are not watertight
 
         auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh_vis);
         trimesh_shape->SetName(m_mesh_name);
-        trimesh_shape->SetMutable(false);
         m_body->AddVisualShape(trimesh_shape);
     }
 
@@ -233,7 +232,7 @@ void ViperPart::Construct(ChSystem* system) {
         auto col_mesh_file = GetChronoDataFile("robot/viper/col/" + m_mesh_name + ".obj");
         auto trimesh_col = ChTriangleMeshConnected::CreateFromWavefrontFile(col_mesh_file, false, false);
         trimesh_col->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetRotMat());  // translate/rotate/scale mesh
-        trimesh_col->RepairDuplicateVertexes(1e-9);                               // if meshes are not watertight
+        trimesh_col->RepairDuplicateVertices(1e-9);                               // if meshes are not watertight
 
         auto shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(m_mat, trimesh_col, false, false, 0.005);
         m_body->AddCollisionShape(shape);
@@ -247,7 +246,7 @@ void ViperPart::CalcMassProperties(double density) {
     auto mesh_filename = GetChronoDataFile("robot/viper/col/" + m_mesh_name + ".obj");
     auto trimesh_col = ChTriangleMeshConnected::CreateFromWavefrontFile(mesh_filename, false, false);
     trimesh_col->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetRotMat());  // translate/rotate/scale mesh
-    trimesh_col->RepairDuplicateVertexes(1e-9);                               // if meshes are not watertight
+    trimesh_col->RepairDuplicateVertices(1e-9);                               // if meshes are not watertight
 
     double vol;
     ChVector3d cog_pos;
@@ -385,7 +384,7 @@ void Viper::Create(ViperWheelType wheel_type) {
     // create rover chassis
     m_chassis = chrono_types::make_shared<ViperChassis>("chassis", m_default_material);
 
-    // initilize rover wheels
+    // initialize rover wheels
     double wx = 0.5618 + 0.08;
     double wy = 0.2067 + 0.32 + 0.0831;
     double wz = 0.0;
@@ -524,7 +523,7 @@ void Viper::Initialize(const ChFrame<>& pos) {
     };
 
     // Orientation of lift motors.
-    // A positive lifting input results in rasing the chassis relative to the wheels.
+    // A positive lifting input results in raising the chassis relative to the wheels.
     ChQuaternion<> lm_rot[] = {
         QUNIT,                  // LF
         QuatFromAngleX(CH_PI),  // RF
@@ -724,6 +723,12 @@ void ViperSpeedDriver::Update(double time) {
     if (time < m_ramp)
         speed = m_speed * (time / m_ramp);
     drive_speeds = {speed, speed, speed, speed};
+}
+
+void ViperDirectControl::SetDirectControl(std::array<double, 4> m_drive_speeds, std::array<double, 4> m_steer_angles, std::array<double, 4> m_lift_angles){
+    drive_speeds = m_drive_speeds;
+    steer_angles = m_steer_angles;
+    lift_angles = m_lift_angles;
 }
 
 }  // namespace viper

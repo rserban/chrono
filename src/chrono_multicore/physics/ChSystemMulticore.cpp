@@ -18,6 +18,8 @@
 //
 // =============================================================================
 
+#include <numeric>
+
 #include "chrono/physics/ChShaftBodyConstraint.h"
 #include "chrono/physics/ChShaftsCouple.h"
 #include "chrono/physics/ChShaftsGearbox.h"
@@ -29,17 +31,11 @@
 #include "chrono_multicore/ChConfigMulticore.h"
 #include "chrono_multicore/collision/ChCollisionSystemChronoMulticore.h"
 #include "chrono_multicore/physics/ChSystemMulticore.h"
-#include "chrono_multicore/solver/ChSolverMulticore.h"
-#include "chrono_multicore/solver/ChSystemDescriptorMulticore.h"
-
-#include <numeric>
 
 namespace chrono {
 
-ChSystemMulticore::ChSystemMulticore() : ChSystem() {
+ChSystemMulticore::ChSystemMulticore(const std::string& name) : ChSystem(name) {
     data_manager = new ChMulticoreDataManager();
-
-    descriptor = chrono_types::make_shared<ChSystemDescriptorMulticore>(data_manager);
 
     counter = 0;
     timer_accumulator.resize(10, 0);
@@ -74,12 +70,12 @@ ChSystemMulticore::~ChSystemMulticore() {
     delete data_manager;
 }
 
-bool ChSystemMulticore::AdvanceDynamics() {
+bool ChSystemMulticore::AdvanceDynamics(bool do_collision) {
     ResetTimers();
     timer_step.start();  // time elapsed for step (for RTF calculation)
 
     // Store system data in the data manager
-    data_manager->system_descriptor = this->descriptor;
+    data_manager->system_descriptor = descriptor;
     data_manager->body_list = &assembly.bodylist;
     data_manager->link_list = &assembly.linklist;
     data_manager->other_physics_list = &assembly.otherphysicslist;
@@ -94,11 +90,11 @@ bool ChSystemMulticore::AdvanceDynamics() {
     data_manager->system_timer.stop("update");
 
     data_manager->system_timer.start("collision");
-    if (collision_system) {
+    if (do_collision && collision_system) {
         collision_system->PreProcess();
         collision_system->Run();
         collision_system->PostProcess();
-        collision_system->ReportContacts(this->contact_container.get());
+        collision_system->ReportContacts(contact_container.get());
         for (size_t ic = 0; ic < collision_callbacks.size(); ic++) {
             collision_callbacks[ic]->OnCustomCollision(this);
         }
@@ -120,7 +116,7 @@ bool ChSystemMulticore::AdvanceDynamics() {
     }
 
     // Update the constraint reactions.
-    double factor = 1 / this->GetStep();
+    double factor = 1 / GetStep();
     for (auto& link : assembly.linklist) {
         link->ConstraintsFetch_react(factor);
     }
@@ -131,12 +127,12 @@ bool ChSystemMulticore::AdvanceDynamics() {
 
     // Scatter the states to the Chrono objects (bodies and shafts) and update
     // all physics items at the end of the step.
-    DynamicVector<real>& velocities = data_manager->host_data.v;
+    VectorType& velocities = data_manager->host_data.v;
     custom_vector<real3>& pos_pointer = data_manager->host_data.pos_rigid;
     custom_vector<quaternion>& rot_pointer = data_manager->host_data.rot_rigid;
 
-#pragma omp parallel for
-    for (int i = 0; i < assembly.bodylist.size(); i++) {
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < (signed)assembly.bodylist.size(); i++) {
         if (data_manager->host_data.active_rigid[i] != 0) {
             auto& body = assembly.bodylist[i];
             body->Variables().State()(0) = velocities[i * 6 + 0];
@@ -146,15 +142,12 @@ bool ChSystemMulticore::AdvanceDynamics() {
             body->Variables().State()(4) = velocities[i * 6 + 4];
             body->Variables().State()(5) = velocities[i * 6 + 5];
 
-            body->VariablesQbIncrementPosition(this->GetStep());
-            body->VariablesQbSetSpeed(this->GetStep());
+            body->VariablesQbIncrementPosition(step);
+            body->VariablesQbSetSpeed(step);
+            body->Update(ch_time, UpdateFlags::UPDATE_ALL);
 
-            body->Update(ch_time);
-
-            // update the position and rotation vectors
-            pos_pointer[i] = (real3(body->GetPos().x(), body->GetPos().y(), body->GetPos().z()));
-            rot_pointer[i] =
-                (quaternion(body->GetRot().e0(), body->GetRot().e1(), body->GetRot().e2(), body->GetRot().e3()));
+            pos_pointer[i] = real3(body->GetPos().x(), body->GetPos().y(), body->GetPos().z());
+            rot_pointer[i] = quaternion(body->GetRot().e0(), body->GetRot().e1(), body->GetRot().e2(), body->GetRot().e3());
         }
     }
 
@@ -166,7 +159,7 @@ bool ChSystemMulticore::AdvanceDynamics() {
             shaft->Variables().State()(0) = velocities[offset + i];
             shaft->VariablesQbIncrementPosition(GetStep());
             shaft->VariablesQbSetSpeed(GetStep());
-            shaft->Update(ch_time);
+            shaft->Update(ch_time, UpdateFlags::UPDATE_ALL);
         }
     }
 
@@ -175,7 +168,7 @@ bool ChSystemMulticore::AdvanceDynamics() {
         linmotorlist[i]->Variables().State()(0) = velocities[offset + i];
         linmotorlist[i]->VariablesQbIncrementPosition(GetStep());
         linmotorlist[i]->VariablesQbSetSpeed(GetStep());
-        linmotorlist[i]->Update(ch_time, true);
+        linmotorlist[i]->Update(ch_time, UpdateFlags::UPDATE_ALL);
     }
 
     offset += data_manager->num_linmotors;
@@ -183,11 +176,11 @@ bool ChSystemMulticore::AdvanceDynamics() {
         rotmotorlist[i]->Variables().State()(0) = velocities[offset + i];
         rotmotorlist[i]->VariablesQbIncrementPosition(GetStep());
         rotmotorlist[i]->VariablesQbSetSpeed(GetStep());
-        rotmotorlist[i]->Update(ch_time, true);
+        rotmotorlist[i]->Update(ch_time, UpdateFlags::UPDATE_ALL);
     }
 
     for (int i = 0; i < assembly.otherphysicslist.size(); i++) {
-        assembly.otherphysicslist[i]->Update(ch_time);
+        assembly.otherphysicslist[i]->Update(ch_time, UpdateFlags::UPDATE_ALL);
     }
 
     data_manager->node_container->UpdatePosition(ch_time);
@@ -318,7 +311,7 @@ void ChSystemMulticore::Update() {
     data_manager->host_data.bilateral_mapping.clear();
     data_manager->host_data.bilateral_type.clear();
 
-    this->descriptor->BeginInsertion();
+    descriptor->BeginInsertion();
     UpdateLinks();
     UpdateOtherPhysics();
     UpdateRigidBodies();
@@ -338,11 +331,13 @@ void ChSystemMulticore::UpdateRigidBodies() {
     custom_vector<char>& active = data_manager->host_data.active_rigid;
     custom_vector<char>& collide = data_manager->host_data.collide_rigid;
 
-#pragma omp parallel for
-    for (int i = 0; i < assembly.bodylist.size(); i++) {
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < (signed)assembly.bodylist.size(); i++) {
+        // if (i + 4 < (signed)assembly.bodylist.size())
+        //     __builtin_prefetch(assembly.bodylist[i + 4].get(), 0, 1);
         auto& body = assembly.bodylist[i];
 
-        body->Update(ch_time, false);
+        body->Update(ch_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
         body->VariablesFbLoadForces(GetStep());
         body->VariablesQbLoadSpeed();
 
@@ -392,7 +387,7 @@ void ChSystemMulticore::UpdateShafts() {
     for (int i = 0; i < (signed)data_manager->num_shafts; i++) {
         auto& shaft = assembly.shaftlist[i];
 
-        shaft->Update(ch_time, false);
+        shaft->Update(ch_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
         shaft->VariablesFbLoadForces(GetStep());
         shaft->VariablesQbLoadSpeed();
 
@@ -410,7 +405,7 @@ void ChSystemMulticore::UpdateShafts() {
 void ChSystemMulticore::UpdateMotorLinks() {
     uint offset = data_manager->num_rigid_bodies * 6 + data_manager->num_shafts;
     for (uint i = 0; i < data_manager->num_linmotors; i++) {
-        linmotorlist[i]->Update(ch_time, false);
+        linmotorlist[i]->Update(ch_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
         linmotorlist[i]->VariablesFbLoadForces(GetStep());
         linmotorlist[i]->VariablesQbLoadSpeed();
         data_manager->host_data.v[offset + i] = linmotorlist[i]->Variables().State()(0);
@@ -418,7 +413,7 @@ void ChSystemMulticore::UpdateMotorLinks() {
     }
     offset += data_manager->num_linmotors;
     for (uint i = 0; i < data_manager->num_rotmotors; i++) {
-        rotmotorlist[i]->Update(ch_time, false);
+        rotmotorlist[i]->Update(ch_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
         rotmotorlist[i]->VariablesFbLoadForces(GetStep());
         rotmotorlist[i]->VariablesQbLoadSpeed();
         data_manager->host_data.v[offset + i] = rotmotorlist[i]->Variables().State()(0);
@@ -426,7 +421,7 @@ void ChSystemMulticore::UpdateMotorLinks() {
     }
 }
 
-// Update all fluid nodes
+// Update all 3-DOF particles
 void ChSystemMulticore::Update3DOFBodies() {
     data_manager->node_container->Update3DOF(ch_time);
 }
@@ -441,7 +436,7 @@ void ChSystemMulticore::UpdateLinks() {
     for (auto i = 0; i < assembly.linklist.size(); i++) {
         auto& link = assembly.linklist[i];
 
-        link->Update(ch_time, false);
+        link->Update(ch_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
         link->ConstraintsBiReset();
         link->ConstraintsBiLoad_C(oostep, clamp_speed, clamp);
         link->ConstraintsBiLoad_Ct(1);
@@ -495,7 +490,7 @@ void ChSystemMulticore::UpdateOtherPhysics() {
     for (int i = 0; i < assembly.otherphysicslist.size(); i++) {
         auto& item = assembly.otherphysicslist[i];
 
-        item->Update(ch_time, false);
+        item->Update(ch_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
         item->ConstraintsBiReset();
         item->ConstraintsBiLoad_C(oostep, clamp_speed, clamp);
         item->ConstraintsBiLoad_Ct(1);
@@ -560,8 +555,7 @@ void ChSystemMulticore::Setup() {
     data_manager->settings.gravity = real3(G_acc.x(), G_acc.y(), G_acc.z());
 
     // Calculate the total number of degrees of freedom (6 per rigid body, 1 per shaft, 1 per motor).
-    data_manager->num_dof = data_manager->num_rigid_bodies * 6 + data_manager->num_shafts + data_manager->num_motors +
-                            data_manager->num_fluid_bodies * 3;
+    data_manager->num_dof = data_manager->num_rigid_bodies * 6 + data_manager->num_shafts + data_manager->num_motors + data_manager->num_particles * 3;
 
     // Set variables that are stored in the ChSystem class
     assembly.m_num_bodies_active = data_manager->num_rigid_bodies;
@@ -573,14 +567,12 @@ void ChSystemMulticore::Setup() {
     m_num_constr_bil = 0;
     m_num_constr_uni = 0;
     if (data_manager->cd_data)
-        ncontacts = data_manager->cd_data->num_rigid_contacts + data_manager->cd_data->num_rigid_fluid_contacts +
-                    data_manager->cd_data->num_fluid_contacts;
+        ncontacts = data_manager->cd_data->num_rigid_contacts + data_manager->cd_data->num_rigid_particle_contacts + data_manager->cd_data->num_particle_contacts;
     assembly.m_num_bodies_sleep = 0;
     assembly.m_num_bodies_fixed = 0;
 }
 
 void ChSystemMulticore::RecomputeThreads() {
-#ifdef _OPENMP
     timer_accumulator.insert(timer_accumulator.begin(), data_manager->system_timer.GetTime("step"));
     timer_accumulator.pop_back();
 
@@ -612,7 +604,6 @@ void ChSystemMulticore::RecomputeThreads() {
         omp_set_num_threads(data_manager->settings.min_threads);
     }
     frame_threads++;
-#endif
 }
 
 void ChSystemMulticore::SetCollisionSystemType(ChCollisionSystem::Type type) {
@@ -649,12 +640,11 @@ void ChSystemMulticore::PrintStepStats() {
     data_manager->system_timer.PrintReport();
 }
 
-unsigned int ChSystemMulticore::GetNumContacts() {
+unsigned int ChSystemMulticore::GetNumContacts() const {
     if (!data_manager->cd_data)
         return 0;
 
-    return data_manager->cd_data->num_rigid_contacts + data_manager->cd_data->num_rigid_fluid_contacts +
-           data_manager->cd_data->num_fluid_contacts;
+    return data_manager->cd_data->num_rigid_contacts + data_manager->cd_data->num_rigid_particle_contacts + data_manager->cd_data->num_particle_contacts;
 }
 
 // -------------------------------------------------------------
@@ -696,7 +686,6 @@ settings_container* ChSystemMulticore::GetSettings() {
 void ChSystemMulticore::SetNumThreads(int num_threads_chrono, int num_threads_collision, int num_threads_eigen) {
     ChSystem::SetNumThreads(num_threads_chrono, num_threads_chrono, num_threads_eigen);
 
-#ifdef _OPENMP
     int max_avail_threads = omp_get_num_procs();
 
     if (num_threads_chrono > max_avail_threads) {
@@ -704,26 +693,18 @@ void ChSystemMulticore::SetNumThreads(int num_threads_chrono, int num_threads_co
         std::cout << "larger than maximum available (" << max_avail_threads << ")" << std::endl;
     }
     omp_set_num_threads(num_threads_chrono);
-#else
-    std::cout << "WARNING! OpenMP not enabled" << std::endl;
-#endif
 }
 
 void ChSystemMulticore::EnableThreadTuning(int min_threads, int max_threads) {
-#ifdef _OPENMP
     data_manager->settings.perform_thread_tuning = true;
     data_manager->settings.min_threads = min_threads;
     data_manager->settings.max_threads = max_threads;
     omp_set_num_threads(min_threads);
-#else
-    std::cout << "WARNING! OpenMP not enabled" << std::endl;
-#endif
 }
 
 // -------------------------------------------------------------
 
-void ChSystemMulticore::SetMaterialCompositionStrategy(
-    std::unique_ptr<ChContactMaterialCompositionStrategy>&& strategy) {
+void ChSystemMulticore::SetMaterialCompositionStrategy(std::unique_ptr<ChContactMaterialCompositionStrategy>&& strategy) {
     data_manager->composition_strategy = std::move(strategy);
 }
 

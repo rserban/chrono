@@ -55,12 +55,9 @@ ChConveyor::ChConveyor(const ChConveyor& other) : ChPhysicsItem(other) {
 }
 
 ChConveyor::~ChConveyor() {
-    if (internal_link)
-        delete internal_link;
-    if (conveyor_plate)
-        delete conveyor_plate;
-    if (conveyor_truss)
-        delete conveyor_truss;
+    delete internal_link;
+    delete conveyor_plate;
+    delete conveyor_truss;
 }
 
 //// STATE BOOKKEEPING FUNCTIONS
@@ -80,11 +77,12 @@ void ChConveyor::IntStateScatter(const unsigned int off_x,  // offset in x state
                                  const unsigned int off_v,  // offset in v state vector
                                  const ChStateDelta& v,     // state vector, speed part
                                  const double T,            // time
-                                 bool full_update           // perform complete update
+                                 UpdateFlags update_flags    // perform complete update?
 ) {
-    conveyor_truss->IntStateScatter(off_x, x, off_v, v, T, full_update);
-    conveyor_plate->IntStateScatter(off_x + 7, x, off_v + 6, v, T, full_update);
-    this->Update(T, full_update);
+    conveyor_truss->IntStateScatter(off_x, x, off_v, v, T, update_flags);
+    conveyor_plate->IntStateScatter(off_x + 7, x, off_v + 6, v, T, update_flags);
+
+    this->Update(T, update_flags);
 }
 
 void ChConveyor::IntStateGatherAcceleration(const unsigned int off_a, ChStateDelta& a) {
@@ -177,13 +175,14 @@ void ChConveyor::IntLoadResidual_CqL(const unsigned int off_L,
 void ChConveyor::IntLoadConstraint_C(const unsigned int off,
                                      ChVectorDynamic<>& Qc,
                                      const double c,
+                                     const double c_vel,  ///< the scaling factor if the constraint is at speed level
                                      bool do_clamp,
                                      double recovery_clamp) {
-    internal_link->IntLoadConstraint_C(off, Qc, c, do_clamp, recovery_clamp);
+    internal_link->IntLoadConstraint_C(off, Qc, c, c_vel, do_clamp, recovery_clamp);
 }
 
-void ChConveyor::IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c) {
-    internal_link->IntLoadConstraint_Ct(off, Qc, c);
+void ChConveyor::IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c, const double c_vel) {
+    internal_link->IntLoadConstraint_Ct(off, Qc, c, c_vel);
 }
 
 // SOLVER INTERFACE
@@ -258,11 +257,11 @@ void ChConveyor::SetSystem(ChSystem* m_system) {
     internal_link->SetSystem(m_system);
 }
 
-void ChConveyor::Update(double mytime, bool update_assets) {
+void ChConveyor::Update(double time, UpdateFlags update_flags) {
     // inherit parent class function
-    ChPhysicsItem::Update(mytime, update_assets);
+    ChPhysicsItem::Update(time, update_flags);
 
-    conveyor_truss->Update(mytime, update_assets);
+    conveyor_truss->Update(time, update_flags);
 
     if (conveyor_truss->IsFixed()) {
         double largemass = 100000;
@@ -281,13 +280,13 @@ void ChConveyor::Update(double mytime, bool update_assets) {
     // keep the plate always at the same speed of the main reference, plus the conveyor speed on X local axis
     conveyor_plate->SetPosDt(conveyor_truss->GetPosDt() + (ChVector3d(conveyor_speed, 0, 0) >> (*conveyor_truss)));
 
-    conveyor_plate->Update(mytime, update_assets);
+    conveyor_plate->Update(time, update_flags);
 
     std::static_pointer_cast<ChFunctionRamp>(internal_link->GetMotionX())->SetAngularCoeff(-conveyor_speed);
     // always zero pos. offset (trick):
     std::static_pointer_cast<ChFunctionRamp>(internal_link->GetMotionX())->SetStartVal(+conveyor_speed * GetChTime());
 
-    internal_link->Update(mytime, update_assets);
+    internal_link->Update(time, update_flags);
 }
 
 void ChConveyor::AddCollisionModelsToSystem(ChCollisionSystem* coll_sys) const {

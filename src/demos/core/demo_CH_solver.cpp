@@ -12,7 +12,7 @@
 // Authors: Alessandro Tasora, Radu Serban
 // =============================================================================
 
-#include "chrono/core/ChGlobal.h"
+#include "chrono/core/ChDataPath.h"
 #include "chrono/core/ChMatrix.h"
 
 #include "chrono/solver/ChVariablesGeneric.h"
@@ -24,8 +24,6 @@
 #include "chrono/solver/ChSolverPSOR.h"
 #include "chrono/solver/ChIterativeSolverLS.h"
 #include "chrono/solver/ChDirectSolverLS.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
 
 #undef EIGEN_DBG_SPARSE
 #define EIGEN_DBG_SPARSE(X)
@@ -127,12 +125,12 @@ void test_1(const std::string& out_dir) {
     }
 
     // Pass the constraint and the variables to the solver to solve
-    solver.Setup(mdescriptor);
+    solver.Setup(mdescriptor, true);
     solver.Solve(mdescriptor);
 
     // Output results
     double max_res, max_LCPerr;
-    mdescriptor.ComputeFeasabilityViolation(max_res, max_LCPerr);
+    mdescriptor.ComputeFeasibilityViolation(max_res, max_LCPerr);
 
     // If needed, dump the full system M and Cq matrices
     // on disk, in Matlab sparse format:
@@ -224,7 +222,7 @@ void test_2(const std::string& out_dir) {
     }
 
     // .. pass the constraint and the variables to the solver to solve
-    solver.Setup(mdescriptor);
+    solver.Setup(mdescriptor, true);
     solver.Solve(mdescriptor);
 
     // Output values
@@ -293,7 +291,7 @@ void test_3(const std::string& out_dir) {
 
     // Create two C++ objects representing 'constraints' between variables
     // and set the jacobian to random values;
-    // Also set cfm term (E diagonal = -cfm)
+    // Also set "compliance" cfm term in constraints, inverse of constr.stiffness (E diagonal = -cfm)
 
     ChConstraintTwoBodies mca(&mvarA, &mvarB);
     mca.SetRightHandSide(3);
@@ -340,8 +338,8 @@ void test_3(const std::string& out_dir) {
 
     mdescriptor.EndInsertion();  // ----- system description ends here
 
-    // Create the solver (MINRES) ...
-    ChSolverMINRES solver;
+    // Create a GMRES solver (note MINRES cannot be used now: constr.compliance cause negative E lower-right block) ...
+    ChSolverGMRES solver;
     solver.SetMaxIterations(100);
     solver.SetTolerance(1e-12);
     solver.EnableDiagonalPreconditioner(true);
@@ -360,7 +358,7 @@ void test_3(const std::string& out_dir) {
 
     // .. solve the system (passing variables, constraints, stiffness
     //    blocks with the ChSystemDescriptor that we populated above)
-    solver.Setup(mdescriptor);
+    solver.Setup(mdescriptor, true);
     solver.Solve(mdescriptor);
 
     // .. optional: get the result as a single vector (it collects all q_i and l_i
@@ -447,12 +445,12 @@ void test_4(const std::string& out_dir) {
     }
 
     // .. pass the constraint and the variables to the solver to solve
-    solver.Setup(mdescriptor);
+    solver.Setup(mdescriptor, true);
     solver.Solve(mdescriptor);
 
     // Print results
     double max_res, max_LCPerr;
-    mdescriptor.ComputeFeasabilityViolation(max_res, max_LCPerr);
+    mdescriptor.ComputeFeasibilityViolation(max_res, max_LCPerr);
 
     ChSparseMatrix matrM(mdescriptor.CountActiveVariables(), mdescriptor.CountActiveVariables());
     ChSparseMatrix matrCq(mdescriptor.CountActiveConstraints(), mdescriptor.CountActiveVariables());
@@ -493,7 +491,7 @@ int main(int argc, char* argv[]) {
 
     // Create (if needed) output directory
     const std::string out_dir = GetChronoOutputPath() + "DEMO_SOLVER";
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }

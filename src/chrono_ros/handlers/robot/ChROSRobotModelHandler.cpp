@@ -1,7 +1,7 @@
 // =============================================================================
 // PROJECT CHRONO - http://projectchrono.org
 //
-// Copyright (c) 2023 projectchrono.org
+// Copyright (c) 2025 projectchrono.org
 // All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license that can be found
@@ -9,21 +9,21 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Aaron Young
+// Authors: Aaron Young, Patrick Chen
 // =============================================================================
 //
 // Handler responsible for publishing a Robot Model to be visualized in RViz
 //
 // =============================================================================
 
+#include <filesystem>
+#include <fstream>
+#include <tinyxml2.h>
+
 #include "chrono_ros/handlers/robot/ChROSRobotModelHandler.h"
+#include "chrono_ros/handlers/robot/ChROSRobotModelHandler_ipc.h"
 
 #include "chrono_ros/handlers/ChROSHandlerUtilities.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
-
-#include <tinyxml2.h>
-#include <fstream>
 
 namespace chrono {
 namespace ros {
@@ -31,11 +31,11 @@ namespace ros {
 ChROSRobotModelHandler::ChROSRobotModelHandler(const std::string& robot_model, const std::string& topic_name)
     : ChROSHandler(std::numeric_limits<double>::max()), m_robot_model(robot_model), m_topic_name(topic_name) {}
 
-#ifdef CHRONO_PARSERS_URDF
+#ifdef CHRONO_HAS_URDF
 class CustomProcessorFilenameResolver : public chrono::parsers::ChParserURDF::CustomProcessor {
   public:
     CustomProcessorFilenameResolver(const std::string& filename)
-        : m_filepath(filesystem::path(filename).parent_path().str()) {}
+        : m_filepath(std::filesystem::path(filename).parent_path().string()) {}
 
     /// This method will parse the links and resolve each filename to be an absolute path.
     virtual void Process(tinyxml2::XMLElement& elem, ChSystem& system) override {
@@ -101,12 +101,8 @@ class CustomProcessorFilenameResolver : public chrono::parsers::ChParserURDF::Cu
         const std::string separator("://");
         const size_t pos_separator = filename.find(separator);
         if (pos_separator == std::string::npos) {
-            filesystem::path path(filename);
-            if (!path.is_absolute())
-                path = (filesystem::path(m_filepath) / path).make_absolute();
-            else
-                path = filesystem::path(filename);
-            resolved_filename = "file://" + path.str();
+            auto path = absolute(std::filesystem::path(filename));
+            resolved_filename = "file://" + path.string();
         }
 
         return resolved_filename;
@@ -132,19 +128,27 @@ ChROSRobotModelHandler::ChROSRobotModelHandler(chrono::parsers::ChParserURDF& pa
 #endif
 
 bool ChROSRobotModelHandler::Initialize(std::shared_ptr<ChROSInterface> interface) {
-    auto node = interface->GetNode();
-
-    // rviz expects the QoS to use TRANSIENT_LOCAL.
-    auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
-    m_publisher = node->create_publisher<std_msgs::msg::String>(m_topic_name, qos);
-
-    m_msg.data = m_robot_model;
-
+    if (!ChROSHandlerUtilities::CheckROSTopicName(interface, m_topic_name)) {
+        return false;
+    }
     return true;
 }
 
-void ChROSRobotModelHandler::Tick(double time) {
-    m_publisher->publish(m_msg);
+std::vector<uint8_t> ChROSRobotModelHandler::GetSerializedData(double time) {
+    if (m_published) {
+        return {};
+    }
+
+    ipc::RobotModelData msg;
+    strncpy(msg.topic_name, m_topic_name.c_str(), sizeof(msg.topic_name) - 1);
+    msg.model_length = m_robot_model.length();
+
+    std::vector<uint8_t> buffer(sizeof(ipc::RobotModelData) + msg.model_length + 1);
+    std::memcpy(buffer.data(), &msg, sizeof(ipc::RobotModelData));
+    std::memcpy(buffer.data() + sizeof(ipc::RobotModelData), m_robot_model.c_str(), msg.model_length + 1);
+
+    m_published = true;
+    return buffer;
 }
 
 }  // namespace ros

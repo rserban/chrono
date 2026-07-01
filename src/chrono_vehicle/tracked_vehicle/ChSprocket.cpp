@@ -48,6 +48,7 @@ ChSprocket::~ChSprocket() {
 void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector3d& location, ChTrackAssembly* track) {
     m_parent = chassis;
     m_rel_loc = location;
+    m_obj_tag = VehicleObjTag::Generate(GetVehicleTag(), VehiclePartTag::SPROCKET);
 
     // The sprocket reference frame is aligned with that of the chassis and centered at the specified location.
     ChVector3d loc = chassis->GetBody()->GetFrameRefToAbs().TransformPointLocalToParent(location);
@@ -58,7 +59,8 @@ void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector3d
     // Create and initialize the gear body (same orientation as the chassis).
     m_gear = chrono_types::make_shared<ChBody>();
     m_gear->SetName(m_name + "_gear");
-    m_gear->SetTag(TrackedVehicleBodyTag::SPROCKET_BODY);
+    m_gear->SetTag(m_obj_tag);
+    m_gear->SetTag(m_obj_tag);
     m_gear->SetPos(loc);
     m_gear->SetRot(chassisRot);
     m_gear->SetMass(GetGearMass());
@@ -72,6 +74,7 @@ void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector3d
     ChFrame<> rev_frame(loc, chassisRot * y2z);
     m_revolute = chrono_types::make_shared<ChLinkLockRevolute>();
     m_revolute->SetName(m_name + "_revolute");
+    m_revolute->SetTag(m_obj_tag);
     m_revolute->Initialize(chassis->GetBody(), m_gear, rev_frame);
     chassis->GetSystem()->AddLink(m_revolute);
 
@@ -79,6 +82,7 @@ void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector3d
     // gear rotates about the Y axis.
     m_axle = chrono_types::make_shared<ChShaft>();
     m_axle->SetName(m_name + "_axle");
+    m_axle->SetTag(m_obj_tag);
     m_axle->SetInertia(GetAxleInertia());
     chassis->GetSystem()->AddShaft(m_axle);
 
@@ -96,7 +100,7 @@ void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector3d
     chassis->GetSystem()->RegisterCustomCollisionCallback(m_callback);
 
     // Mark as initialized
-    m_initialized = true;
+    ChPart::Initialize();
 }
 
 void ChSprocket::InitializeInertiaProperties() {
@@ -139,10 +143,7 @@ void ChSprocket::RemoveVisualizationAssets() {
 }
 
 // -----------------------------------------------------------------------------
-std::shared_ptr<ChTriangleMeshConnected> ChSprocket::CreateVisualizationMesh(double radius,
-                                                                             double width,
-                                                                             double delta,
-                                                                             ChColor color) const {
+std::shared_ptr<ChTriangleMeshConnected> ChSprocket::CreateVisualizationMesh(double radius, double width, double delta, ChColor color) const {
     auto sep = GetSeparation();
     auto profile = GetProfile();
 
@@ -171,7 +172,7 @@ std::shared_ptr<ChTriangleMeshConnected> ChSprocket::CreateVisualizationMesh(dou
     auto mesh = chrono_types::make_shared<ChTriangleMeshConnected>();
     std::vector<ChVector3d>& vertices = mesh->GetCoordsVertices();
     std::vector<ChVector3d>& normals = mesh->GetCoordsNormals();
-    std::vector<ChVector3i>& idx_vertices = mesh->GetIndicesVertexes();
+    std::vector<ChVector3i>& idx_vertices = mesh->GetIndicesVertices();
     std::vector<ChVector3i>& idx_normals = mesh->GetIndicesNormals();
     ////std::vector<ChVector2d>& uv_coords = mesh->GetCoordsUV();
     std::vector<ChColor>& colors = mesh->GetCoordsColors();
@@ -311,37 +312,12 @@ void ChSprocket::LogConstraintViolations() {
 }
 
 // -----------------------------------------------------------------------------
-void ChSprocket::ExportComponentList(rapidjson::Document& jsonDocument) const {
-    ChPart::ExportComponentList(jsonDocument);
 
-    std::vector<std::shared_ptr<ChBody>> bodies;
-    bodies.push_back(m_gear);
-    ExportBodyList(jsonDocument, bodies);
-
-    std::vector<std::shared_ptr<ChShaft>> shafts;
-    shafts.push_back(m_axle);
-    ExportShaftList(jsonDocument, shafts);
-
-    std::vector<std::shared_ptr<ChLink>> joints;
-    joints.push_back(m_revolute);
-    ExportJointList(jsonDocument, joints);
-}
-
-void ChSprocket::Output(ChVehicleOutput& database) const {
-    if (!m_output)
-        return;
-
-    std::vector<std::shared_ptr<ChBody>> bodies;
-    bodies.push_back(m_gear);
-    database.WriteBodies(bodies);
-
-    std::vector<std::shared_ptr<ChShaft>> shafts;
-    shafts.push_back(m_axle);
-    database.WriteShafts(shafts);
-
-    std::vector<std::shared_ptr<ChLink>> joints;
-    joints.push_back(m_revolute);
-    database.WriteJoints(joints);
+void ChSprocket::PopulateComponentList() {
+    m_components.bodies.push_back(m_gear);
+    m_components.shafts.push_back(m_axle);
+    m_components.joints.push_back(m_revolute);
+    m_components.shaft_body_rot.push_back(m_axle_to_spindle);
 }
 
 }  // end namespace vehicle

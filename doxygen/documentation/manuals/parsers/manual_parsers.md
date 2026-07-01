@@ -2,19 +2,39 @@ Chrono::Parsers {#manual_parsers}
 =================================
 
 This module enables:
-- importing models from description files
+- specifying Chrono models and simulations in YAML
+- importing models from 3rd-party specification files
   + URDF (requires external library)
   + OpenSim
   + Adams
-  + custom input for robots
-- the interaction with Python language (requires Python interpreter)
+- interacting with Python language (requires Python interpreter)
 
-On the contrary, the import of **finite elements** comes through the @ref chrono::fea::ChMeshFileLoader "ChMeshFileLoader" class, available in the main Chrono library (so no need for the PARSERS module).  
-This class enables the import of Abaqus, TetGen, GMF (LS-DYNA) or generic OBJ files, but only for very specific elements and shall not be considered a full-fledged FE import tool.
+Note that import of finite element models (meshes) can be done using the @ref chrono::fea::ChMeshFileLoader "ChMeshFileLoader" class, available in the main Chrono module (so no need for the PARSERS module). This class enables the import of Abaqus, TetGen, GMF (LS-DYNA) or generic OBJ files, but only for very specific elements and is not a full-fledged FE import tool.
 
-## Python Engine (is not PyChrono)
-The @ref chrono::parsers::ChPythonEngine "ChPythonEngine" class allows to run Python code directly from C++ and to interact with it, also exchanging data from/to variables.  
-It should not be confused with [PyChrono](@ref pychrono_introduction) that is a completely stand-alone Python library that wraps Chrono C++ code.
+[Installation guide for Chrono::Parsers](@ref module_parsers_installation)
+
+## YAML parsers
+
+The various YAML parser classes allows parsing YAML specification files for Chrono models and simulations. The parsers cache model information and simulation settings from the corresponding YAML input files and then allows populating a Chrono, Chrono::Vehicle, or Chrono::FSI system and setting solver and simulation parameters.
+
+* @subpage YAML_parser_overview
+* @subpage YAML_schema_mbs_simulation
+  * @subpage YAML_schema_mbs_model
+  * @subpage YAML_schema_mbs_solver
+* @subpage YAML_schema_vehicle_simulation
+  * @subpage YAML_schema_vehicle_model
+* @subpage YAML_schema_fsi_simulation
+  * @subpage YAML_schema_fsisph_simulation
+    * @subpage YAML_schema_fsisph_model
+    * @subpage YAML_schema_fsisph_solver
+  * @subpage YAML_schema_fsitdpf_simulation
+    * @subpage YAML_schema_fsitdpf_model
+    * @subpage YAML_schema_fsitdpf_solver
+
+
+## Python Engine (not PyChrono)
+The @ref chrono::parsers::ChPythonEngine "ChPythonEngine" class allows running Python code directly from C++ and to interact with it by exchanging data from/to variables.  
+It should not be confused with [PyChrono](@ref pychrono_introduction) that is a completely stand-alone Python library that wraps Chrono C++ code:
 
 + @ref chrono::parsers::ChPythonEngine "ChPythonEngine" allows to run generic Python code from C++
 + [PyChrono](@ref pychrono_introduction) allows to use Chrono from Python

@@ -14,7 +14,7 @@
 //
 // FEDA Magic Formula tire subsystem
 //
-// Coefficents were pulled from the Adams/Tire help - Adams 2017.1.
+// Coefficients were pulled from the Adams/Tire help - Adams 2017.1.
 // https://simcompanion.mscsoftware.com/infocenter/index?page=content&id=DOC11293&cat=2017.1_ADAMS_DOCS&actp=LIST
 //
 // =============================================================================
@@ -22,7 +22,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_models/vehicle/feda/FEDA_Pac02Tire.h"
 
 namespace chrono {
@@ -55,7 +55,7 @@ void FEDA_Pac02Tire::SetMFParams() {
     else
         tir_file = "feda/tires/335_65R22_5_G275MSA_95psi.tir";
 
-    SetMFParamsByFile(vehicle::GetDataFile(tir_file));
+    SetMFParamsByFile(GetVehicleDataFile(tir_file));
 }
 
 // -----------------------------------------------------------------------------

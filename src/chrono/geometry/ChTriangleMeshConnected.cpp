@@ -20,13 +20,14 @@
 //     This could be implemented such that the two new faces point to the same material.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <map>
+#include <filesystem>
 
 #include "chrono/geometry/ChTriangleMeshConnected.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
 #include "chrono_thirdparty/tinyobjloader/tiny_obj_loader.h"
 extern "C" {
 #include "chrono_thirdparty/libstl/stlfile.h"
@@ -52,40 +53,42 @@ ChTriangleMeshConnected::ChTriangleMeshConnected(const ChTriangleMeshConnected& 
     m_face_mat_indices = source.m_face_mat_indices;
 
     // deep copies of properties
-    this->m_properties_per_vertex.resize(source.m_properties_per_vertex.size());
+    m_properties_per_vertex.resize(source.m_properties_per_vertex.size());
     for (size_t i = 0; i < source.m_properties_per_vertex.size(); ++i)
-        this->m_properties_per_vertex[i] = source.m_properties_per_vertex[i]->clone();
+        m_properties_per_vertex[i] = source.m_properties_per_vertex[i]->clone();
     // deep copies of properties
-    this->m_properties_per_face.resize(source.m_properties_per_face.size());
+    m_properties_per_face.resize(source.m_properties_per_face.size());
     for (size_t i = 0; i < source.m_properties_per_face.size(); ++i)
-        this->m_properties_per_face[i] = source.m_properties_per_face[i]->clone();
+        m_properties_per_face[i] = source.m_properties_per_face[i]->clone();
 
     m_filename = source.m_filename;
 }
 
 ChTriangleMeshConnected::~ChTriangleMeshConnected() {
-    for (ChProperty* id : this->m_properties_per_vertex)
+    for (ChProperty* id : m_properties_per_vertex)
         delete (id);
-    for (ChProperty* id : this->m_properties_per_face)
+    for (ChProperty* id : m_properties_per_face)
         delete (id);
 }
 
-void ChTriangleMeshConnected::AddTriangle(const ChVector3d& vertex0,
-                                          const ChVector3d& vertex1,
-                                          const ChVector3d& vertex2) {
-    int base_v = (int)m_vertices.size();
+void ChTriangleMeshConnected::AddTriangle(const ChVector3d& vertex0, const ChVector3d& vertex1, const ChVector3d& vertex2) {
+    int base_v = static_cast<int>(m_vertices.size());
     m_vertices.push_back(vertex0);
     m_vertices.push_back(vertex1);
     m_vertices.push_back(vertex2);
     m_face_v_indices.push_back(ChVector3i(base_v, base_v + 1, base_v + 2));
 }
 
-void ChTriangleMeshConnected::AddTriangle(const ChTriangle& atriangle) {
-    int base_v = (int)m_vertices.size();
-    m_vertices.push_back(atriangle.p1);
-    m_vertices.push_back(atriangle.p2);
-    m_vertices.push_back(atriangle.p3);
+void ChTriangleMeshConnected::AddTriangle(const ChTriangle& triangle) {
+    int base_v = static_cast<int>(m_vertices.size());
+    m_vertices.push_back(triangle.p1);
+    m_vertices.push_back(triangle.p2);
+    m_vertices.push_back(triangle.p3);
     m_face_v_indices.push_back(ChVector3i(base_v, base_v + 1, base_v + 2));
+}
+
+ChTriangle ChTriangleMeshConnected::GetTriangle(unsigned int index) const {
+    return ChTriangle(m_vertices[m_face_v_indices[index].x()], m_vertices[m_face_v_indices[index].y()], m_vertices[m_face_v_indices[index].z()]);
 }
 
 void ChTriangleMeshConnected::Clear() {
@@ -99,16 +102,16 @@ void ChTriangleMeshConnected::Clear() {
     m_face_col_indices.clear();
     m_face_mat_indices.clear();
 
-    for (ChProperty* id : this->m_properties_per_vertex)
+    for (ChProperty* id : m_properties_per_vertex)
         delete (id);
     m_properties_per_vertex.clear();
 
-    for (ChProperty* id : this->m_properties_per_face)
+    for (ChProperty* id : m_properties_per_face)
         delete (id);
     m_properties_per_vertex.clear();
 }
 
-ChAABB ChTriangleMeshConnected::GetBoundingBox(std::vector<ChVector3d> vertices) {
+ChAABB ChTriangleMeshConnected::CalcBoundingBox(const std::vector<ChVector3d>& vertices) {
     ChAABB bbox;
     for (const auto& v : vertices) {
         bbox.min.x() = std::min(bbox.min.x(), v.x());
@@ -123,7 +126,7 @@ ChAABB ChTriangleMeshConnected::GetBoundingBox(std::vector<ChVector3d> vertices)
 }
 
 ChAABB ChTriangleMeshConnected::GetBoundingBox() const {
-    return GetBoundingBox(m_vertices);
+    return CalcBoundingBox(m_vertices);
 }
 
 // Following function is a modified version of:
@@ -140,31 +143,26 @@ ChAABB ChTriangleMeshConnected::GetBoundingBox() const {
 //                             const int* indices, bool bodyCoords, Real& mass,
 //                             Vector3<Real>& center, Matrix3<Real>& inertia)
 //
-void ChTriangleMeshConnected::ComputeMassProperties(bool bodyCoords,
-                                                    double& mass,
-                                                    ChVector3d& center,
-                                                    ChMatrix33<>& inertia) {
-    const double oneDiv6 = (double)(1.0 / 6.0);
-    const double oneDiv24 = (double)(1.0 / 24.0);
-    const double oneDiv60 = (double)(1.0 / 60.0);
-    const double oneDiv120 = (double)(1.0 / 120.0);
+void ChTriangleMeshConnected::ComputeMassProperties(bool body_coords, double& mass, ChVector3d& center, ChMatrix33d& inertia, double scale) const {
+    const double oneDiv24 = 1 / 24.0;
+    const double oneDiv60 = 1 / 60.0;
+    const double oneDiv120 = 1 / 120.0;
 
-    // order:  1, x, y, z, x^2, y^2, z^2, xy, yz, zx
-    double integral[10] = {(double)0.0, (double)0.0, (double)0.0, (double)0.0, (double)0.0,
-                           (double)0.0, (double)0.0, (double)0.0, (double)0.0, (double)0.0};
+    // Order:  1, x, y, z, x^2, y^2, z^2, xy, yz, zx
+    double integral[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    for (unsigned int i = 0; i < this->GetNumTriangles(); i++) {
+    for (unsigned int i = 0; i < GetNumTriangles(); i++) {
         // Get vertices of triangle i.
-        ChVector3d v0 = this->m_vertices[m_face_v_indices[i].x()];
-        ChVector3d v1 = this->m_vertices[m_face_v_indices[i].y()];
-        ChVector3d v2 = this->m_vertices[m_face_v_indices[i].z()];
+        const ChVector3d& v0 = m_vertices[m_face_v_indices[i].x()];
+        const ChVector3d& v1 = m_vertices[m_face_v_indices[i].y()];
+        const ChVector3d& v2 = m_vertices[m_face_v_indices[i].z()];
 
-        // Get cross product of edges and normal vector.
+        // Get cross product of edges and normal vector
         ChVector3d V1mV0 = v1 - v0;
         ChVector3d V2mV0 = v2 - v0;
         ChVector3d N = Vcross(V1mV0, V2mV0);
 
-        // Compute integral terms.
+        // Compute integral terms
         double tmp0, tmp1, tmp2;
         double f1x, f2x, f3x, g0x, g1x, g2x;
         tmp0 = v0.x() + v1.x();
@@ -199,7 +197,7 @@ void ChTriangleMeshConnected::ComputeMassProperties(bool bodyCoords,
         g1z = f2z + v1.z() * (f1z + v1.z());
         g2z = f2z + v2.z() * (f1z + v2.z());
 
-        // Update integrals.
+        // Update integrals
         integral[0] += N.x() * f1x;
         integral[1] += N.x() * f2x;
         integral[2] += N.y() * f2y;
@@ -212,7 +210,7 @@ void ChTriangleMeshConnected::ComputeMassProperties(bool bodyCoords,
         integral[9] += N.z() * (v0.x() * g0z + v1.x() * g1z + v2.x() * g2z);
     }
 
-    integral[0] *= oneDiv6;
+    integral[0] *= CH_1_6;
     integral[1] *= oneDiv24;
     integral[2] *= oneDiv24;
     integral[3] *= oneDiv24;
@@ -223,13 +221,13 @@ void ChTriangleMeshConnected::ComputeMassProperties(bool bodyCoords,
     integral[8] *= oneDiv120;
     integral[9] *= oneDiv120;
 
-    // mass
+    // Mass
     mass = integral[0];
 
-    // center of mass
+    // Center of mass
     center = ChVector3d(integral[1], integral[2], integral[3]) / mass;
 
-    // inertia relative to world origin
+    // Inertia relative to world origin
     inertia(0, 0) = integral[5] + integral[6];
     inertia(0, 1) = -integral[7];
     inertia(0, 2) = -integral[9];
@@ -240,8 +238,8 @@ void ChTriangleMeshConnected::ComputeMassProperties(bool bodyCoords,
     inertia(2, 1) = inertia(1, 2);
     inertia(2, 2) = integral[4] + integral[5];
 
-    // inertia relative to center of mass
-    if (bodyCoords) {
+    // Inertia relative to center of mass
+    if (body_coords) {
         inertia(0, 0) -= mass * (center.y() * center.y() + center.z() * center.z());
         inertia(0, 1) += mass * center.x() * center.y();
         inertia(0, 2) += mass * center.z() * center.x();
@@ -252,11 +250,20 @@ void ChTriangleMeshConnected::ComputeMassProperties(bool bodyCoords,
         inertia(2, 1) = inertia(1, 2);
         inertia(2, 2) -= mass * (center.x() * center.x() + center.y() * center.y());
     }
+
+    double s3 = scale * scale * scale;
+    double s5 = s3 * scale * scale;
+    mass *= s3;
+    inertia *= s5;
 }
 
-std::shared_ptr<ChTriangleMeshConnected> ChTriangleMeshConnected::CreateFromWavefrontFile(const std::string& filename,
-                                                                                          bool load_normals,
-                                                                                          bool load_uv) {
+ChMassProperties ChTriangleMeshConnected::ComputeMassProperties(bool body_coords, double scale) const {
+    ChMassProperties mp;
+    ComputeMassProperties(body_coords, mp.mass, mp.com, mp.inertia, scale);
+    return mp;
+}
+
+std::shared_ptr<ChTriangleMeshConnected> ChTriangleMeshConnected::CreateFromWavefrontFile(const std::string& filename, bool load_normals, bool load_uv) {
     auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
     if (!trimesh->LoadWavefrontMesh(filename, load_normals, load_uv))
         return nullptr;
@@ -264,7 +271,7 @@ std::shared_ptr<ChTriangleMeshConnected> ChTriangleMeshConnected::CreateFromWave
 }
 
 bool ChTriangleMeshConnected::LoadWavefrontMesh(const std::string& filename, bool load_normals, bool load_uv) {
-    assert(filesystem::path(filename).is_file());
+    assert(is_regular_file(std::filesystem::path(filename)));
 
     std::vector<tinyobj::shape_t> shapes;
     tinyobj::attrib_t att;
@@ -280,7 +287,7 @@ bool ChTriangleMeshConnected::LoadWavefrontMesh(const std::string& filename, boo
         return false;
     }
 
-    this->Clear();
+    Clear();
 
     m_filename = filename;
 
@@ -300,17 +307,14 @@ bool ChTriangleMeshConnected::LoadWavefrontMesh(const std::string& filename, boo
 
     for (size_t i = 0; i < shapes.size(); i++) {
         for (size_t j = 0; j < shapes[i].mesh.indices.size() / 3; j++) {
-            m_face_v_indices.push_back(ChVector3i(shapes[i].mesh.indices[3 * j + 0].vertex_index,
-                                                  shapes[i].mesh.indices[3 * j + 1].vertex_index,
-                                                  shapes[i].mesh.indices[3 * j + 2].vertex_index));
+            m_face_v_indices.push_back(
+                ChVector3i(shapes[i].mesh.indices[3 * j + 0].vertex_index, shapes[i].mesh.indices[3 * j + 1].vertex_index, shapes[i].mesh.indices[3 * j + 2].vertex_index));
             if (m_normals.size() > 0) {
-                m_face_n_indices.push_back(ChVector3i(shapes[i].mesh.indices[3 * j + 0].normal_index,
-                                                      shapes[i].mesh.indices[3 * j + 1].normal_index,
-                                                      shapes[i].mesh.indices[3 * j + 2].normal_index));
+                m_face_n_indices.push_back(
+                    ChVector3i(shapes[i].mesh.indices[3 * j + 0].normal_index, shapes[i].mesh.indices[3 * j + 1].normal_index, shapes[i].mesh.indices[3 * j + 2].normal_index));
             }
             if (m_UV.size() > 0) {
-                m_face_uv_indices.push_back(ChVector3i(shapes[i].mesh.indices[3 * j + 0].texcoord_index,
-                                                       shapes[i].mesh.indices[3 * j + 1].texcoord_index,
+                m_face_uv_indices.push_back(ChVector3i(shapes[i].mesh.indices[3 * j + 0].texcoord_index, shapes[i].mesh.indices[3 * j + 1].texcoord_index,
                                                        shapes[i].mesh.indices[3 * j + 2].texcoord_index));
             }
         }
@@ -319,8 +323,7 @@ bool ChTriangleMeshConnected::LoadWavefrontMesh(const std::string& filename, boo
     return true;
 }
 
-std::shared_ptr<ChTriangleMeshConnected> ChTriangleMeshConnected::CreateFromSTLFile(const std::string& filename,
-                                                                                    bool load_normals) {
+std::shared_ptr<ChTriangleMeshConnected> ChTriangleMeshConnected::CreateFromSTLFile(const std::string& filename, bool load_normals) {
     auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
     if (!trimesh->LoadSTLMesh(filename, load_normals))
         return nullptr;
@@ -377,10 +380,65 @@ bool ChTriangleMeshConnected::LoadSTLMesh(const std::string& filename, bool load
     return true;
 }
 
-// Write the specified meshes in a Wavefront .obj file
-void ChTriangleMeshConnected::WriteWavefront(const std::string& filename,
-                                             const std::vector<ChTriangleMeshConnected>& meshes) {
-    std::ofstream mf(filename);
+bool ChTriangleMeshConnected::WriteSTL(const std::string& filename, const ChTriangleMeshConnected& trimesh) {
+    // STL file format
+    // ----------------------------------------------------
+    // UINT8[80]        – Header               - 80 bytes
+    // UINT32           – Number of triangles  - 04 bytes
+    // foreach triangle                        - (50 bytes)
+    //     REAL32[3]    – Normal vector        - 12 bytes
+    //     REAL32[3]    – Vertex 1             - 12 bytes
+    //     REAL32[3]    – Vertex 2             - 12 bytes
+    //     REAL32[3]    – Vertex 3             - 12 bytes
+    //     UINT16       – Attribute byte count - 02 bytes
+    // end
+    // ----------------------------------------------------
+
+    std::ofstream fileo(filename, std::ios::binary);
+    if (!fileo.is_open()) {
+        std::cerr << "Unable to create output .STL file\n";
+        return false;
+    }
+
+    // Empty header
+    char header[80] = {0};
+    fileo.write(header, 80);  // 80 bytes
+
+    // Number of triangles
+    uint32_t num_triangles = static_cast<uint32_t>(trimesh.GetNumTriangles());
+    fileo.write(reinterpret_cast<const char*>(&num_triangles), sizeof(uint32_t));  // 4 bytes
+
+    // Triangles (50 bytes each)
+    for (unsigned int i = 0; i < trimesh.GetNumTriangles(); ++i) {
+        const auto& tri = trimesh.GetTriangle(i);
+
+        // Normal
+        ChVector3d normal = tri.GetNormal();
+        float n[3] = {static_cast<float>(normal.x()), static_cast<float>(normal.y()), static_cast<float>(normal.z())};
+        fileo.write(reinterpret_cast<const char*>(n), 3 * sizeof(float));  // 12 bytes
+
+        // Vertices
+        float p1[3] = {static_cast<float>(tri.p1.x()), static_cast<float>(tri.p1.y()), static_cast<float>(tri.p1.z())};
+        float p2[3] = {static_cast<float>(tri.p2.x()), static_cast<float>(tri.p2.y()), static_cast<float>(tri.p2.z())};
+        float p3[3] = {static_cast<float>(tri.p3.x()), static_cast<float>(tri.p3.y()), static_cast<float>(tri.p3.z())};
+        fileo.write(reinterpret_cast<const char*>(p1), 3 * sizeof(float));  // 12 bytes
+        fileo.write(reinterpret_cast<const char*>(p2), 3 * sizeof(float));  // 12 bytes
+        fileo.write(reinterpret_cast<const char*>(p3), 3 * sizeof(float));  // 12 bytes
+
+        // Attribute byte count
+        uint16_t attr = 0;
+        fileo.write(reinterpret_cast<const char*>(&attr), sizeof(uint16_t));  // 2 bytes
+    }
+
+    return true;
+}
+
+bool ChTriangleMeshConnected::WriteWavefront(const std::string& filename, const std::vector<ChTriangleMeshConnected>& meshes) {
+    std::ofstream fileo(filename);
+    if (!fileo.is_open()) {
+        std::cerr << "Unable to create output .OBJ file\n";
+        return false;
+    }
 
     //// TODO: include normal information if available
 
@@ -388,14 +446,14 @@ void ChTriangleMeshConnected::WriteWavefront(const std::string& filename,
         // Create a separate object for each mesh
         int i = 0;
         for (auto& m : meshes) {
-            mf << "o mesh_" << std::to_string(i++) << std::endl;
+            fileo << "o mesh_" << std::to_string(i++) << std::endl;
 
             for (auto& v : m.m_vertices) {
-                mf << "v " << v.x() << " " << v.y() << " " << v.z() << std::endl;
+                fileo << "v " << v.x() << " " << v.y() << " " << v.z() << std::endl;
             }
 
             for (auto& f : m.m_face_v_indices) {
-                mf << "f " << f.x() << " " << f.y() << " " << f.z() << std::endl;
+                fileo << "f " << f.x() << " " << f.y() << " " << f.z() << std::endl;
             }
         }
     */
@@ -403,24 +461,24 @@ void ChTriangleMeshConnected::WriteWavefront(const std::string& filename,
     // Create a single object mesh
     std::vector<int> v_offsets;
     int v_off = 1;
-    for (auto& m : meshes) {
-        for (auto& v : m.m_vertices) {
-            mf << "v " << v.x() << " " << v.y() << " " << v.z() << std::endl;
+    for (const auto& msh : meshes) {
+        for (const auto& v : msh.m_vertices) {
+            fileo << "v " << v.x() << " " << v.y() << " " << v.z() << std::endl;
         }
         v_offsets.push_back(v_off);
-        v_off += static_cast<int>(m.m_vertices.size());
+        v_off += static_cast<int>(msh.m_vertices.size());
     }
 
     std::vector<bool> has_normals;
     std::vector<int> vn_offsets;
     int vn_off = 1;
-    for (auto& m : meshes) {
-        has_normals.push_back(m.m_normals.size() > 0);
-        for (auto& v : m.m_normals) {
-            mf << "vn " << v.x() << " " << v.y() << " " << v.z() << std::endl;
+    for (const auto& msh : meshes) {
+        has_normals.push_back(msh.m_normals.size() > 0);
+        for (const auto& vn : msh.m_normals) {
+            fileo << "vn " << vn.x() << " " << vn.y() << " " << vn.z() << std::endl;
         }
         vn_offsets.push_back(vn_off);
-        vn_off += static_cast<int>(m.m_normals.size());
+        vn_off += static_cast<int>(msh.m_normals.size());
     }
 
     for (size_t i = 0; i < meshes.size(); i++) {
@@ -430,24 +488,24 @@ void ChTriangleMeshConnected::WriteWavefront(const std::string& filename,
             auto& idxN = meshes[i].m_face_n_indices;
             assert(idxV.size() == idxN.size());
             vn_off = vn_offsets[i];
-            for (int j = 0; j < idxV.size(); j++) {
-                mf << "f " <<                                                      //
+            for (size_t j = 0; j < idxV.size(); j++) {
+                fileo << "f " <<                                                   //
                     idxV[j].x() + v_off << "//" << idxN[j].x() + vn_off << " " <<  //
                     idxV[j].y() + v_off << "//" << idxN[j].y() + vn_off << " " <<  //
                     idxV[j].z() + v_off << "//" << idxN[j].z() + vn_off <<         //
                     std::endl;
             }
         } else {
-            for (auto& f : meshes[i].m_face_v_indices) {
-                mf << "f " << f.x() + v_off << " " << f.y() + v_off << " " << f.z() + v_off << std::endl;
+            for (const auto& fi : meshes[i].m_face_v_indices) {
+                fileo << "f " << fi.x() + v_off << " " << fi.y() + v_off << " " << fi.z() + v_off << std::endl;
             }
         }
     }
 
-    mf.close();
+    fileo.close();
+    return true;
 }
 
-/// Utility function for merging multiple meshes.
 ChTriangleMeshConnected ChTriangleMeshConnected::Merge(std::vector<ChTriangleMeshConnected>& meshes) {
     ChTriangleMeshConnected trimesh;
     auto& vertices = trimesh.m_vertices;
@@ -468,8 +526,7 @@ ChTriangleMeshConnected ChTriangleMeshConnected::Merge(std::vector<ChTriangleMes
             vertices.insert(vertices.end(), m.m_vertices.begin(), m.m_vertices.end());
             std::vector<ChVector3i> tmp;
             tmp.reserve(m.m_face_v_indices.size());
-            std::transform(m.m_face_v_indices.begin(), m.m_face_v_indices.end(), std::back_inserter(tmp),
-                           [&v_off](ChVector3i& a) { return a + v_off; });
+            std::transform(m.m_face_v_indices.begin(), m.m_face_v_indices.end(), std::back_inserter(tmp), [&v_off](ChVector3i& a) { return a + v_off; });
             idx_vertices.insert(idx_vertices.end(), tmp.begin(), tmp.end());
             v_off += static_cast<int>(m.m_vertices.size());
         }
@@ -478,8 +535,7 @@ ChTriangleMeshConnected ChTriangleMeshConnected::Merge(std::vector<ChTriangleMes
             normals.insert(normals.end(), m.m_normals.begin(), m.m_normals.end());
             std::vector<ChVector3i> tmp;
             tmp.reserve(m.m_face_n_indices.size());
-            std::transform(m.m_face_n_indices.begin(), m.m_face_n_indices.end(), std::back_inserter(tmp),
-                           [&n_off](ChVector3i& a) { return a + n_off; });
+            std::transform(m.m_face_n_indices.begin(), m.m_face_n_indices.end(), std::back_inserter(tmp), [&n_off](ChVector3i& a) { return a + n_off; });
             idx_normals.insert(idx_normals.end(), tmp.begin(), tmp.end());
             n_off += static_cast<int>(m.m_normals.size());
         }
@@ -488,8 +544,7 @@ ChTriangleMeshConnected ChTriangleMeshConnected::Merge(std::vector<ChTriangleMes
             uvs.insert(uvs.end(), m.m_UV.begin(), m.m_UV.end());
             std::vector<ChVector3i> tmp;
             tmp.reserve(m.m_face_uv_indices.size());
-            std::transform(m.m_face_uv_indices.begin(), m.m_face_uv_indices.end(), std::back_inserter(tmp),
-                           [&uv_off](ChVector3i& a) { return a + uv_off; });
+            std::transform(m.m_face_uv_indices.begin(), m.m_face_uv_indices.end(), std::back_inserter(tmp), [&uv_off](ChVector3i& a) { return a + uv_off; });
             idx_uvs.insert(idx_uvs.end(), tmp.begin(), tmp.end());
             uv_off += static_cast<int>(m.m_UV.size());
         }
@@ -498,8 +553,7 @@ ChTriangleMeshConnected ChTriangleMeshConnected::Merge(std::vector<ChTriangleMes
             colors.insert(colors.end(), m.m_colors.begin(), m.m_colors.end());
             std::vector<ChVector3i> tmp;
             tmp.reserve(m.m_face_col_indices.size());
-            std::transform(m.m_face_col_indices.begin(), m.m_face_col_indices.end(), std::back_inserter(tmp),
-                           [&c_off](ChVector3i& a) { return a + c_off; });
+            std::transform(m.m_face_col_indices.begin(), m.m_face_col_indices.end(), std::back_inserter(tmp), [&c_off](ChVector3i& a) { return a + c_off; });
             idx_colors.insert(idx_colors.end(), tmp.begin(), tmp.end());
             c_off += static_cast<int>(m.m_colors.size());
         }
@@ -508,7 +562,7 @@ ChTriangleMeshConnected ChTriangleMeshConnected::Merge(std::vector<ChTriangleMes
     return trimesh;
 }
 
-void ChTriangleMeshConnected::Transform(const ChVector3d displ, const ChMatrix33<> rotscale) {
+void ChTriangleMeshConnected::Transform(const ChVector3d& displ, const ChMatrix33d& rotscale) {
     for (int i = 0; i < m_vertices.size(); ++i) {
         m_vertices[i] = rotscale * m_vertices[i];
         m_vertices[i] += displ;
@@ -524,11 +578,11 @@ bool ChTriangleMeshConnected::ComputeNeighbouringTriangleMap(std::vector<std::ar
 
     std::multimap<std::pair<int, int>, int> edge_map;
 
-    for (int it = 0; it < this->m_face_v_indices.size(); ++it) {
-        // edges = pairs of vertexes indexes
-        std::pair<int, int> medgeA(this->m_face_v_indices[it].x(), this->m_face_v_indices[it].y());
-        std::pair<int, int> medgeB(this->m_face_v_indices[it].y(), this->m_face_v_indices[it].z());
-        std::pair<int, int> medgeC(this->m_face_v_indices[it].z(), this->m_face_v_indices[it].x());
+    for (int it = 0; it < m_face_v_indices.size(); ++it) {
+        // edges = pairs of vertices indexes
+        std::pair<int, int> medgeA(m_face_v_indices[it].x(), m_face_v_indices[it].y());
+        std::pair<int, int> medgeB(m_face_v_indices[it].y(), m_face_v_indices[it].z());
+        std::pair<int, int> medgeC(m_face_v_indices[it].z(), m_face_v_indices[it].x());
         // vertex indexes in edges: always in increasing order to avoid ambiguous duplicated edges
         if (medgeA.first > medgeA.second)
             medgeA = std::pair<int, int>(medgeA.second, medgeA.first);
@@ -543,16 +597,16 @@ bool ChTriangleMeshConnected::ComputeNeighbouringTriangleMap(std::vector<std::ar
 
     // Create a map of neighboring triangles, vector of:
     // [Ti TieA TieB TieC]
-    tri_map.resize(this->m_face_v_indices.size());
-    for (int it = 0; it < this->m_face_v_indices.size(); ++it) {
+    tri_map.resize(m_face_v_indices.size());
+    for (int it = 0; it < m_face_v_indices.size(); ++it) {
         tri_map[it][0] = it;
         tri_map[it][1] = -1;  // default no neighbour
         tri_map[it][2] = -1;  // default no neighbour
         tri_map[it][3] = -1;  // default no neighbour
-        // edges = pairs of vertexes indexes
-        std::pair<int, int> medgeA(this->m_face_v_indices[it].x(), this->m_face_v_indices[it].y());
-        std::pair<int, int> medgeB(this->m_face_v_indices[it].y(), this->m_face_v_indices[it].z());
-        std::pair<int, int> medgeC(this->m_face_v_indices[it].z(), this->m_face_v_indices[it].x());
+        // edges = pairs of vertices indexes
+        std::pair<int, int> medgeA(m_face_v_indices[it].x(), m_face_v_indices[it].y());
+        std::pair<int, int> medgeB(m_face_v_indices[it].y(), m_face_v_indices[it].z());
+        std::pair<int, int> medgeC(m_face_v_indices[it].z(), m_face_v_indices[it].x());
         // vertex indexes in edges: always in increasing order to avoid ambiguous duplicated edges
         if (medgeA.first > medgeA.second)
             medgeA = std::pair<int, int>(medgeA.second, medgeA.first);
@@ -591,17 +645,16 @@ bool ChTriangleMeshConnected::ComputeNeighbouringTriangleMap(std::vector<std::ar
     return !pathological_edges;
 }
 
-bool ChTriangleMeshConnected::ComputeWingedEdges(std::map<std::pair<int, int>, std::pair<int, int>>& winged_edges,
-                                                 bool allow_single_wing) const {
+bool ChTriangleMeshConnected::ComputeWingedEdges(std::map<std::pair<int, int>, std::pair<int, int>>& winged_edges, bool allow_single_wing) const {
     bool pathological_edges = false;
 
     std::multimap<std::pair<int, int>, int> edge_map;
 
-    for (int it = 0; it < this->m_face_v_indices.size(); ++it) {
-        // edges = pairs of vertexes indexes
-        std::pair<int, int> medgeA(this->m_face_v_indices[it].x(), this->m_face_v_indices[it].y());
-        std::pair<int, int> medgeB(this->m_face_v_indices[it].y(), this->m_face_v_indices[it].z());
-        std::pair<int, int> medgeC(this->m_face_v_indices[it].z(), this->m_face_v_indices[it].x());
+    for (int it = 0; it < m_face_v_indices.size(); ++it) {
+        // edges = pairs of vertices indexes
+        std::pair<int, int> medgeA(m_face_v_indices[it].x(), m_face_v_indices[it].y());
+        std::pair<int, int> medgeB(m_face_v_indices[it].y(), m_face_v_indices[it].z());
+        std::pair<int, int> medgeC(m_face_v_indices[it].z(), m_face_v_indices[it].x());
         // vertex indexes in edges: always in increasing order to avoid ambiguous duplicated edges
         if (medgeA.first > medgeA.second)
             medgeA = std::pair<int, int>(medgeA.second, medgeA.first);
@@ -635,9 +688,8 @@ bool ChTriangleMeshConnected::ComputeWingedEdges(std::map<std::pair<int, int>, s
                 break;
         }
         if ((nt == 2) || ((nt == 1) && allow_single_wing)) {
-            winged_edges.insert(
-                std::pair<std::pair<int, int>, std::pair<int, int>>(wingedge, wingtri));  // ok found winged edge!
-            aedge->second = -1;  // deactivate this way otherwise found again by sister
+            winged_edges.insert(std::pair<std::pair<int, int>, std::pair<int, int>>(wingedge, wingtri));  // ok found winged edge!
+            aedge->second = -1;                                                                           // deactivate this way otherwise found again by sister
         }
         if (nt == 3) {
             pathological_edges = true;
@@ -650,58 +702,58 @@ bool ChTriangleMeshConnected::ComputeWingedEdges(std::map<std::pair<int, int>, s
     return !pathological_edges;
 }
 
-int ChTriangleMeshConnected::RepairDuplicateVertexes(double tolerance) {
-    int nmerged = 0;
+unsigned int ChTriangleMeshConnected::RepairDuplicateVertices(double tolerance) {
+    unsigned int num_merged = 0;
     std::vector<ChVector3d> processed_verts;
     std::vector<int> new_indexes(m_vertices.size());
+    const double dist_sq = tolerance * tolerance;
 
-    // merge vertexes
+    // Merge vertices
     for (int i = 0; i < m_vertices.size(); ++i) {
         bool tomerge = false;
         for (int j = 0; j < processed_verts.size(); ++j) {
-            if ((m_vertices[i] - processed_verts[j]).Length2() < tolerance) {
+            if ((m_vertices[i] - processed_verts[j]).Length2() < dist_sq) {
                 tomerge = true;
-                ++nmerged;
+                ++num_merged;
                 new_indexes[i] = j;
                 break;
             }
         }
         if (!tomerge) {
             processed_verts.push_back(m_vertices[i]);
-            new_indexes[i] = (int)processed_verts.size() - 1;
+            new_indexes[i] = static_cast<int>(processed_verts.size()) - 1;
         }
     }
 
     m_vertices = processed_verts;
 
-    // Update the merged vertexes also in face indexes to vertexes
+    // Update the merged vertices also in face indexes to vertices
     // Note: we DO NOT update the normal, color, UV, or material indices!
-    for (int i = 0; i < this->m_face_v_indices.size(); ++i) {
+    for (int i = 0; i < m_face_v_indices.size(); ++i) {
         m_face_v_indices[i].x() = new_indexes[m_face_v_indices[i].x()];
         m_face_v_indices[i].y() = new_indexes[m_face_v_indices[i].y()];
         m_face_v_indices[i].z() = new_indexes[m_face_v_indices[i].z()];
     }
 
-    return nmerged;
+    return num_merged;
 }
 
 // Offset algorithm based on:
 // " A 3D surface offset method for STL-format models"
 //   Xiuzhi Qu and Brent Stucker
-
 bool ChTriangleMeshConnected::MakeOffset(double moffset) {
     std::map<int, std::vector<int>> map_vertex_triangles;
-    std::vector<ChVector3d> voffsets(this->m_vertices.size());
+    std::vector<ChVector3d> voffsets(m_vertices.size());
 
     // build the topological info for triangles connected to vertex
-    for (int i = 0; i < this->m_face_v_indices.size(); ++i) {
+    for (int i = 0; i < m_face_v_indices.size(); ++i) {
         map_vertex_triangles[m_face_v_indices[i].x()].push_back(i);
         map_vertex_triangles[m_face_v_indices[i].y()].push_back(i);
         map_vertex_triangles[m_face_v_indices[i].z()].push_back(i);
     }
 
-    // scan through vertexes and offset them
-    for (int i = 0; i < this->m_vertices.size(); ++i) {
+    // scan through vertices and offset them
+    for (int i = 0; i < m_vertices.size(); ++i) {
         auto mpair = map_vertex_triangles.find(i);
         if (mpair != map_vertex_triangles.end()) {
             std::vector<int>& mverttriangles = mpair->second;
@@ -712,8 +764,7 @@ bool ChTriangleMeshConnected::MakeOffset(double moffset) {
             for (int j = 0; j < ntri; ++j) {
                 b(j, 0) = 1;
                 for (int k = 0; k < ntri; ++k) {
-                    A(j, k) = Vdot(this->GetTriangle(mverttriangles[j]).GetNormal(),
-                                   this->GetTriangle(mverttriangles[k]).GetNormal());
+                    A(j, k) = Vdot(GetTriangle(mverttriangles[j]).GetNormal(), GetTriangle(mverttriangles[k]).GetNormal());
                 }
             }
 
@@ -739,25 +790,22 @@ bool ChTriangleMeshConnected::MakeOffset(double moffset) {
             // weighted sum as offset vector
             voffsets[i] = VNULL;
             for (int j = 0; j < ntri; ++j) {
-                voffsets[i] += this->GetTriangle(mverttriangles[j]).GetNormal() * x(j);
+                voffsets[i] += GetTriangle(mverttriangles[j]).GetNormal() * x(j);
             }
         }
     }
 
     // apply offset vectors to itself:
-    for (int i = 0; i < this->m_vertices.size(); ++i) {
+    for (int i = 0; i < m_vertices.size(); ++i) {
         m_vertices[i] += voffsets[i] * moffset;
     }
 
     return true;
 }
 
-// Return the indexes of the two vertexes of the specified triangle edge.
-// If unique = true, swap the pair so that 1st < 2nd, to permit test sharing with other triangle.
-std::pair<int, int> ChTriangleMeshConnected::GetTriangleEdgeIndexes(
-    const ChVector3i& face_indices,  // indices of a triangular face
-    int nedge,                       // number of edge: 0, 1, 2
-    bool unique                      // swap?
+std::pair<int, int> ChTriangleMeshConnected::GetTriangleEdgeIndices(const ChVector3i& face_indices,  // indices of a triangular face
+                                                                    int nedge,                       // number of edge: 0, 1, 2
+                                                                    bool unique                      // swap?
 ) {
     std::pair<int, int> medge{face_indices[nedge], face_indices[(nedge + 1) % 3]};
     if (unique && medge.first > medge.second)
@@ -766,7 +814,7 @@ std::pair<int, int> ChTriangleMeshConnected::GetTriangleEdgeIndexes(
     return medge;
 }
 
-bool InterpolateAndInsert(ChTriangleMeshConnected& mesh, int ibuffer, int i1, int i2, int& created_index) {
+static bool InterpolateAndInsert(ChTriangleMeshConnected& mesh, int ibuffer, int i1, int i2, int& created_index) {
     switch (ibuffer) {
         case 0: {
             if (mesh.m_vertices.empty())
@@ -796,8 +844,7 @@ bool InterpolateAndInsert(ChTriangleMeshConnected& mesh, int ibuffer, int i1, in
         case 3: {
             if (mesh.m_colors.empty())
                 return false;
-            ChColor Vnew = {(mesh.m_colors[i1].R + mesh.m_colors[i2].R) * 0.5f,
-                            (mesh.m_colors[i1].G + mesh.m_colors[i2].G) * 0.5f,
+            ChColor Vnew = {(mesh.m_colors[i1].R + mesh.m_colors[i2].R) * 0.5f, (mesh.m_colors[i1].G + mesh.m_colors[i2].G) * 0.5f,
                             (mesh.m_colors[i1].B + mesh.m_colors[i2].B) * 0.5f};
             mesh.m_colors.push_back(Vnew);
             created_index = (int)mesh.m_colors.size() - 1;
@@ -808,22 +855,19 @@ bool InterpolateAndInsert(ChTriangleMeshConnected& mesh, int ibuffer, int i1, in
     }
 }
 
-// Split an edge by inserting a point in the middle
-// It also updates uv buffer, normals buffer, etc. and recomputes neighboring map.
-bool ChTriangleMeshConnected::SplitEdge(
-    int itA,                                              // triangle index,
-    int itB,                                              // triangle index, -1 if not existing (means free edge on A)
-    int neA,                                              // n.edge on tri A: 0,1,2
-    int neB,                                              // n.edge on tri B: 0,1,2
-    int& itA_1,                                           // returns the index of split triangle A, part1
-    int& itA_2,                                           // returns the index of split triangle A, part2
-    int& itB_1,                                           // returns the index of split triangle B, part1
-    int& itB_2,                                           // returns the index of split triangle B, part2
-    std::vector<std::array<int, 4>>& tri_map,             // triangle neighboring map
-    std::vector<std::vector<double>*>& aux_data_double,   // auxiliary buffers to interpolate
-    std::vector<std::vector<int>*>& aux_data_int,         // auxiliary buffers to interpolate
-    std::vector<std::vector<bool>*>& aux_data_bool,       // auxiliary buffers to interpolate
-    std::vector<std::vector<ChVector3d>*>& aux_data_vect  // auxiliary buffers to interpolate
+bool ChTriangleMeshConnected::SplitEdge(int itA,                                              // triangle index,
+                                        int itB,                                              // triangle index, -1 if not existing (means free edge on A)
+                                        int neA,                                              // n.edge on tri A: 0,1,2
+                                        int neB,                                              // n.edge on tri B: 0,1,2
+                                        int& itA_1,                                           // returns the index of split triangle A, part1
+                                        int& itA_2,                                           // returns the index of split triangle A, part2
+                                        int& itB_1,                                           // returns the index of split triangle B, part1
+                                        int& itB_2,                                           // returns the index of split triangle B, part2
+                                        std::vector<std::array<int, 4>>& tri_map,             // triangle neighboring map
+                                        std::vector<std::vector<double>*>& aux_data_double,   // auxiliary buffers to interpolate
+                                        std::vector<std::vector<int>*>& aux_data_int,         // auxiliary buffers to interpolate
+                                        std::vector<std::vector<bool>*>& aux_data_bool,       // auxiliary buffers to interpolate
+                                        std::vector<std::vector<ChVector3d>*>& aux_data_vect  // auxiliary buffers to interpolate
 ) {
     std::array<std::vector<ChVector3i>*, 4> face_indexes{
         &m_face_v_indices,   //
@@ -839,11 +883,11 @@ bool ChTriangleMeshConnected::SplitEdge(
         if (face_indexes[ibuffer]->size()) {
             // case where one used normals, uv, color buffers, with custom face indexes:
             std::pair<int, int> eA;
-            eA = ChTriangleMeshConnected::GetTriangleEdgeIndexes(face_indexes[ibuffer]->at(itA), neA, false);
+            eA = ChTriangleMeshConnected::GetTriangleEdgeIndices(face_indexes[ibuffer]->at(itA), neA, false);
             std::pair<int, int> eAB = eA;
             std::pair<int, int> eB;
             if (itB != -1)
-                eB = ChTriangleMeshConnected::GetTriangleEdgeIndexes(face_indexes[ibuffer]->at(itB), neB, false);
+                eB = ChTriangleMeshConnected::GetTriangleEdgeIndices(face_indexes[ibuffer]->at(itB), neB, false);
             bool swapA = false;
             if (eA.first > eA.second) {
                 swapA = true;
@@ -1004,26 +1048,20 @@ bool ChTriangleMeshConnected::SplitEdge(
     return true;
 }
 
-// Performs mesh refinement using Rivara LEPP long-edge bisection algorithm.
-// Based on "Multithread parallelization of Lepp-bisection algorithms"
-//    M.-C. Rivara et al., Applied Numerical Mathematics 62 (2012) 473�488
-
-void ChTriangleMeshConnected::RefineMeshEdges(
-    std::vector<int>&
-        marked_tris,     ///< triangles to refine (aso surrounding triangles might be affected by refinements)
-    double edge_maxlen,  ///< maximum length of edge (small values give higher resolution)
-    ChRefineEdgeCriterion* criterion,  ///< criterion for computing lenght (or other merit function) of edge, if =0 uses
-                                       ///< default (euclidean length)
-    std::vector<std::array<int, 4>>* atri_map,  ///< triangle connectivity map: use and modify it. Optional. If =0,
-                                                ///< creates a temporary one just for life span of function.
-    std::vector<std::vector<double>*>& aux_data_double,  ///< auxiliary buffers to refine (assuming indexed as vertexes:
-                                                         ///< each with same size as vertex buffer)
-    std::vector<std::vector<int>*>& aux_data_int,  ///< auxiliary buffers to refine (assuming indexed as vertexes: each
-                                                   ///< with same size as vertex buffer)
-    std::vector<std::vector<bool>*>& aux_data_bool,  ///< auxiliary buffers to refine (assuming indexed as vertexes:
-                                                     ///< each with same size as vertex buffer)
-    std::vector<std::vector<ChVector3d>*>& aux_data_vect  ///< auxiliary buffers to refine (assuming indexed as
-                                                          ///< vertexes: each with same size as vertex buffer)
+void ChTriangleMeshConnected::RefineMeshEdges(std::vector<int>& marked_tris,              ///< triangles to refine (aso surrounding triangles might be affected by refinements)
+                                              double edge_maxlen,                         ///< maximum length of edge (small values give higher resolution)
+                                              ChRefineEdgeCriterion* criterion,           ///< criterion for computing length (or other merit function) of edge, if =0 uses
+                                                                                          ///< default (euclidean length)
+                                              std::vector<std::array<int, 4>>* atri_map,  ///< triangle connectivity map: use and modify it. Optional. If =0,
+                                                                                          ///< creates a temporary one just for life span of function.
+                                              std::vector<std::vector<double>*>& aux_data_double,   ///< auxiliary buffers to refine (assuming indexed as vertices:
+                                                                                                    ///< each with same size as vertex buffer)
+                                              std::vector<std::vector<int>*>& aux_data_int,         ///< auxiliary buffers to refine (assuming indexed as vertices: each
+                                                                                                    ///< with same size as vertex buffer)
+                                              std::vector<std::vector<bool>*>& aux_data_bool,       ///< auxiliary buffers to refine (assuming indexed as vertices:
+                                                                                                    ///< each with same size as vertex buffer)
+                                              std::vector<std::vector<ChVector3d>*>& aux_data_vect  ///< auxiliary buffers to refine (assuming indexed as
+                                                                                                    ///< vertices: each with same size as vertex buffer)
 ) {
     // initialize the list of triangles to refine, copying from marked triangles:
     std::list<int> S(marked_tris.begin(), marked_tris.end());
@@ -1034,11 +1072,11 @@ void ChTriangleMeshConnected::RefineMeshEdges(
     if (atri_map) {
         tri_map = *atri_map;
     } else {
-        this->ComputeNeighbouringTriangleMap(tri_map);
+        ComputeNeighbouringTriangleMap(tri_map);
     }
 
     std::vector<bool> marked_tris_flagged;
-    marked_tris_flagged.resize(this->m_face_v_indices.size());
+    marked_tris_flagged.resize(m_face_v_indices.size());
     for (auto i : marked_tris)
         marked_tris_flagged[i] = true;
 
@@ -1060,11 +1098,11 @@ void ChTriangleMeshConnected::RefineMeshEdges(
             int edge_N = 0;
             double L_e;
             for (int ie = 0; ie < 3; ++ie) {
-                std::pair<int, int> ie_verts = this->GetTriangleEdgeIndexes(m_face_v_indices[t_N], ie, true);
+                std::pair<int, int> ie_verts = GetTriangleEdgeIndices(m_face_v_indices[t_N], ie, true);
                 if (criterion)
                     L_e = criterion->ComputeLength(ie_verts.first, ie_verts.second, this);
                 else
-                    L_e = (this->m_vertices[ie_verts.first] - this->m_vertices[ie_verts.second]).Length();
+                    L_e = (m_vertices[ie_verts.first] - m_vertices[ie_verts.second]).Length();
                 if (L_e > L_max) {
                     L_max = L_e;
                     edge_N = ie;
@@ -1093,8 +1131,7 @@ void ChTriangleMeshConnected::RefineMeshEdges(
                 if (L_max > edge_maxlen) {
                     // do edge split
                     int itA_1, itA_2, itB_1, itB_2;
-                    SplitEdge(t_N, -1, edge_N, 0, itA_1, itA_2, itB_1, itB_2, tri_map, aux_data_double, aux_data_int,
-                              aux_data_bool, aux_data_vect);
+                    SplitEdge(t_N, -1, edge_N, 0, itA_1, itA_2, itB_1, itB_2, tri_map, aux_data_double, aux_data_int, aux_data_bool, aux_data_vect);
 
                     // prepare list of original triangles after split, for the next iteration of bisection
                     if (t_N < marked_tris_flagged.size() && marked_tris_flagged[t_N] == true) {
@@ -1115,11 +1152,11 @@ void ChTriangleMeshConnected::RefineMeshEdges(
                 int edge_N1 = 0;
                 int t_shared = 0;
                 for (int ie = 0; ie < 3; ++ie) {
-                    std::pair<int, int> T1_ie_verts = this->GetTriangleEdgeIndexes(m_face_v_indices[t_N1], ie, true);
+                    std::pair<int, int> T1_ie_verts = GetTriangleEdgeIndices(m_face_v_indices[t_N1], ie, true);
                     if (criterion)
                         L_e = criterion->ComputeLength(T1_ie_verts.first, T1_ie_verts.second, this);
                     else
-                        L_e = (this->m_vertices[T1_ie_verts.first] - this->m_vertices[T1_ie_verts.second]).Length();
+                        L_e = (m_vertices[T1_ie_verts.first] - m_vertices[T1_ie_verts.second]).Length();
                     if (L_e > T1_L_max) {
                         T1_L_max = L_e;
                         edge_N1 = ie;
@@ -1132,8 +1169,7 @@ void ChTriangleMeshConnected::RefineMeshEdges(
                     if (L_max > edge_maxlen) {
                         // do edge split
                         int itA_1, itA_2, itB_1, itB_2;
-                        SplitEdge(t_N, t_N1, edge_N, edge_N1, itA_1, itA_2, itB_1, itB_2, tri_map, aux_data_double,
-                                  aux_data_int, aux_data_bool, aux_data_vect);
+                        SplitEdge(t_N, t_N1, edge_N, edge_N1, itA_1, itA_2, itB_1, itB_2, tri_map, aux_data_double, aux_data_int, aux_data_bool, aux_data_vect);
 
                         // prepare list of original triangles after split, for the next iteration of bisection
                         if (t_N < marked_tris_flagged.size() && marked_tris_flagged[t_N] == true) {
@@ -1158,7 +1194,7 @@ void ChTriangleMeshConnected::RefineMeshEdges(
     marked_tris = new_marked_tris;
 }
 
-const std::vector<ChVector3d>& ChTriangleMeshConnected::getFaceVertices() {
+const std::vector<ChVector3d>& ChTriangleMeshConnected::GetFaceVertices() {
     unsigned int n_faces = GetNumTriangles();
 
     m_tmp_vectors.resize(3 * n_faces);
@@ -1173,7 +1209,7 @@ const std::vector<ChVector3d>& ChTriangleMeshConnected::getFaceVertices() {
     return m_tmp_vectors;
 }
 
-const std::vector<ChVector3d>& ChTriangleMeshConnected::getFaceNormals() {
+const std::vector<ChVector3d>& ChTriangleMeshConnected::GetFaceNormals() {
     unsigned int n_faces = GetNumTriangles();
 
     m_tmp_vectors.resize(3 * n_faces);
@@ -1193,7 +1229,7 @@ const std::vector<ChVector3d>& ChTriangleMeshConnected::getFaceNormals() {
     return m_tmp_vectors;
 }
 
-const std::vector<ChColor>& ChTriangleMeshConnected::getFaceColors() {
+const std::vector<ChColor>& ChTriangleMeshConnected::GetFaceColors() {
     ChColor default_color(0.4f, 0.4f, 0.4f);
     auto n_faces = m_face_v_indices.size();
 
@@ -1223,7 +1259,7 @@ const std::vector<ChColor>& ChTriangleMeshConnected::getFaceColors() {
     return m_tmp_colors;
 }
 
-const std::vector<ChVector3d>& ChTriangleMeshConnected::getAverageNormals() {
+const std::vector<ChVector3d>& ChTriangleMeshConnected::GetAverageNormals() {
     unsigned int n_verts = GetNumVertices();
     unsigned int n_faces = GetNumTriangles();
 
@@ -1235,8 +1271,8 @@ const std::vector<ChVector3d>& ChTriangleMeshConnected::getAverageNormals() {
     // Calculate normals and then average the normals from all adjacent faces
     for (unsigned int it = 0; it < n_faces; it++) {
         // Calculate the triangle normal as a normalized cross product.
-        ChVector3d nrm = Vcross(m_vertices[m_face_v_indices[it][1]] - m_vertices[m_face_v_indices[it][0]],
-                                m_vertices[m_face_v_indices[it][2]] - m_vertices[m_face_v_indices[it][0]]);
+        ChVector3d nrm =
+            Vcross(m_vertices[m_face_v_indices[it][1]] - m_vertices[m_face_v_indices[it][0]], m_vertices[m_face_v_indices[it][2]] - m_vertices[m_face_v_indices[it][0]]);
         nrm.Normalize();
 
         // Increment the normals of all incident vertices by the face normal

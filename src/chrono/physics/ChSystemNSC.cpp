@@ -29,10 +29,7 @@ namespace chrono {
 // Register into the object factory, to enable run-time dynamic creation and persistence
 CH_FACTORY_REGISTER(ChSystemNSC)
 
-ChSystemNSC::ChSystemNSC() : ChSystem() {
-    // Set the system descriptor
-    descriptor = chrono_types::make_shared<ChSystemDescriptor>();
-
+ChSystemNSC::ChSystemNSC(const std::string& name) : ChSystem(name) {
     // Set default solver
     SetSolverType(ChSolver::Type::PSOR);
 
@@ -45,7 +42,10 @@ ChSystemNSC::ChSystemNSC() : ChSystem() {
     ChCollisionModel::SetDefaultSuggestedMargin(0.01);
 }
 
-ChSystemNSC::ChSystemNSC(const ChSystemNSC& other) : ChSystem(other) {}
+ChSystemNSC::ChSystemNSC(const ChSystemNSC& other) : ChSystem(other) {
+    contact_container = chrono_types::make_shared<ChContactContainerNSC>();
+    contact_container->SetSystem(this);
+}
 
 void ChSystemNSC::SetContactContainer(std::shared_ptr<ChContactContainer> container) {
     if (std::dynamic_pointer_cast<ChContactContainerNSC>(container))

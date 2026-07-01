@@ -17,23 +17,22 @@
 // Driver inputs for a suspension test rig include left/right post displacements
 // and steering input (the latter being ignored if the tested suspension is not
 // attached to a steering mechanism).  These driver inputs can be obtained from
-// an interactive driver system (of type ChSuspensionTestRigInteractiveDriverIRR) or from a data file
-// (using a driver system of type ChSuspensionTestRigDataDriver).
+// an interactive driver system of type ChSuspensionTestRigInteractiveDriver or
+// from a data file using a driver system of type ChSuspensionTestRigDataDriver.
 //
 // See the description of ChSuspensionTestRig::PlotOutput for details on data
 // collected (if output is enabled).
 //
 // =============================================================================
 
-#include "chrono_vehicle/ChVehicleModelData.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
-#include "chrono_vehicle/ChVehicleVisualSystemIrrlicht.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 #include "chrono_vehicle/wheeled_vehicle/vehicle/WheeledVehicle.h"
 #include "chrono_vehicle/wheeled_vehicle/test_rig/ChSuspensionTestRig.h"
-#include "chrono_vehicle/wheeled_vehicle/test_rig/ChSuspensionTestRigInteractiveDriverIRR.h"
 #include "chrono_vehicle/wheeled_vehicle/test_rig/ChSuspensionTestRigDataDriver.h"
+#include "chrono_vehicle/wheeled_vehicle/test_rig/ChSuspensionTestRigInteractiveDriver.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
+#include "chrono_vehicle/wheeled_vehicle/test_rig/ChSuspensionTestRigVisualSystemVSG.h"
 
 using namespace chrono;
 using namespace chrono::vehicle;
@@ -137,10 +136,10 @@ RigMode rig_mode = RigMode::PUSHROD;
 
 // Specification of test rig inputs
 enum class DriverMode { DATA_FILE, INTERACTIVE };
-DriverMode driver_mode = DriverMode::DATA_FILE;
+DriverMode driver_mode = DriverMode::INTERACTIVE;
 
 // Output collection
-bool output = true;
+ChOutput::Format output = ChOutput::Format::ASCII;
 bool plot = true;
 double out_step_size = 1e-2;
 
@@ -154,7 +153,7 @@ std::shared_ptr<ChSuspensionTestRig> CreateFromVehicleModel() {
 
     // Create the vehicle
     auto vehicle =
-        chrono_types::make_shared<WheeledVehicle>(vehicle::GetDataFile(setup.VehicleJSON()), ChContactMethod::SMC);
+        chrono_types::make_shared<WheeledVehicle>(GetVehicleDataFile(setup.VehicleJSON()), ChContactMethod::SMC);
 
     // Create the suspension test rig
     std::shared_ptr<ChSuspensionTestRig> rig;
@@ -188,10 +187,9 @@ std::shared_ptr<ChSuspensionTestRig> CreateFromSpecFile() {
         default:
         case RigMode::PLATFORM:
             return chrono_types::make_shared<ChSuspensionTestRigPlatform>(
-                vehicle::GetDataFile(setup.SuspensionRigJSON()));
+                GetVehicleDataFile(setup.SuspensionRigJSON()));
         case RigMode::PUSHROD:
-            return chrono_types::make_shared<ChSuspensionTestRigPushrod>(
-                vehicle::GetDataFile(setup.SuspensionRigJSON()));
+            return chrono_types::make_shared<ChSuspensionTestRigPushrod>(GetVehicleDataFile(setup.SuspensionRigJSON()));
     }
 }
 
@@ -212,7 +210,7 @@ int main(int argc, char* argv[]) {
         auto axle = rig->GetVehicle().GetAxle(ia);
         for (auto& wheel : axle->GetWheels()) {
             if (!wheel->GetTire()) {
-                auto tire = ReadTireJSON(vehicle::GetDataFile(setup.TireJSON()));
+                auto tire = ReadTireJSON(GetVehicleDataFile(setup.TireJSON()));
                 rig->GetVehicle().InitializeTire(tire, wheel, VisualizationType::NONE);
             }
         }
@@ -225,22 +223,16 @@ int main(int argc, char* argv[]) {
     rig->SetWheelVisualizationType(VisualizationType::NONE);
     rig->SetTireVisualizationType(VisualizationType::MESH);
 
-    // Create the vehicle Irrlicht application.
-    auto vis = chrono_types::make_shared<ChVehicleVisualSystemIrrlicht>();
-    vis->SetWindowTitle("Suspension Test Rig");
-    vis->SetChaseCamera(0.5 * (rig->GetSpindlePos(0, LEFT) + rig->GetSpindlePos(0, RIGHT)), setup.CameraDistance(),
-                        0.5);
-
     // Create and attach the driver system.
     switch (driver_mode) {
         case DriverMode::DATA_FILE: {
             auto driver =
-                chrono_types::make_shared<ChSuspensionTestRigDataDriver>(vehicle::GetDataFile(setup.DataDriverFile()));
+                chrono_types::make_shared<ChSuspensionTestRigDataDriver>(GetVehicleDataFile(setup.DataDriverFile()));
             rig->SetDriver(driver);
             break;
         }
         case DriverMode::INTERACTIVE: {
-            auto driver = chrono_types::make_shared<ChSuspensionTestRigInteractiveDriverIRR>(*vis);
+            auto driver = chrono_types::make_shared<ChSuspensionTestRigInteractiveDriver>();
             driver->SetSteeringDelta(1.0 / 50);
             driver->SetDisplacementDelta(1.0 / 250);
             rig->SetDriver(driver);
@@ -251,21 +243,20 @@ int main(int argc, char* argv[]) {
     // Initialize suspension test rig.
     rig->Initialize();
 
+    // Create the run-time visualization system
+    auto vis = chrono_types::make_shared<ChSuspensionTestRigVisualSystemVSG>();
+    vis->SetWindowSize(1280, 800);
+    vis->SetWindowTitle("Suspension Test Rig");
+    vis->AttachSTR(rig.get());
     vis->Initialize();
-    vis->AddLightDirectional();
-    vis->AddSkyBox();
-    vis->AddLogo();
-    vis->AttachVehicle(&rig->GetVehicle());
 
     // Set up rig output
     std::string out_dir = GetChronoOutputPath() + "SUSPENSION_TEST_RIG";
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
-    if (output) {
-        rig->SetOutput(ChVehicleOutput::ASCII, out_dir, "output", out_step_size);
-    }
+    rig->SetOutput(output, ChOutput::Mode::FRAMES, out_dir, "output", out_step_size);
     if (plot) {
         rig->SetPlotOutput(out_step_size);
     }
@@ -279,10 +270,6 @@ int main(int argc, char* argv[]) {
 
         // Advance simulation of the rig
         rig->Advance(step_size);
-
-        // Update visualization app
-        vis->Synchronize(rig->GetVehicle().GetChTime(), {rig->GetSteeringInput(), 0, 0});
-        vis->Advance(step_size);
 
         if (rig->DriverEnded())
             break;

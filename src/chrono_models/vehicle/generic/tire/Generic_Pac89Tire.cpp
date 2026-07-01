@@ -14,7 +14,7 @@
 //
 // Generic vehicle PAC89 tire subsystem
 //
-// Coefficents were pulled from the Adams/Tire help - Adams 2017.1.
+// Coefficients were pulled from the Adams/Tire help - Adams 2017.1.
 // https://simcompanion.mscsoftware.com/infocenter/index?page=content&id=DOC11293&cat=2017.1_ADAMS_DOCS&actp=LIST
 //
 // =============================================================================
@@ -22,7 +22,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_models/vehicle/generic/tire/Generic_Pac89Tire.h"
 
 namespace chrono {

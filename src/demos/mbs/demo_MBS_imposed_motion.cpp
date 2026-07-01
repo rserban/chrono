@@ -17,6 +17,8 @@
 //
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono/core/ChRealtimeStep.h"
 
 #include "chrono/physics/ChBodyEasy.h"
@@ -45,8 +47,9 @@ using namespace chrono::irrlicht;
 int main(int argc, char* argv[]) {
     std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << std::endl;
 
-    // Create a Chrono::Engine physical system
+    // Create a Chrono physical system
     ChSystemNSC sys;
+    sys.SetGravityY();
 
     // Create a floor. This is an absolute fixed reference that we will use as
     // a reference for imposing position and rotations of moved bodies.
@@ -130,7 +133,7 @@ int main(int argc, char* argv[]) {
     // Note that all ChLine will be evaluated in a s=0..1 range, this means that at s=0
     // one gets the start of the line, at s=1 one gets the end. For slower motion, one
     // can use SetSpaceFunction(), here ramping a linear abscissa motion but at 1/5 of the default speed
-    // i.e.a linear map s=0.2*t between absyssa s and time t
+    // i.e.a linear map s=0.2*t between abscissa s and time t
     f_line->SetSpaceFunction(chrono_types::make_shared<ChFunctionRamp>(0, 0.2));
 
     // Create a spline rotation interpolation based on quaternion splines.
@@ -146,7 +149,7 @@ int main(int argc, char* argv[]) {
                                     {0, 1, 0, 0}});
     // This will make the rotation spline evaluation periodic, otherwise by default it extrapolates if beyond s=1
     f_rotspline->SetClosed(true);
-    // Make the rotation spline evaluation 1/5 slower using a linear map s=0.2*t between absyssa s and time t
+    // Make the rotation spline evaluation 1/5 slower using a linear map s=0.2*t between abscissa s and time t
     f_rotspline->SetSpaceFunction(chrono_types::make_shared<ChFunctionRamp>(0, 0.2));
 
     // Create the constraint to impose motion and rotation:
@@ -281,7 +284,7 @@ int main(int argc, char* argv[]) {
         double t = sys.GetChTime();
 
         if (sys.GetNumSteps() % 10 == 0) {
-            f_pos_setpoint->SetSetpoint(0.2 * ChVector3d(cos(t * 12), sin(t * 12), 0), t);
+            f_pos_setpoint->SetSetpoint(0.2 * ChVector3d(std::cos(t * 12), std::sin(t * 12), 0), t);
             // f_rot_setpoint->SetSetpoint(QuatFromAngleZ(t*0.5), t );
             // std::cout << "set p = " << f_setpoint->GetVal(t).y() << " at t=" << t  << std::endl;
         }

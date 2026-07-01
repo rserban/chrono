@@ -16,20 +16,15 @@ import pychrono.irrlicht as chronoirr
 
 print ("Example: create a sys and visualize it in realtime 3D");
 
-# The path to the Chrono data directory containing various assets (meshes, textures, data files)
-# is automatically set, relative to the default location of this demo.
-# If running from a different directory, you must change the path to the data directory with: 
-#chrono.SetChronoDataPath('path/to/data')
-
 # ---------------------------------------------------------------------
 #
 #  Create the simulation sys and add items
 #
 
-sys      = chrono.ChSystemNSC()
+sys = chrono.ChSystemNSC()
+sys.SetGravityY()
 
 # Create a fixed rigid body
-
 mbody1 = chrono.ChBody()
 mbody1.SetFixed(True)
 mbody1.SetPos( chrono.ChVector3d(0,0,-0.2))
@@ -38,10 +33,7 @@ sys.Add(mbody1)
 mboxasset = chrono.ChVisualShapeBox(0.4, 1.0, 0.2)
 mbody1.AddVisualShape(mboxasset)
 
-
-
 # Create a swinging rigid body
-
 mbody2 = chrono.ChBody()
 mbody2.SetFixed(False)
 sys.Add(mbody2)
@@ -50,9 +42,7 @@ mboxasset = chrono.ChVisualShapeBox(0.4, 1.0, 0.2)
 mboxasset.SetTexture(chrono.GetChronoDataFile('textures/concrete.jpg'))
 mbody2.AddVisualShape(mboxasset)
 
-
 # Create a revolute constraint
-
 mlink = chrono.ChLinkRevolute()
 
     # the coordinate sys of the constraint reference in abs. space:
@@ -73,7 +63,7 @@ vis.AttachSystem(sys)
 vis.SetWindowSize(1024,768)
 vis.SetWindowTitle('Revolute joint demo')
 vis.Initialize()
-vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
+vis.AddLogo(chrono.GetChronoDataFile('logo_chrono_alpha.png'))
 vis.AddSkyBox()
 vis.AddCamera(chrono.ChVector3d(0.6,0.6,0.8))
 vis.AddTypicalLights()

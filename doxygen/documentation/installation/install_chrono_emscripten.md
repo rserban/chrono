@@ -41,7 +41,7 @@ Debian-based distributions may need to install the package `cmake-curses-gui` al
 Download the Chrono SDK by performing a **clone** of the Git repository on your machine. `git clone -b master git@github.com:projectchrono/chrono.git` will create a copy of the Github repository in the current directory.
 
 <div class="ce-info">
-Checking out the [latest release tag](https://github.com/projectchrono/chrono/tags) is **highly recommended**. Releases denote the most stable and well-tested versions of Chrono. To check out release 9.0.0, use: `git switch --detach 9.0.0`.
+Checking out the [latest release tag](https://github.com/projectchrono/chrono/tags) is **highly recommended**. Releases denote the most stable and well-tested versions of Chrono. To check out release 10.0.0, use: `git switch --detach 10.0.0`.
 
 If you are interested in using the latest features as they are developed and before the next official release, you can switch to the `develop` branch with `git switch develop`.
 </div>
@@ -69,18 +69,12 @@ If the Eigen library was installed through a package manager, its location may b
 
     - Press `c` to **Configure** and continue to the next screen.
 
-    - Enable the recommended optional modules: at least tick `ENABLE_MODULE_OPENGL`.<br>
+    - Enable the recommended optional modules.<br>
      Other modules might require additional settings and dependencies.
 
     -  Enter `c` to **Configure** and continue to the next screen.
 
 	- Emscripten contains embedded headers for GLEW and GLFW, two dependencies of Chrono, in its sysroot folder. If you installed an emscripten environment using emsdk, a folder should be available in your home directory at `~/.emscripten_cache/sysroot` which contains the required headers.
-	
-<div class="ce-warning">
-Due to a bug in CMake's handling of the GLEW and GLFW with emscripten, the `GLEW_LIBRARY` and `GLFW_LIBRARY` variables may need to be set to some nonsense value in order for CMake to build the OpenGL module correctly. If you enabled the module, but no demos are generated for it, try setting the variables to a valid path such as `/dev/null`.
-</div>
-
-	- Specify the location of the GLM installation. If this is not detected automatically, you may need to manually set the CMake variable `GLM_INCLUDE_DIR`.  
 
 <div class="ce-warning">
 Similar to the Eigen directory field set earlier, the GLM include directory may be detected automatically. If it was detected automatically, verify the location of the library is correct before continuing.

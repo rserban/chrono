@@ -1,5 +1,5 @@
 {
-    "Name": "M113 BandBushing TrackShoe Left",
+    "Name": "M113 BandBushing TrackShoe",
     "Type": "TrackShoe",
     "Template": "TrackShoeBandBushing",
 
@@ -108,6 +108,6 @@
     },
 
     "Visualization": {
-        "Mesh": "M113/TrackShoeBandBushing.obj"
+        "Mesh": "vehicle/M113/TrackShoeBandBushing.obj"
     }
 }

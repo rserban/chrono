@@ -24,14 +24,17 @@
 #include <ostream>
 #include <unordered_map>
 
+#include "chrono/core/ChTimer.h"
 #include "chrono/assets/ChVisualShapeTriangleMesh.h"
+#include "chrono/assets/ChColormap.h"
 #include "chrono/physics/ChBody.h"
-#include "chrono/fea/ChNodeFEAxyz.h"
 #include "chrono/physics/ChLoadContainer.h"
 #include "chrono/physics/ChLoadsBody.h"
 #include "chrono/physics/ChLoadsNodeXYZ.h"
 #include "chrono/physics/ChSystem.h"
-#include "chrono/core/ChTimer.h"
+#ifdef CHRONO_FEA
+    #include "chrono/fea/ChNodeFEAxyz.h"
+#endif
 
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/ChSubsysDefs.h"
@@ -61,7 +64,7 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
         PLOT_SINKAGE_PLASTIC,
         PLOT_STEP_PLASTIC_FLOW,
         PLOT_PRESSURE,
-        PLOT_PRESSURE_YELD,
+        PLOT_PRESSURE_YIELD,
         PLOT_SHEAR,
         PLOT_K_JANOSI,
         PLOT_IS_TOUCHED,
@@ -90,39 +93,37 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
 
     ~SCMTerrain() {}
 
-    /// Set the plane reference.
-    /// By default, the reference plane is horizontal with Z up (ISO vehicle reference frame).
-    /// To set as Y up, call SetPlane(ChCoordys(VNULL, QuatFromAngleX(-CH_PI_2)));
-    void SetPlane(const ChCoordsys<>& plane);
+    /// Set the SCM reference frame.
+    /// By default, the reference frame is aligned with the global ISO vehicle reference frame.
+    /// To set as Y up, call SetReferenceFrame(ChCoordys(VNULL, QuatFromAngleX(-CH_PI_2)));
+    void SetReferenceFrame(const ChCoordsys<>& plane);
 
-    /// Get the current reference plane.
-    /// The SCM terrain patch is in the (x,y) plane with normal along the Z axis.
-    const ChCoordsys<>& GetPlane() const;
+    /// Get the current SCM reference frame.
+    /// The SCM terrain patch is defined relative to the (x,y) plane of this frame, with normal along the Z axis.
+    const ChCoordsys<>& GetReferenceFrame() const;
 
     /// Set the properties of the SCM soil model.
     /// These parameters are described in: "Parameter Identification of a Planetary Rover Wheel-Soil Contact Model via a
     /// Bayesian Approach", A.Gallina, R. Krenn et al. Note that the original SCM model does not include the K and R
     /// coefficients. A very large value of K and R=0 reproduce the original SCM.
-    void SetSoilParameters(
-        double Bekker_Kphi,    ///< Kphi, frictional modulus in Bekker model
-        double Bekker_Kc,      ///< Kc, cohesive modulus in Bekker model
-        double Bekker_n,       ///< n, exponent of sinkage in Bekker model (usually 0.6...1.8)
-        double Mohr_cohesion,  ///< Cohesion for shear failure [Pa]
-        double Mohr_friction,  ///< Friction angle for shear failure [degree]
-        double Janosi_shear,   ///< Shear parameter in Janosi-Hanamoto formula [m]
-        double elastic_K,      ///< elastic stiffness K per unit area, [Pa/m] (must be larger than Kphi)
-        double damping_R       ///< vertical damping R per unit area [Pa.s/m] (proportional to vertical speed)
+    void SetSoilParameters(double Bekker_Kphi,    ///< Kphi, frictional modulus in Bekker model
+                           double Bekker_Kc,      ///< Kc, cohesive modulus in Bekker model
+                           double Bekker_n,       ///< n, exponent of sinkage in Bekker model (usually 0.6...1.8)
+                           double Mohr_cohesion,  ///< Cohesion for shear failure [Pa]
+                           double Mohr_friction,  ///< Friction angle for shear failure [degree]
+                           double Janosi_shear,   ///< Shear parameter in Janosi-Hanamoto formula [m]
+                           double elastic_K,      ///< elastic stiffness K per unit area, [Pa/m] (must be larger than Kphi)
+                           double damping_R       ///< vertical damping R per unit area [Pa.s/m] (proportional to vertical speed)
     );
 
     /// Enable/disable the creation of soil inflation at the side of the ruts (bulldozing effects).
     void EnableBulldozing(bool mb);
 
     /// Set parameters controlling the creation of side ruts (bulldozing effects).
-    void SetBulldozingParameters(
-        double erosion_angle,          ///< angle of erosion of the displaced material [degrees]
-        double flow_factor = 1.0,      ///< growth of lateral volume relative to pressed volume
-        int erosion_iterations = 3,    ///< number of erosion refinements per timestep
-        int erosion_propagations = 10  ///< number of concentric vertex selections subject to erosion
+    void SetBulldozingParameters(double erosion_angle,          ///< angle of erosion of the displaced material [degrees]
+                                 double flow_factor = 1.0,      ///< growth of lateral volume relative to pressed volume
+                                 int erosion_iterations = 3,    ///< number of erosion refinements per timestep
+                                 int erosion_propagations = 10  ///< number of concentric vertex selections subject to erosion
     );
 
     /// Set the vertical level up to which collision is tested (relative to the reference level at the sample point).
@@ -135,9 +136,19 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
     ///  Return the current test height level.
     double GetTestHeight() const;
 
-    /// Set the color plot type for the soil mesh.
-    /// When a scalar plot is used, also define the range in the pseudo-color colormap.
+    /// Set the color plot type for the SCM mesh.
+    /// Specify the minimum and maximum values for false coloring.
     void SetPlotType(DataPlotType plot_type, double min_val, double max_val);
+
+    /// Set the colormap type for false coloring of the SCM mesh.
+    /// The default colormap is JET (a divergent blue-red map).
+    void SetColormap(ChColormap::Type type);
+
+    /// Get the type of the colormap currently in use.
+    ChColormap::Type GetColormapType() const;
+
+    /// Get the colormap object in current use.
+    const ChColormap& GetColormap() const;
 
     /// Set visualization color.
     void SetColor(const ChColor& color);
@@ -148,14 +159,25 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
                     float scale_y = 1            ///< [in] texture Y scale
     );
 
-    /// Add a new moving patch.
-    /// Multiple calls to this function can be made, each of them adding a new active patch area.
-    /// If no patches are defined, ray-casting is performed for every single node of the underlying SCM grid.
-    /// If at least one patch is defined, ray-casting is performed only for mesh nodes within the AABB of the
-    /// body OOBB projection onto the SCM plane.
-    void AddMovingPatch(std::shared_ptr<ChBody> body,   ///< [in] monitored body
-                        const ChVector3d& OOBB_center,  ///< [in] OOBB center, relative to body
-                        const ChVector3d& OOBB_dims     ///< [in] OOBB dimensions
+    /// Set boundary of the SCM computational domain.
+    /// By default, the SCM terrain patch extends to infinity in the x-y plane, beyond the area used to initialize it;
+    /// outside the initialization area, the height of the SCM terrain is that of the closest initialized point.
+    /// By specifying a boundary, SCM terrain forces outside that boundary are not generated. This feature is useful in
+    /// stitching an environment with multiple SCM terrain patches or with a combination of SCM and rigid terrain
+    /// patches. The boundary is specified as an axis-aligned bounding box expressed relative to the SCM reference
+    /// plane. Note that the z values of the provided AABB are not used (as long as the AABB is not inverted).
+    void SetBoundary(const ChAABB& aabb);
+
+    /// Add a new moving active domain associated with the specified body.
+    /// Note: the OOBB is placed relative to the body *reference frame*.
+    /// Multiple calls to this function can be made, each of them adding a new active domain.
+    /// The union of all currently defined active domains is used to reduce the number of ray casting operations, by
+    /// ensuring that rays are generated only from SCM grid nodes inside the projection of the an active domains's OOBB
+    /// onto the SCM reference plane. If there are no user-provided active domains, a single default one is defined to
+    /// encompass all collision shapes in the system at any given time.
+    void AddActiveDomain(std::shared_ptr<ChBody> body,   ///< [in] monitored body
+                         const ChVector3d& OOBB_center,  ///< [in] OOBB center, relative to body reference frame
+                         const ChVector3d& OOBB_dims     ///< [in] OOBB dimensions
     );
 
     /// Class to be used as a callback interface for location-dependent soil parameters.
@@ -166,17 +188,16 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
 
         /// Set the soil properties at a given (x,y) location (below the given point).
         /// Attention: the location is assumed to be provided in the SCM reference frame!
-        virtual void Set(
-            const ChVector3d& loc,  ///< query location
-            double& Bekker_Kphi,    ///< frictional modulus in Bekker model
-            double& Bekker_Kc,      ///< cohesive modulus in Bekker model
-            double& Bekker_n,       ///< exponent of sinkage in Bekker model (usually 0.6...1.8)
-            double& Mohr_cohesion,  ///< cohesion for shear failure [Pa]
-            double& Mohr_friction,  ///< friction angle for shear failure [degree]
-            double& Janosi_shear,   ///< shear parameter in Janosi-Hanamoto formula [m]
-            double& elastic_K,      ///< elastic stiffness K per unit area, [Pa/m] (must be larger than Kphi)
-            double& damping_R       ///< vertical damping R per unit area [Pa.s/m] (proportional to vertical speed)
-            ) = 0;
+        virtual void Set(const ChVector3d& loc,  ///< query location
+                         double& Bekker_Kphi,    ///< frictional modulus in Bekker model
+                         double& Bekker_Kc,      ///< cohesive modulus in Bekker model
+                         double& Bekker_n,       ///< exponent of sinkage in Bekker model (usually 0.6...1.8)
+                         double& Mohr_cohesion,  ///< cohesion for shear failure [Pa]
+                         double& Mohr_friction,  ///< friction angle for shear failure [degree]
+                         double& Janosi_shear,   ///< shear parameter in Janosi-Hanamoto formula [m]
+                         double& elastic_K,      ///< elastic stiffness K per unit area, [Pa/m] (must be larger than Kphi)
+                         double& damping_R       ///< vertical damping R per unit area [Pa.s/m] (proportional to vertical speed)
+                         ) = 0;
     };
 
     /// Specify the callback object to set the soil parameters at given (x,y) locations.
@@ -188,6 +209,9 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
 
     /// Get the initial (undeformed) terrain normal at the point below the specified location.
     ChVector3d GetInitNormal(const ChVector3d& loc) const;
+
+    /// Get the point on the terrain below the specified location.
+    virtual ChVector3d GetPoint(const ChVector3d& loc) const override;
 
     /// Get the terrain height below the specified location.
     virtual double GetHeight(const ChVector3d& loc) const override;
@@ -233,7 +257,7 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
     /// Initialize the terrain system (height map).
     /// The initial undeformed terrain profile is provided via the specified image file as a height map.
     /// The terrain patch is scaled in the horizontal plane of the SCM frame to sizeX x sizeY, while the initial height
-    /// is scaled between hMin and hMax (with the former corresponding to a pure balck pixel and the latter to a pure
+    /// is scaled between hMin and hMax (with the former corresponding to a pure black pixel and the latter to a pure
     /// white pixel).  The SCM grid resolution is specified through 'delta' and initial heights at grid points are
     /// obtained through interpolation (outside the terrain patch, the SCM node height is initialized to the height of
     /// the closest image pixel). For visualization purposes, a triangular mesh is also generated from the provided
@@ -279,14 +303,16 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
     /// Modify the level of grid nodes from the given list.
     void SetModifiedNodes(const std::vector<NodeLevel>& nodes);
 
-    /// Return the cummulative contact force on the specified body  (due to interaction with the SCM terrain).
+    /// Return the cumulative contact force on the specified body  (due to interaction with the SCM terrain).
     /// The return value is true if the specified body experiences contact forces and false otherwise.
     /// If contact forces are applied to the body, they are reduced to the body center of mass.
     bool GetContactForceBody(std::shared_ptr<ChBody> body, ChVector3d& force, ChVector3d& torque) const;
 
-    /// Return the cummulative contact force on the specified mesh node (due to interaction with the SCM terrain).
+#ifdef CHRONO_FEA
+    /// Return the cumulative contact force on the specified mesh node (due to interaction with the SCM terrain).
     /// The return value is true if the specified node experiences contact forces and false otherwise.
     bool GetContactForceNode(std::shared_ptr<fea::ChNodeFEAxyz> node, ChVector3d& force) const;
+#endif
 
     /// Return the number of rays cast at last step.
     int GetNumRayCasts() const;
@@ -294,14 +320,14 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
     int GetNumRayHits() const;
     /// Return the number of contact patches at last step.
     int GetNumContactPatches() const;
-    /// Return the number of nodes in the erosion domain at last step (bulldosing effects).
+    /// Return the number of nodes in the erosion domain at last step (bulldozing effects).
     int GetNumErosionNodes() const;
 
-    /// Return time for updating moving patches at last step (ms).
-    double GetTimerMovingPatches() const;
+    /// Return time for updating active domains at last step (ms).
+    double GetTimerActiveDomains() const;
     /// Return time for geometric ray intersection tests at last step (ms).
     double GetTimerRayTesting() const;
-    /// Return time for ray casting at last step (ms). Includes time for ray intersectin testing.
+    /// Return time for ray casting at last step (ms). Includes time for ray intersection testing.
     double GetTimerRayCasting() const;
     /// Return time for computing contact patches at last step (ms).
     double GetTimerContactPatches() const;
@@ -321,19 +347,21 @@ class CH_VEHICLE_API SCMTerrain : public ChTerrain {
 
   private:
     std::shared_ptr<SCMLoader> m_loader;  ///< underlying load container for contact force generation
+
+    friend class ChScmVisualizationVSG;
 };
 
 /// Parameters for soil-contactable interaction.
 class CH_VEHICLE_API SCMContactableData {
   public:
-    SCMContactableData(double area_ratio,     ///< area fraction with overriden parameters (in [0,1])
+    SCMContactableData(double area_ratio,     ///< area fraction with overridden parameters (in [0,1])
                        double Mohr_cohesion,  ///< cohesion for shear failure [Pa]
                        double Mohr_friction,  ///< friction angle for shear failure [degree]
                        double Janosi_shear    ///< shear parameter in Janosi-Hanamoto formula [m]
     );
 
   private:
-    double area_ratio;     ///< fraction of contactable surface where soil-soil parameters are overriden
+    double area_ratio;     ///< fraction of contactable surface where soil-soil parameters are overridden
     double Mohr_cohesion;  ///< cohesion for shear failure [Pa]
     double Mohr_mu;        ///< coefficient of friction for shear failure [degree]
     double Janosi_shear;   ///< shear parameter in Janosi-Hanamoto formula [m]
@@ -377,19 +405,19 @@ class CH_VEHICLE_API SCMLoader : public ChLoadContainer {
     );
 
   private:
-    // SCM patch type
+    // SCM patch type.
     enum class PatchType {
         FLAT,        // flat patch
         HEIGHT_MAP,  // triangular mesh (generated from a gray-scale image height-map)
         TRI_MESH     // triangular mesh (provided through an OBJ file)
     };
 
-    // Moving patch parameters
-    struct MovingPatchInfo {
+    // Active domain parameters.
+    struct ActiveDomainInfo {
         std::shared_ptr<ChBody> m_body;   // tracked body
         ChVector3d m_center;              // OOBB center, relative to body
         ChVector3d m_hdims;               // OOBB half-dimensions
-        std::vector<ChVector2i> m_range;  // current grid nodes covered by the patch
+        std::vector<ChVector2i> m_range;  // current grid nodes covered by the domain
         ChVector3d m_ooN;                 // current inverse of SCM normal in body frame
     };
 
@@ -446,17 +474,23 @@ class CH_VEHICLE_API SCMLoader : public ChLoadContainer {
     // Get the initial undeformed terrain normal (relative to the SCM plane) at the specified grid node.
     ChVector3d GetInitNormal(const ChVector2i& loc) const;
 
+    // Get the terrain point (relative to the SCM plane) at the specified grid node.
+    ChVector3d GetPoint(const ChVector2i& loc) const;
+
     // Get the terrain height (relative to the SCM plane) at the specified grid node.
     double GetHeight(const ChVector2i& loc) const;
 
-    // Get the terrain normal (relative to the SCM plane) at the specified grid vertex.
-    ChVector3d GetNormal(const ChVector2d& loc) const;
+    // Get the terrain normal (relative to the SCM plane) at the specified grid node.
+    ChVector3d GetNormal(const ChVector2i& loc) const;
 
     // Get the initial terrain height (expressed in World frame) below the specified location.
     double GetInitHeight(const ChVector3d& loc) const;
 
     // Get the initial terrain normal (expressed in World frame) at the point below the specified location.
     ChVector3d GetInitNormal(const ChVector3d& loc) const;
+
+    // Get the terrain point (expressed in World frame) below the specified location.
+    ChVector3d GetPoint(const ChVector3d& loc) const;
 
     // Get the terrain height (expressed in World frame) below the specified location.
     double GetHeight(const ChVector3d& loc) const;
@@ -482,26 +516,25 @@ class CH_VEHICLE_API SCMLoader : public ChLoadContainer {
     // Update the forces and the geometry, at the beginning of each timestep.
     virtual void Setup() override {
         ComputeInternalForces();
-        ChLoadContainer::Update(ChTime, true);
+        ChLoadContainer::Update(ChTime, UpdateFlags::UPDATE_ALL);
     }
 
-    virtual void Update(double mytime, bool update_assets = true) override {
+    virtual void Update(double time, UpdateFlags update_flags) override {
         // Note!!! we cannot call ComputeInternalForces here, because Update() could
         // be called multiple times per timestep and not necessarily in time-increasing order;
         // this is a problem because in this force model the force is dissipative and keeps a 'history'.
         // Instead, we invoke ComputeInternalForces only at the beginning of the timestep in Setup().
-
-        ChTime = mytime;
+        ChPhysicsItem::Update(time, update_flags);
     }
 
-    // Synchronize information for a moving patch
-    void UpdateMovingPatch(MovingPatchInfo& p, const ChVector3d& Z);
+    // Synchronize information for a user-provided active domain.
+    void UpdateActiveDomain(ActiveDomainInfo& ad, const ChVector3d& Z);
 
-    // Synchronize information for fixed patch
-    void UpdateFixedPatch(MovingPatchInfo& p);
+    // Synchronize information for the default active domain.
+    void UpdateDefaultActiveDomain(ActiveDomainInfo& ad);
 
     // Ray-OBB intersection test
-    bool RayOBBtest(const MovingPatchInfo& p, const ChVector3d& from, const ChVector3d& Z);
+    bool RayOBBtest(const ActiveDomainInfo& ad, const ChVector3d& from, const ChVector3d& Z);
 
     // Reset the list of forces and fill it with forces from the soil contact model.
     // This is called automatically during timestepping (only at the beginning of each step).
@@ -536,7 +569,7 @@ class CH_VEHICLE_API SCMLoader : public ChLoadContainer {
     void SetModifiedNodes(const std::vector<SCMTerrain::NodeLevel>& nodes);
 
     PatchType m_type;      ///< type of SCM patch
-    ChCoordsys<> m_plane;  ///< SCM frame (deformation occurs along the z axis of this frame)
+    ChCoordsys<> m_frame;  ///< SCM frame (deformation occurs along the z axis of this frame)
     ChVector3d m_Z;        ///< SCM plane vertical direction (in absolute frame)
     double m_delta;        ///< grid spacing
     double m_area;         ///< area of a grid cell
@@ -549,13 +582,18 @@ class CH_VEHICLE_API SCMLoader : public ChLoadContainer {
     std::unordered_map<ChVector2i, NodeRecord, CoordHash> m_grid_map;  ///< modified grid nodes (persistent)
     std::vector<ChVector2i> m_modified_nodes;                          ///< modified grid nodes (current)
 
-    std::vector<MovingPatchInfo> m_patches;  ///< set of active moving patches
-    bool m_moving_patch;                     ///< user-specified moving patches?
+    ChAABB m_aabb;    ///< user-specified SCM terrain boundary
+    bool m_boundary;  ///< user-specified SCM terrain boundary?
+
+    std::vector<ActiveDomainInfo> m_active_domains;  ///< set of active domains
+    bool m_user_domains;                             ///< user-specified active domains?
 
     double m_test_offset_down;  ///< offset for ray start
     double m_test_offset_up;    ///< offset for ray end
 
     std::shared_ptr<ChVisualShapeTriangleMesh> m_trimesh_shape;  ///< mesh visualization asset
+    std::unique_ptr<ChColormap> m_colormap;                      ///< colormap for mesh false coloring
+    ChColormap::Type m_colormap_type;                            ///< colormap type
 
     bool m_cosim_mode;  ///< co-simulation mode
 
@@ -574,7 +612,9 @@ class CH_VEHICLE_API SCMLoader : public ChLoadContainer {
 
     // Contact forces on contactable objects interacting with the SCM terrain
     std::unordered_map<ChBody*, std::pair<ChVector3d, ChVector3d>> m_body_forces;
+#ifdef CHRONO_FEA
     std::unordered_map<std::shared_ptr<fea::ChNodeFEAxyz>, ChVector3d> m_node_forces;
+#endif
 
     // Bulldozing effects
     bool m_bulldozing;
@@ -592,7 +632,7 @@ class CH_VEHICLE_API SCMLoader : public ChLoadContainer {
     std::vector<int> m_external_modified_vertices;
 
     // Timers and counters
-    ChTimer m_timer_moving_patches;
+    ChTimer m_timer_active_domains;
     ChTimer m_timer_ray_testing;
     ChTimer m_timer_ray_casting;
     ChTimer m_timer_contact_patches;
@@ -608,6 +648,7 @@ class CH_VEHICLE_API SCMLoader : public ChLoadContainer {
     int m_num_erosion_nodes;
 
     friend class SCMTerrain;
+    friend class ChScmVisualizationVSG;
 };
 
 /// @} vehicle_terrain

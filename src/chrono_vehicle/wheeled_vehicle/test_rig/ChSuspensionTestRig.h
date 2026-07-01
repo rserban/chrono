@@ -12,7 +12,7 @@
 // Authors: Radu Serban
 // =============================================================================
 //
-// Definition of a suspension testing mechanism for a wheeld vehicle.
+// Definition of a suspension testing mechanism for a wheeled vehicle.
 //
 // The reference frame follows the ISO standard: Z-axis up, X-axis
 // pointing forward, and Y-axis towards the left of the vehicle.
@@ -27,7 +27,7 @@
 
 #include "chrono/assets/ChColor.h"
 #include "chrono/physics/ChLinkMotorLinearPosition.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
 #include "chrono_vehicle/wheeled_vehicle/ChTire.h"
 #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicle.h"
@@ -47,6 +47,9 @@ class CH_VEHICLE_API ChSuspensionTestRig {
 
     /// Set driver system.
     void SetDriver(std::shared_ptr<ChSuspensionTestRigDriver> driver);
+
+    /// Get the attached driver (if any).
+    std::shared_ptr<ChSuspensionTestRigDriver> GetDriver() const { return m_driver; }
 
     /// Set the initial ride height (relative to the chassis reference frame).
     /// If not specified, the reference height is the suspension design configuration.
@@ -122,9 +125,6 @@ class CH_VEHICLE_API ChSuspensionTestRig {
     /// Note: 'axle' is the index in the set of tested axles.
     virtual double GetRideHeight(int axle) const = 0;
 
-    /// Return the info message from the STR driver.
-    std::string GetDriverMessage() const { return m_driver->GetInfoMessage(); }
-
     /// Return true when driver stopped producing inputs.
     bool DriverEnded() const { return m_driver->Ended(); }
 
@@ -132,7 +132,8 @@ class CH_VEHICLE_API ChSuspensionTestRig {
     void LogConstraintViolations();
 
     /// Enable output for this vehicle system (default: false).
-    void SetOutput(ChVehicleOutput::Type type,   ///< type of output DB
+    void SetOutput(ChOutput::Format format,      ///< format of output DB
+                   ChOutput::Mode mode,          ///< output mode
                    const std::string& out_dir,   ///< output directory name
                    const std::string& out_name,  ///< rootname of output file
                    double output_step            ///< interval between output times
@@ -164,7 +165,7 @@ class CH_VEHICLE_API ChSuspensionTestRig {
     void PlotOutput(const std::string& out_dir, const std::string& out_name);
 
   protected:
-    /// Construct a test rig for specified sets of axles and sterring mechanisms of a given vehicle.
+    /// Construct a test rig for specified sets of axles and steering mechanisms of a given vehicle.
     ChSuspensionTestRig(std::shared_ptr<ChWheeledVehicle> vehicle,  ///< test vehicle
                         std::vector<int> axle_index,                ///< list of tested vehicle axles
                         double displ_limit                          ///< displacement limits
@@ -223,8 +224,8 @@ class CH_VEHICLE_API ChSuspensionTestRig {
 
     /// Plot data for one axle.
     struct PlotData {
-        utils::ChWriterCSV csvL;  ///< csv output for left side
-        utils::ChWriterCSV csvR;  ///< csv output for right side
+        ChWriterCSV csvL;  ///< csv output for left side
+        ChWriterCSV csvR;  ///< csv output for right side
         int num_tsda;             ///< number of TSDAs
         int num_rsda;             ///< number of RSDAs
     };
@@ -240,7 +241,7 @@ class CH_VEHICLE_API ChSuspensionTestRig {
 /// Definition of a suspension test rig using platforms to actuate the tires.
 class CH_VEHICLE_API ChSuspensionTestRigPlatform : public ChSuspensionTestRig {
   public:
-    /// Construct a test rig for specified sets of axles and sterring mechanisms of a given vehicle.
+    /// Construct a test rig for specified sets of axles and steering mechanisms of a given vehicle.
     ChSuspensionTestRigPlatform(std::shared_ptr<ChWheeledVehicle> vehicle,  ///< test vehicle
                                 std::vector<int> axle_index,                ///< list of tested vehicle axles
                                 double displ_limit                          ///< displacement limits
@@ -289,7 +290,7 @@ class CH_VEHICLE_API ChSuspensionTestRigPlatform : public ChSuspensionTestRig {
 /// Definition of a suspension test rig with direct actuation on the spindle bodies.
 class CH_VEHICLE_API ChSuspensionTestRigPushrod : public ChSuspensionTestRig {
   public:
-    /// Construct a test rig for specified sets of axles and sterring mechanisms of a given vehicle.
+    /// Construct a test rig for specified sets of axles and steering mechanisms of a given vehicle.
     ChSuspensionTestRigPushrod(std::shared_ptr<ChWheeledVehicle> vehicle,  ///< test vehicle
                                std::vector<int> axle_index,                ///< list of tested vehicle axles
                                double displ_limit                          ///< displacement limits

@@ -12,6 +12,8 @@
 // Authors: Alessandro Tasora, Radu Serban
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono/functions/ChFunctionPoly345.h"
 
 namespace chrono {
@@ -35,7 +37,7 @@ double ChFunctionPoly345::GetVal(double x) const {
     if (x >= m_width)
         return m_height;
     double a = x / m_width;
-    ret = m_height * (10 * pow(a, 3) - 15 * pow(a, 4) + 6 * pow(a, 5));
+    ret = m_height * (10 * (a * a * a) - 15 * (a * a * a * a) + 6 * (a * a * a * a * a));
     return ret;
 }
 
@@ -46,7 +48,7 @@ double ChFunctionPoly345::GetDer(double x) const {
     if (x >= m_width)
         return 0;
     double a = x / m_width;
-    ret = m_height * (1 / m_width) * (30 * pow(a, 2) - 60 * pow(a, 3) + 30 * pow(a, 4));
+    ret = m_height * (1.0 / m_width) * (30 * (a * a) - 60 * (a * a * a) + 30 * (a * a * a * a));
     return ret;
 }
 
@@ -57,7 +59,7 @@ double ChFunctionPoly345::GetDer2(double x) const {
     if (x >= m_width)
         return 0;
     double a = x / m_width;
-    ret = m_height * (1 / (m_width * m_width)) * (60 * a - 180 * pow(a, 2) + 120 * pow(a, 3));
+    ret = m_height * (1.0 / (m_width * m_width)) * (60 * a - 180 * (a * a) + 120 * (a * a * a));
     return ret;
 }
 
@@ -68,7 +70,7 @@ double ChFunctionPoly345::GetDer3(double x) const {
     if (x >= m_width)
         return 0;
     double a = x / m_width;
-    ret = m_height / pow(m_width, 3) * (60 - 360 * a + 360 * pow(a, 2));
+    ret = m_height / (m_width * m_width * m_width) * (60 - 360 * a + 360 * (a * a));
     return ret;
 }
 

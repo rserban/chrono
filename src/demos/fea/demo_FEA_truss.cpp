@@ -21,7 +21,6 @@
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChSystemSMC.h"
 #include "chrono/solver/ChIterativeSolverLS.h"
-#include "chrono/timestepper/ChTimestepper.h"
 
 #include "chrono/fea/ChElementSpring.h"
 #include "chrono/fea/ChElementBar.h"
@@ -30,8 +29,6 @@
 #include "chrono/assets/ChVisualShapeFEA.h"
 
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
 
 using namespace chrono;
 using namespace chrono::fea;
@@ -42,16 +39,16 @@ int main(int argc, char* argv[]) {
 
     // Create (if needed) output directory
     const std::string out_dir = GetChronoOutputPath() + "FEA_TRUSS";
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
 
     // Create a Chrono physical system
     ChSystemSMC sys;
+    sys.SetGravityY();
 
-    // Create two meshes (the second just for containing the 'dumb' massless nodes,
-    // so that they can be plot with a different color)
+    // Create two meshes
     auto my_mesh = chrono_types::make_shared<ChMesh>();
     auto my_mesh_dumb = chrono_types::make_shared<ChMesh>();
 
@@ -178,17 +175,17 @@ int main(int argc, char* argv[]) {
     // Such triangle mesh can be rendered by Irrlicht or POVray or whatever
     // postprocessor that can handle a colored ChVisualShapeTriangleMesh).
 
-    auto mvisualizeA = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizeA = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizeA->SetWireframe(true);
     my_mesh->AddVisualShapeFEA(mvisualizeA);
 
-    auto mvisualizeB = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+    auto mvisualizeB = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizeB->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     mvisualizeB->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
     mvisualizeB->SetSymbolsThickness(0.015);
     my_mesh->AddVisualShapeFEA(mvisualizeB);
 
-    auto mvisualizeC = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh_dumb);
+    auto mvisualizeC = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizeC->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     mvisualizeC->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
     mvisualizeC->SetDefaultSymbolsColor(ChColor(1, 1, 0));
@@ -227,7 +224,7 @@ int main(int argc, char* argv[]) {
         // draw spring elements as lines
         for (auto mspring : springs) {
             if (mspring->GetSpringCoefficient() > 0) {
-                tools::drawSegment(vis.get(), std::dynamic_pointer_cast<ChNodeFEAxyz>(mspring->GetNode(0))->GetPos(),
+                tools::DrawSegment(vis.get(), std::dynamic_pointer_cast<ChNodeFEAxyz>(mspring->GetNode(0))->GetPos(),
                                    std::dynamic_pointer_cast<ChNodeFEAxyz>(mspring->GetNode(1))->GetPos(),
                                    ChColor(1, 1, 1), true);
             }

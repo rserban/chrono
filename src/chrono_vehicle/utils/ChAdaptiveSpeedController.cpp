@@ -31,7 +31,7 @@
 #include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/utils/ChAdaptiveSpeedController.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 
 using namespace rapidjson;
 
@@ -130,7 +130,7 @@ void ChAdaptiveSpeedController::StartDataCollection() {
         return;
     // Create the ChWriterCSV object if needed (first call to this function).
     if (!m_csv) {
-        m_csv = new utils::ChWriterCSV("\t");
+        m_csv = new ChWriterCSV("\t");
         m_csv->Stream().setf(std::ios::scientific | std::ios::showpos);
         m_csv->Stream().precision(6);
     }

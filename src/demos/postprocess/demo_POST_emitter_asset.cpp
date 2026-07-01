@@ -25,8 +25,6 @@
 
 #include "chrono_postprocess/ChPovRay.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-
 // Use the main namespaces of Chrono, and other chrono namespaces
 using namespace chrono;
 using namespace chrono::particlefactory;
@@ -38,6 +36,7 @@ int main(int argc, char* argv[]) {
 
     // Create a Chrono system and set the associated collision system
     ChSystemNSC sys;
+    sys.SetGravityY();
     sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // Create the Irrlicht visualization system

@@ -22,6 +22,8 @@
 //
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono/core/ChRealtimeStep.h"
 #include "chrono/geometry/ChTriangleMeshSoup.h"
 #include "chrono/physics/ChBodyEasy.h"
@@ -340,8 +342,8 @@ class MySimpleTank {
             for (int nshoe = 0; nshoe < nwrap; nshoe++) {
                 double alpha = (CH_PI / ((double)(nwrap - 1.0))) * ((double)nshoe);
 
-                double lx = mx + shoelength + radiustrack * sin(alpha);
-                double ly = my + radiustrack - radiustrack * cos(alpha);
+                double lx = mx + shoelength + radiustrack * std::sin(alpha);
+                double ly = my + radiustrack - radiustrack * std::cos(alpha);
                 position.Set(lx, ly, mz);
                 rotation = chrono::QuatFromAngleZ(alpha);
                 auto rigidBodyShoe =
@@ -372,8 +374,8 @@ class MySimpleTank {
             for (int nshoe = 0; nshoe < nwrap; nshoe++) {
                 double alpha = CH_PI + (CH_PI / ((double)(nwrap - 1.0))) * ((double)nshoe);
 
-                double lx = mx + 0 + radiustrack * sin(alpha);
-                double ly = my + radiustrack - radiustrack * cos(alpha);
+                double lx = mx + 0 + radiustrack * std::sin(alpha);
+                double ly = my + radiustrack - radiustrack * std::cos(alpha);
                 position.Set(lx, ly, mz);
                 rotation = chrono::QuatFromAngleZ(alpha);
                 auto rigidBodyShoe =
@@ -525,6 +527,7 @@ int main(int argc, char* argv[]) {
 
     // 1- Create a Chrono physical system: all bodies and constraints will be handled by this ChSystemNSC object.
     ChSystemNSC sys;
+    sys.SetGravityY();
     sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // 2- Create the rigid bodies of the simpified tracked vehicle mechanical system, setting position, mass, inertias
@@ -582,7 +585,7 @@ int main(int argc, char* argv[]) {
     while (vis->Run()) {
         vis->BeginScene();
         vis->Render();
-        tools::drawGrid(vis.get(), 2, 2, 30, 30, ChCoordsys<>(ChVector3d(0, 0.01, 0), QuatFromAngleX(CH_PI_2)),
+        tools::DrawGrid(vis.get(), 2, 2, 30, 30, ChCoordsys<>(ChVector3d(0, 0.01, 0), QuatFromAngleX(CH_PI_2)),
                         ChColor(0.3f, 0.3f, 0.3f), true);
 
         vis->EndScene();

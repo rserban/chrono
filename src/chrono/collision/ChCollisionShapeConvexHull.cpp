@@ -26,28 +26,30 @@ CH_UPCASTING(ChCollisionShapeConvexHull, ChCollisionShape)
 
 ChCollisionShapeConvexHull::ChCollisionShapeConvexHull() : ChCollisionShape(Type::CONVEXHULL) {}
 
-ChCollisionShapeConvexHull::ChCollisionShapeConvexHull(std::shared_ptr<ChContactMaterial> material,
-                                                       const std::vector<ChVector3d>& points)
+ChCollisionShapeConvexHull::ChCollisionShapeConvexHull(std::shared_ptr<ChContactMaterial> material, const std::vector<ChVector3d>& points)
     : ChCollisionShape(Type::CONVEXHULL, material) {
     this->points = points;
 }
 
-std::vector<std::shared_ptr<ChCollisionShapeConvexHull>> ChCollisionShapeConvexHull::Read(
-    std::shared_ptr<ChContactMaterial> material,
-    const std::string& filename) {
+ChAABB ChCollisionShapeConvexHull::GetBoundingBox() const {
+    ChAABB aabb;
+    for (const auto& p : points)
+        aabb += ChAABB(p, p);
+    return aabb;
+}
+
+std::vector<std::shared_ptr<ChCollisionShapeConvexHull>> ChCollisionShapeConvexHull::Read(std::shared_ptr<ChContactMaterial> material, const std::string& filename) {
     // Open input file stream
-    std::ifstream ifile;
-    std::string line;
-    try {
-        ifile.open(filename);
-    } catch (const std::exception&) {
+    std::ifstream ifile(filename);
+    if (!ifile.is_open()) {
         std::cerr << "ChCollisionShapeConvexHull::Read - cannot open input file " << filename << std::endl;
         throw std::invalid_argument("Cannot open input file");
     }
 
+    // Parse file and populate convex hulls
     std::vector<std::shared_ptr<ChCollisionShapeConvexHull>> hulls;
     std::vector<ChVector3d> points;
-
+    std::string line;
     while (std::getline(ifile, line)) {
         if (line.size() == 0 || line[0] == '#')
             continue;
@@ -56,6 +58,7 @@ std::vector<std::shared_ptr<ChCollisionShapeConvexHull>> ChCollisionShapeConvexH
             if (points.size() > 0)
                 hulls.push_back(chrono_types::make_shared<ChCollisionShapeConvexHull>(material, points));
             points.clear();
+            continue;
         }
 
         std::istringstream iss(line);

@@ -23,7 +23,6 @@
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/utils/ChUtilsCreators.h"
-#include "chrono_thirdparty/filesystem/path.h"
 
 #include "chrono_sensor/sensors/ChCameraSensor.h"
 #include "chrono_sensor/ChSensorManager.h"
@@ -54,6 +53,7 @@ int main(int argc, char* argv[]) {
         // Create the system
         // -----------------
         ChSystemNSC sys;
+        sys.SetGravityY();
 
         // ---------------------------------------
         // add a mesh to be visualized by a camera
@@ -81,7 +81,6 @@ int main(int argc, char* argv[]) {
                     auto trimesh_shape = std::make_shared<ChVisualShapeTriangleMesh>();
                     trimesh_shape->SetMesh(mmesh);
                     // trimesh_shape->SetName("HMMWV Chassis Mesh");
-                    trimesh_shape->SetMutable(false);
                     float scale = .5 * randf() + .1;
                     trimesh_shape->SetScale({scale, scale, scale});
                     // trimesh_shape->SetScale({.8, .8, .8});

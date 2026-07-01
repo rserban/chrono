@@ -33,10 +33,11 @@
 #include "chrono/fea/ChLinkNodeFrame.h"
 #include "chrono/fea/ChLinkNodeFrame.h"
 #include "chrono/fea/ChLoadsBeam.h"
+#include "chrono/fea/ChLoaderGravity.h"
 #include "chrono/fea/ChMesh.h"
 
 // Remember to use the namespace 'chrono' because all classes
-// of Chrono::Engine belong to this namespace and its children...
+// of Chrono belong to this namespace and its children...
 
 using namespace chrono;
 using namespace fea;
@@ -49,6 +50,7 @@ int main(int argc, char* argv[]) {
 
     // The physical system: it contains all physical objects.
     ChSystemSMC sys;
+    sys.SetGravityY();
 
     // Create a mesh:
     auto mesh = chrono_types::make_shared<ChMesh>();
@@ -116,7 +118,7 @@ int main(int argc, char* argv[]) {
     // Example 3:
 
     // Add gravity (constant volumetric load)
-    auto gravity_loader = chrono_types::make_shared<ChLoaderGravity>(elementA);
+    auto gravity_loader = chrono_types::make_shared<fea::ChLoaderGravity>(elementA);
     auto gravity_load = chrono_types::make_shared<ChLoad>(gravity_loader);
     load_container->Add(gravity_load);
 
@@ -130,7 +132,7 @@ int main(int argc, char* argv[]) {
     // There are some stubs in the ChLoaderU.h ChLoaderUV.h ChLoaderUVW.h  headers,
     // from which you can inherit. Here we inherit from
     // For example, let's make a distributed triangular load. A load on the beam is a
-    // wrench, i.e. force+load per unit lenght applied at a certain abscissa U, that is a six-dimensional load.
+    // wrench, i.e. force+load per unit length applied at a certain abscissa U, that is a six-dimensional load.
     // By the way, a triangular load will work as a constant one because a single Euler beam
     // cannot feel more than this.
 

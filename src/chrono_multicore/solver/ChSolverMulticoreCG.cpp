@@ -16,26 +16,21 @@
 
 using namespace chrono;
 
-real Convergence_Norm(const DynamicVector<real>& r) {
+real Convergence_Norm(const VectorType& r) {
     real result = (real)0.;
     for (int i = 0; i < r.size(); i += 3) {
         real3 v(r[i + 0], r[i + 1], r[i + 2]);
         real mag = Length(v);
-        result = Max(result, mag);
+        result = std::max(result, mag);
     }
     return result;
 }
-uint ChSolverMulticoreCG::Solve(ChSchurProduct& SchurProduct,
-                                ChProjectConstraints& Project,
-                                const uint max_iter,
-                                const uint size,
-                                const DynamicVector<real>& b,
-                                DynamicVector<real>& x) {
+uint ChSolverMulticoreCG::Solve(ChSchurProduct& SchurProduct, ChProjectConstraints& Project, const uint max_iter, const uint size, const VectorType& b, VectorType& x) {
     r.resize(b.size());
     q.resize(b.size());
     s.resize(b.size());
 
-    real rho_old = C_REAL_MAX;
+    real rho_old = CH_REAL_MAX;
     real convergence_norm = 0;
     real tolerance = 1e-4;  // Max(1e-4 * Convergence_Norm(b), 1e-6);
     uint min_iterations = 0;
@@ -54,7 +49,7 @@ uint ChSolverMulticoreCG::Solve(ChSchurProduct& SchurProduct,
         convergence_norm = Convergence_Norm(r);
         printf("%f\n", convergence_norm);
 
-        if (convergence_norm <= tolerance && (iterations >= min_iterations || convergence_norm < C_REAL_EPSILON)) {
+        if (convergence_norm <= tolerance && (iterations >= min_iterations || convergence_norm < CH_REAL_EPSILON)) {
             printf("cg iterations %d\n", iterations);
             break;
         }
@@ -62,7 +57,7 @@ uint ChSolverMulticoreCG::Solve(ChSchurProduct& SchurProduct,
             break;
         }
 
-        real rho = (r, r);
+        real rho = r.squaredNorm();
         if (restart) {
             s = r;
         } else {
@@ -70,8 +65,8 @@ uint ChSolverMulticoreCG::Solve(ChSchurProduct& SchurProduct,
         }
         SchurProduct(s, q);
         // Project(r.data());
-        real s_dot_q = (s, q);
-        real alpha = s_dot_q ? rho / s_dot_q : C_REAL_MAX;
+        real s_dot_q = s.dot(q);
+        real alpha = s_dot_q ? rho / s_dot_q : CH_REAL_MAX;
         x = alpha * s + x;
         r = -alpha * q + r;
         rho_old = rho;

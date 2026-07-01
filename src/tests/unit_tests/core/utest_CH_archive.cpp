@@ -35,16 +35,93 @@
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/physics/ChLinkMotorRotationAngle.h"
 
-// #include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/physics/ChLinkMotorRotationSpeed.h"
-#include "chrono/utils/ChUtilsValidation.h"
+
+using namespace chrono;
 
 const double ABS_ERR = 1e-5;
-
 enum class ArchiveType { BINARY, JSON, XML };
+const std::string out_dir = GetChronoTestOutputPath() + "/ch_archive/";
 
-// Use the namespaces of Chrono
-using namespace chrono;
+TEST(ChArchiveJSON, ChSparseMatrix) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return;
+    }
+
+    std::string outputfile = std::string(::testing::UnitTest::GetInstance()->current_test_suite()->name()) + "_" +
+                             std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) +
+                             std::string(".json");
+    outputfile = out_dir + outputfile;
+
+    ChSparseMatrix myMat_before;
+    int rows = 3, cols = 3;
+
+    {
+        ChSparseMatrix myMat;
+        myMat.resize(rows, cols);
+        myMat.coeffRef(0, 0) = 1.1;
+        myMat.coeffRef(0, 1) = 1.2;
+        myMat.coeffRef(2, 2) = 3.3;
+        myMat_before = myMat;
+
+        std::ofstream mfileo(outputfile);
+        ChArchiveOutJSON archive_out(mfileo);
+        archive_out << CHNVP(myMat);
+    }
+
+    std::ifstream mfilei(outputfile);
+    ChArchiveInJSON archive_in(mfilei);
+    ChSparseMatrix myMat;
+    archive_in >> CHNVP(myMat);
+
+    for (auto i = 0; i < rows; ++i) {
+        for (auto j = 0; j < cols; ++j) {
+            ASSERT_DOUBLE_EQ(myMat_before.coeff(i, j), myMat.coeff(i, j));
+        }
+    }
+}
+
+TEST(ChArchiveJSON, ChComplexSparseMatrix) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return;
+    }
+
+    std::string outputfile = std::string(::testing::UnitTest::GetInstance()->current_test_suite()->name()) + "_" +
+                             std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) +
+                             std::string(".json");
+
+    outputfile = out_dir + outputfile;
+
+    ChComplexSparseMatrix myMat_before;
+    int rows = 3, cols = 3;
+
+    {
+        ChComplexSparseMatrix myMat;
+        myMat.resize(rows, cols);
+        myMat.coeffRef(0, 0) = std::complex<double>(1.1, 3.3);
+        myMat.coeffRef(1, 0) = std::complex<double>(2.1, 1.2);
+        myMat.coeffRef(2, 2) = std::complex<double>(3.3, 1.1);
+        myMat_before = myMat;
+
+        std::ofstream mfileo(outputfile);
+        ChArchiveOutJSON archive_out(mfileo);
+        archive_out << CHNVP(myMat);
+    }
+
+    std::ifstream mfilei(outputfile);
+    ChArchiveInJSON archive_in(mfilei);
+    ChComplexSparseMatrix myMat;
+    archive_in >> CHNVP(myMat);
+
+    for (auto i = 0; i < rows; ++i) {
+        for (auto j = 0; j < cols; ++j) {
+            ASSERT_DOUBLE_EQ(myMat_before.coeff(i, j).real(), myMat.coeff(i, j).real());
+            ASSERT_DOUBLE_EQ(myMat_before.coeff(i, j).imag(), myMat.coeff(i, j).imag());
+        }
+    }
+}
 
 void assemble_fourbar(ChSystemNSC& system) {
     system.SetGravitationalAcceleration(ChVector3d(0, -9.81, 0));
@@ -212,12 +289,19 @@ void assemble_pendulum_visual(ChSystemNSC& system) {
 void create_test(std::function<void(ChSystemNSC&)> assembler_fun,
                  ArchiveType outtype,
                  std::string outputfilename = "") {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return;
+    }
+
     std::string outputfile;
     if (outputfilename.compare("") == 0)
         outputfile = std::string(::testing::UnitTest::GetInstance()->current_test_suite()->name()) + "_" +
                      std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
     else
         outputfile = outputfilename;
+
+    outputfile = out_dir + outputfile;
 
     std::string extension;
     switch (outtype) {
@@ -305,7 +389,11 @@ void create_test(std::function<void(ChSystemNSC&)> assembler_fun,
 }
 
 TEST(ChArchiveJSON, Pendulum) {
-    // int main(){
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return;
+    }
+
     double timestep = 0.01;
     int step_num = 2000;
 
@@ -328,7 +416,7 @@ TEST(ChArchiveJSON, Pendulum) {
         moving_body->SetTag(101);
         system.Add(moving_body);
 
-        std::ofstream mfileo("ChArchiveJSON_Pendulum.json");
+        std::ofstream mfileo(out_dir + "ChArchiveJSON_Pendulum.json");
         ChArchiveOutJSON archive_out(mfileo);
         archive_out << CHNVP(system);
 
@@ -343,7 +431,7 @@ TEST(ChArchiveJSON, Pendulum) {
         system.StateGather(*state_before_archive, *state_delta_dummy, time_dummy);
     }
 
-    std::ifstream mfilei("ChArchiveJSON_Pendulum.json");
+    std::ifstream mfilei(out_dir + "ChArchiveJSON_Pendulum.json");
     ChArchiveInJSON archive_in(mfilei);
     archive_in.TryTolerateMissingTokens(true);
 
@@ -388,10 +476,16 @@ TEST(ChArchiveBinary, Fourbar) {
 }
 
 TEST(ChArchiveJSON, Solver) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return;
+    }
+
     std::string outputfile = std::string(::testing::UnitTest::GetInstance()->current_test_suite()->name()) + "_" +
                              std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
-    // int main(){
-    // std::string outputfile = "ChArchiveJSON_Solver";
+
+    outputfile = out_dir + outputfile;
+
     {
         ChSolverPSOR* solverPSOR_ptr = new ChSolverPSOR();
         // ChIterativeSolverVI* solverISVI_ptr = solverPSOR_ptr;
@@ -427,8 +521,15 @@ TEST(ChArchiveJSON, Solver) {
 }
 
 TEST(ChArchiveJSON, nullpointers) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return;
+    }
+
     std::string outputfile = std::string(::testing::UnitTest::GetInstance()->current_test_suite()->name()) + "_" +
                              std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
+
+    outputfile = out_dir + outputfile;
 
     {
         std::ofstream mfileo(outputfile + ".json");
@@ -549,9 +650,17 @@ TEST(ChArchiveJSON, nullpointers) {
 // }
 
 TEST(ChArchiveJSON, ChVectorDynamicTest) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return;
+    }
+
     std::string outputfile = std::string(::testing::UnitTest::GetInstance()->current_test_suite()->name()) + "_" +
                              std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) +
                              std::string(".json");
+
+    outputfile = out_dir + outputfile;
+
     ChVectorDynamic<> myVect_before;
     {
         ChVectorDynamic<> myVect;

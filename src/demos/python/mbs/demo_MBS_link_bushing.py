@@ -19,6 +19,7 @@ print("Example: Simulate a cylinder joined to a cube using a bushing joint and l
 
 # Create chrono system
 sys = chrono.ChSystemNSC()
+sys.SetGravityY()
 
 # Create a fixed cube to act as the 'bushing' body
 cube = chrono.ChBodyEasyBox(0.5,0.5,0.5,100,True)
@@ -92,7 +93,7 @@ vis.AttachSystem(sys)
 vis.SetWindowSize(1024, 768)
 vis.SetWindowTitle('Cylinder through Cube with Bushing Joint')
 vis.Initialize()
-vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
+vis.AddLogo(chrono.GetChronoDataFile('logo_chrono_alpha.png'))
 vis.AddSkyBox()
 vis.AddCamera(chrono.ChVector3d(1.5, 0.5, 1.5))
 vis.AddTypicalLights()

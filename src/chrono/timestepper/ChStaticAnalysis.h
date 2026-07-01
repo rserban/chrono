@@ -49,6 +49,8 @@ class ChApi ChStaticAnalysis {
     friend class ChSystem;
 };
 
+// -----------------------------------------------------------------------------
+
 /// Linear static analysis.
 class ChApi ChStaticLinearAnalysis : public ChStaticAnalysis {
   public:
@@ -62,22 +64,19 @@ class ChApi ChStaticLinearAnalysis : public ChStaticAnalysis {
     friend class ChSystem;
 };
 
+// -----------------------------------------------------------------------------
+
 /// Nonlinear static analysis.
 class ChApi ChStaticNonLinearAnalysis : public ChStaticAnalysis {
   public:
     ChStaticNonLinearAnalysis();
     ~ChStaticNonLinearAnalysis() {}
 
-    /// Enable/disable verbose output (default: false).
+    /// Enable/disable verbose output (default: false)
     void SetVerbose(bool verbose) { m_verbose = verbose; }
 
     /// Set the max number of iterations for the Newton Raphson procedure (default: 10).
-    void SetMaxIterations(int max_iters);
-
-    /// Set the number of steps that, for the first iterations, make the residual grow linearly (default: 6).
-    /// If =0, no incremental application of residual, so it is a classic Newton Raphson iteration, otherwise acts as a
-    /// continuation strategy. For values > 0 , it might help convergence. Must be less than maxiters.
-    void SetIncrementalSteps(int incr_steps);
+    void SetMaxIterations(int max_iters) { m_maxiters = max_iters; }
 
     /// Set stopping criteria based on WRMS norm of correction and the specified relative and absolute tolerances.
     /// This is the default, with reltol = 1e-4, abstol = 1e-8.
@@ -92,22 +91,20 @@ class ChApi ChStaticNonLinearAnalysis : public ChStaticAnalysis {
     /// Get the max number of iterations for the Newton Raphson procedure.
     int GetMaxIterations() const { return m_maxiters; }
 
-    /// Set the number of steps that, for the first iterations, make the residual grow linearly.
-    int GetIncrementalSteps() const { return m_incremental_steps; }
-
   private:
     /// Performs the static analysis, doing a non-linear solve.
     virtual void StaticAnalysis() override;
 
     bool m_verbose;
     int m_maxiters;
-    int m_incremental_steps;
     bool m_use_correction_test;
     double m_reltol;
     double m_abstol;
 
     friend class ChSystem;
 };
+
+// -----------------------------------------------------------------------------
 
 /// Nonlinear static analysis for a mechanism that is rotating/moving in steady state.
 /// If SetAutomaticSpeedAndAccelerationComputation(true), the rotation/movement, if any, is automaticlally assigned via
@@ -127,12 +124,7 @@ class ChApi ChStaticNonLinearRheonomicAnalysis : public ChStaticAnalysis {
     void SetVerbose(bool verbose) { m_verbose = verbose; }
 
     /// Set the max number of iterations for the Newton Raphson procedure (default: 10).
-    void SetMaxIterations(int max_iters);
-
-    /// Set the number of steps that, for the first iterations, make the residual grow linearly (default: 6).
-    /// If =0, no incremental application of residual, so it is a classic Newton Raphson iteration, otherwise acts as a
-    /// continuation strategy. For values > 0 , it might help convergence. Must be less than maxiters.
-    void SetIncrementalSteps(int incr_steps);
+    void SetMaxIterations(int max_iters) { m_maxiters = max_iters; }
 
     /// Set stopping criteria based on WRMS norm of correction and the specified relative and absolute tolerances.
     /// This is the default, with reltol = 1e-4, abstol = 1e-8.
@@ -147,9 +139,6 @@ class ChApi ChStaticNonLinearRheonomicAnalysis : public ChStaticAnalysis {
     /// Get the max number of iterations for the Newton Raphson procedure.
     int GetMaxIterations() const { return m_maxiters; }
 
-    /// Set the number of steps that, for the first iterations, make the residual grow linearly.
-    int GetIncrementalSteps() const { return m_incremental_steps; }
-
     /// Callback interface for updating the system at each iteration.
     /// For example, this can be used for incrementing the load or for updating speeds and accelerations.
     class ChApi IterationCallback {
@@ -157,10 +146,7 @@ class ChApi ChStaticNonLinearRheonomicAnalysis : public ChStaticAnalysis {
         virtual ~IterationCallback() {}
 
         /// Perform updates on the model.
-        /// This is called before each iteration. Load scaling must be in [0,1] and is used if the Newton loop uses
-        /// continuation.
-        virtual void OnIterationBegin(const double load_scaling,                    ///< load scaling
-                                      const int iteration_n,                        ///< actual number of iteration
+        virtual void OnIterationBegin(const int iteration_n,                        ///< actual number of iteration
                                       ChStaticNonLinearRheonomicAnalysis* analysis  ///< back-pointer to this analysis
                                       ) = 0;
     };
@@ -180,7 +166,6 @@ class ChApi ChStaticNonLinearRheonomicAnalysis : public ChStaticAnalysis {
     bool m_automatic_deriv_computation;
     bool m_verbose;
     int m_maxiters;
-    int m_incremental_steps;
     bool m_use_correction_test;
     double m_reltol;
     double m_abstol;
@@ -189,20 +174,22 @@ class ChApi ChStaticNonLinearRheonomicAnalysis : public ChStaticAnalysis {
     friend class ChSystem;
 };
 
+// -----------------------------------------------------------------------------
+
 /// Nonlinear static analysis where the user can define external load(s) that  will be incremented gradually during the
 /// solution process. This improves the convergence respect to ChStaticNonlinear, where all the loads (both internal and
 /// external) are automatically scaled with a simplified prcedure. It is based on an outer iteration (incrementing
 /// external load) and inner iteration (for Newton iteration). A callback will be invoked when the loads must be scaled.
-class ChApi ChStaticNonLinearIncremental : public ChStaticAnalysis {
+class ChApi ChStaticNonLinearAnalysisIncremental : public ChStaticAnalysis {
   public:
-    ChStaticNonLinearIncremental();
-    ~ChStaticNonLinearIncremental() {}
+    ChStaticNonLinearAnalysisIncremental();
+    ~ChStaticNonLinearAnalysisIncremental() {}
 
     /// Enable/disable verbose output (default: false)
     void SetVerbose(bool verbose) { m_verbose = verbose; }
 
     /// Set the max number of inner iterations for the Newton Raphson procedure (default: 5),
-    /// where these iterations are preformed at each external load scaling step.
+    /// where these iterations are performed at each external load scaling step.
     void SetMaxIterationsNewton(int max_newton_iters);
 
     /// Set the number of outer iterations that will increment the external load in stepwise manner. (default: 6)
@@ -256,7 +243,7 @@ class ChApi ChStaticNonLinearIncremental : public ChStaticAnalysis {
         /// Perform updates on the model. This is called before each load scaling. Must be implemented by child class.
         virtual void OnLoadScaling(const double load_scaling,              ///< ranging from 0 to 1
                                    const int iteration_n,                  ///< actual number of outer iteration
-                                   ChStaticNonLinearIncremental* analysis  ///< back-pointer to this analysis
+                                   ChStaticNonLinearAnalysisIncremental* analysis  ///< back-pointer to this analysis
                                    ) = 0;
     };
 
@@ -278,54 +265,6 @@ class ChApi ChStaticNonLinearIncremental : public ChStaticAnalysis {
     double m_reltol;
     double m_abstol;
     std::shared_ptr<LoadIncrementCallback> m_callback;
-
-    friend class ChSystem;
-};
-
-/// Nonlinear static analysis for the system including rigid motion DOFs,
-/// for instance, a single pendulum.
-class ChApi ChStaticNonLinearRigidMotion : public ChStaticAnalysis {
-  public:
-    ChStaticNonLinearRigidMotion();
-    ~ChStaticNonLinearRigidMotion() {}
-
-    /// Enable/disable verbose output (default: false)
-    void SetVerbose(bool verbose) { m_verbose = verbose; }
-
-    /// Set the max number of iterations for the Newton Raphson procedure (default: 10).
-    void SetMaxIterations(int max_iters);
-
-    /// Set the number of steps that, for the first iterations, make the residual grow linearly (default: 6).
-    /// If =0, no incremental application of residual, so it is a classic Newton Raphson iteration, otherwise acts as a
-    /// continuation strategy. For values > 0 , it might help convergence. Must be less than maxiters.
-    void SetIncrementalSteps(int incr_steps);
-
-    /// Set stopping criteria based on WRMS norm of correction and the specified relative and absolute tolerances.
-    /// This is the default, with reltol = 1e-4, abstol = 1e-8.
-    /// The Newton Raphson procedure is stopped if the WRMS norm of the correction vector (based on the current state)
-    /// is less than 1.
-    void SetCorrectionTolerance(double reltol, double abstol);
-
-    /// Set stopping criteria based on norm of residual and the specified tolerance.
-    /// The Newton Raphson is stopped when the infinity norm of the residual is below the tolerance.
-    void SetResidualTolerance(double tol);
-
-    /// Get the max number of iterations for the Newton Raphson procedure.
-    int GetMaxIterations() const { return m_maxiters; }
-
-    /// Set the number of steps that, for the first iterations, make the residual grow linearly.
-    int GetIncrementalSteps() const { return m_incremental_steps; }
-
-  private:
-    /// Performs the static analysis, doing a non-linear solve.
-    virtual void StaticAnalysis() override;
-
-    bool m_verbose;
-    int m_maxiters;
-    int m_incremental_steps;
-    bool m_use_correction_test;
-    double m_reltol;
-    double m_abstol;
 
     friend class ChSystem;
 };

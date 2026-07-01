@@ -12,7 +12,7 @@
 // Authors: Nevindu Batagoda
 // =============================================================================
 //
-// A class to contain a volumetric object renderd using NVDB Voxels. 
+// A class to contain a volumetric object rendered using NVDB Voxels. 
 // Inherits elements from ChBody and ChBox
 //
 // =============================================================================
@@ -23,13 +23,9 @@
 namespace chrono {
 namespace sensor {
 
-ChNVDBShape::ChNVDBShape() {
-    SetMutable(false);
-}
+ChNVDBShape::ChNVDBShape() {}
 
-ChNVDBShape::ChNVDBShape(const ChBox& box) : gbox(box) {
-    SetMutable(false);
-}
+ChNVDBShape::ChNVDBShape(const ChBox& box) : gbox(box) {}
 
 void ChNVDBShape::ArchiveOut(ChArchiveOut& archive_out) {
     // version number

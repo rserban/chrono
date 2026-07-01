@@ -4,7 +4,7 @@
 # Cannot be used stand-alone (it is loaded by parent CMake configuration file)
 #=============================================================================
 
-message(STATUS "Vehicle models...")
+message(STATUS "Add ChronoModels_vehicle library")
 
 # ----------------------------------------------------------------------------
 # List the files in the Chrono_vehicle_models library
@@ -17,32 +17,36 @@ set(CVM_COMMON_FILES
 source_group("" FILES ${CVM_COMMON_FILES})
 
 set(CVM_JEEP_FILES
-        jeep/Cherokee_Chassis.cpp
-        jeep/Cherokee_Chassis.h
-        jeep/Cherokee_Wheel.cpp
-        jeep/Cherokee_Wheel.h
-        jeep/Cherokee_TMeasyTire.cpp
-        jeep/Cherokee_TMeasyTire.h
-        jeep/Cherokee_Driveline4WD.cpp
-        jeep/Cherokee_Driveline4WD.h
-        jeep/Cherokee_AutomaticTransmissionStafts.cpp
-        jeep/Cherokee_AutomaticTransmissionStafts.h
-        jeep/Cherokee_BrakeShafts.cpp
-        jeep/Cherokee_BrakeShafts.h
-        jeep/Cherokee_EngineShafts.cpp
-        jeep/Cherokee_EngineShafts.h
-        jeep/Cherokee_SolidAxleRear.cpp
-        jeep/Cherokee_SolidAxleRear.h
-        jeep/Cherokee_SolidAxleFront.cpp
-        jeep/Cherokee_SolidAxleFront.h
-        jeep/Cherokee_Steering.cpp
-        jeep/Cherokee_Steering.h
-        jeep/Cherokee_Vehicle.cpp
-        jeep/Cherokee_Vehicle.h
-        jeep/Cherokee.cpp
-        jeep/Cherokee.h
-        jeep/Cherokee_RigidTire.cpp
-        jeep/Cherokee_RigidTire.h
+    jeep/Cherokee_Chassis.cpp
+    jeep/Cherokee_Chassis.h
+    jeep/Cherokee_Wheel.cpp
+    jeep/Cherokee_Wheel.h
+    jeep/Cherokee_TMeasyTire.cpp
+    jeep/Cherokee_TMeasyTire.h
+    jeep/Cherokee_Driveline4WD.cpp
+    jeep/Cherokee_Driveline4WD.h
+    jeep/Cherokee_AutomaticTransmissionStafts.cpp
+    jeep/Cherokee_AutomaticTransmissionStafts.h
+    jeep/Cherokee_BrakeShafts.cpp
+    jeep/Cherokee_BrakeShafts.h
+    jeep/Cherokee_EngineShafts.cpp
+    jeep/Cherokee_EngineShafts.h
+    jeep/Cherokee_SolidAxleRear.cpp
+    jeep/Cherokee_SolidAxleRear.h
+    jeep/Cherokee_SolidAxleFront.cpp
+    jeep/Cherokee_SolidAxleFront.h
+    jeep/Cherokee_Steering.cpp
+    jeep/Cherokee_Steering.h
+    jeep/Cherokee_Vehicle.cpp
+    jeep/Cherokee_Vehicle.h
+    jeep/Cherokee.cpp
+    jeep/Cherokee.h
+    jeep/Cherokee_RigidTire.cpp
+    jeep/Cherokee_RigidTire.h
+    jeep/Cherokee_EngineSimpleMap.cpp
+    jeep/Cherokee_EngineSimpleMap.h
+    jeep/Cherokee_AutomaticTransmissionSimpleMap.cpp
+    jeep/Cherokee_AutomaticTransmissionSimpleMap.h
 )
 source_group("jeep" FILES ${CVM_JEEP_FILES})
 
@@ -79,6 +83,10 @@ set(CVM_BMW_FILES
     bmw/BMW_E90_TMsimpleTireFront.h
     bmw/BMW_E90_TMsimpleTireRear.cpp
     bmw/BMW_E90_TMsimpleTireRear.h
+    bmw/BMW_E90_TMeasyTireFront.cpp
+    bmw/BMW_E90_TMeasyTireFront.h
+    bmw/BMW_E90_TMeasyTireRear.cpp
+    bmw/BMW_E90_TMeasyTireRear.h
 )
 source_group("bmw" FILES ${CVM_BMW_FILES})
 
@@ -189,6 +197,8 @@ set(CVM_HMMWV_POWERTRAIN_FILES
     hmmwv/powertrain/HMMWV_AutomaticTransmissionShafts.cpp
     hmmwv/powertrain/HMMWV_AutomaticTransmissionSimpleMap.h
     hmmwv/powertrain/HMMWV_AutomaticTransmissionSimpleMap.cpp
+        hmmwv/powertrain/HMMWV_AutomaticTransmissionSimpleCVT.cpp
+        hmmwv/powertrain/HMMWV_AutomaticTransmissionSimpleCVT.h
 )
 set(CVM_HMMWV_TIRE_FILES
     hmmwv/tire/HMMWV_RigidTire.cpp
@@ -203,11 +213,17 @@ set(CVM_HMMWV_TIRE_FILES
     hmmwv/tire/HMMWV_TMeasyTire.h
     hmmwv/tire/HMMWV_TMsimpleTire.cpp
     hmmwv/tire/HMMWV_TMsimpleTire.h
-    hmmwv/tire/HMMWV_ANCFTire.cpp
-    hmmwv/tire/HMMWV_ANCFTire.h
-    hmmwv/tire/HMMWV_ReissnerTire.cpp
-    hmmwv/tire/HMMWV_ReissnerTire.h
 )
+if(CH_ENABLE_MODULE_FEA)
+    set(CVM_HMMWV_TIRE_FILES ${CVM_HMMWV_TIRE_FILES}
+        hmmwv/tire/HMMWV_ANCFTire.cpp
+        hmmwv/tire/HMMWV_ANCFTire.h
+        hmmwv/tire/HMMWV_ANCF4LumpedTire.cpp
+        hmmwv/tire/HMMWV_ANCF4LumpedTire.h
+        hmmwv/tire/HMMWV_ReissnerTire.cpp
+        hmmwv/tire/HMMWV_ReissnerTire.h
+    )
+endif()
 set(CVM_HMMWV_VEHICLE_FILES
     hmmwv/HMMWV.cpp
     hmmwv/HMMWV.h
@@ -876,9 +892,13 @@ set(CVM_M113_TRACKASSEMBLY_FILES
     m113/track_assembly/M113_TrackAssemblyDoublePin.h
     m113/track_assembly/M113_TrackAssemblyBandBushing.cpp
     m113/track_assembly/M113_TrackAssemblyBandBushing.h
-    m113/track_assembly/M113_TrackAssemblyBandANCF.cpp
-    m113/track_assembly/M113_TrackAssemblyBandANCF.h
 )
+if(CH_ENABLE_MODULE_FEA)
+    set(CVM_M113_TRACKASSEMBLY_FILES ${CVM_M113_TRACKASSEMBLY_FILES}
+        m113/track_assembly/M113_TrackAssemblyBandANCF.cpp
+        m113/track_assembly/M113_TrackAssemblyBandANCF.h
+    )
+endif()
 set(CVM_M113_SPROCKET_FILES
     m113/sprocket/M113_SprocketSinglePin.cpp
     m113/sprocket/M113_SprocketSinglePin.h
@@ -894,9 +914,13 @@ set(CVM_M113_TRACKSHOE_FILES
     m113/track_shoe/M113_TrackShoeDoublePin.h
     m113/track_shoe/M113_TrackShoeBandBushing.cpp
     m113/track_shoe/M113_TrackShoeBandBushing.h
-    m113/track_shoe/M113_TrackShoeBandANCF.cpp
-    m113/track_shoe/M113_TrackShoeBandANCF.h
 )
+if(CH_ENABLE_MODULE_FEA)
+    set(CVM_M113_TRACKSHOE_FILES ${CVM_M113_TRACKSHOE_FILES}
+        m113/track_shoe/M113_TrackShoeBandANCF.cpp
+        m113/track_shoe/M113_TrackShoeBandANCF.h
+    )
+endif()
 set(CVM_M113_DRIVELINE_FILES
     m113/driveline/M113_DrivelineBDS.cpp
     m113/driveline/M113_DrivelineBDS.h
@@ -1024,9 +1048,6 @@ source_group("kraz" FILES ${CVM_KRAZ_FILES})
 # Add the Chrono_vehicle_models library
 # ----------------------------------------------------------------------------
 
-set(CXX_FLAGS ${CH_CXX_FLAGS})
-set(LIBRARIES ChronoEngine ChronoEngine_vehicle)
-
 add_library(ChronoModels_vehicle
     ${CVM_COMMON_FILES}
     ${CVM_JEEP_FILES}     
@@ -1051,20 +1072,39 @@ add_library(ChronoModels_vehicle
     ${CVM_KRAZ_FILES}
  )
 
-set_target_properties(ChronoModels_vehicle PROPERTIES
-                      COMPILE_FLAGS "${CXX_FLAGS}"
-                      LINK_FLAGS "${CH_LINKERFLAG_LIB}")
+add_library(Chrono::models_vehicle ALIAS ChronoModels_vehicle)
 
-target_compile_definitions(ChronoModels_vehicle PRIVATE "CH_API_COMPILE_MODELS")
-target_compile_definitions(ChronoModels_vehicle PRIVATE "CH_IGNORE_DEPRECATED")
+set_target_properties(ChronoModels_vehicle PROPERTIES DEBUG_POSTFIX ${CH_DEBUG_POSTFIX})
 
-target_link_libraries(ChronoModels_vehicle ${LIBRARIES})
+if(CH_WHOLE_PROG_OPT)
+  set_target_properties(ChronoModels_vehicle PROPERTIES COMPILE_FLAGS "/GL")
+  set_target_properties(ChronoModels_vehicle PROPERTIES LINK_FLAGS "/LTCG")
+endif()
+
+if (CH_STATIC)
+  set_target_properties(ChronoModels_vehicle PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
+if(MSVC)
+  set_target_properties(ChronoModels_vehicle PROPERTIES MSVC_RUNTIME_LIBRARY ${CH_MSVC_RUNTIME_LIBRARY})
+endif()
+
+target_compile_definitions(ChronoModels_vehicle PRIVATE CH_API_COMPILE_MODELS)
+
+target_link_libraries(ChronoModels_vehicle PUBLIC Chrono_core Chrono_vehicle)
 
 install(TARGETS ChronoModels_vehicle
+        EXPORT ChronoTargets
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
+        ARCHIVE DESTINATION lib
+        INCLUDES DESTINATION include/chrono_models/vehicle)
 
+# -------------------------------------------------------------------------------------------------
+# Install files
+# -------------------------------------------------------------------------------------------------
+
+# Old way (install headers preserving directory structure)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
         DESTINATION include/chrono_models/vehicle
         FILES_MATCHING PATTERN "*.h")

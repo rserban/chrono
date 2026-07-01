@@ -20,6 +20,7 @@
 // =============================================================================
 
 #include "chrono/collision/multicore/ChCollisionModelMulticore.h"
+#include "chrono/multicore_math/thrust.h"
 
 #include "chrono/physics/ChBody.h"
 #include "chrono/physics/ChBodyAuxRef.h"
@@ -31,8 +32,7 @@ namespace chrono {
 CH_FACTORY_REGISTER(ChCollisionModelMulticore)
 CH_UPCASTING(ChCollisionModelMulticore, ChCollisionModelImpl)
 
-ChCollisionModelMulticore::ChCollisionModelMulticore(ChCollisionModel* collision_model)
-    : ChCollisionModelImpl(collision_model), aabb_min(C_REAL_MAX), aabb_max(-C_REAL_MAX) {
+ChCollisionModelMulticore::ChCollisionModelMulticore(ChCollisionModel* collision_model) : ChCollisionModelImpl(collision_model), aabb_min(CH_REAL_MAX), aabb_max(-CH_REAL_MAX) {
     collision_model->SetSafeMargin(0);
 
     assert(collision_model->GetContactable());
@@ -49,11 +49,11 @@ ChCollisionModelMulticore::~ChCollisionModelMulticore() {
 
 void ChCollisionModelMulticore::Populate() {
     for (const auto& shape_instance : model->GetShapeInstances()) {
-        const auto& shape = shape_instance.first;
+        const auto& shape = shape_instance.shape;
         const auto& material = shape->GetMaterial();
 
         // Create collision shapes relative to the body COG frame
-        auto frame = shape_instance.second;
+        auto frame = shape_instance.frame;
         if (ChBodyAuxRef* body_ar = dynamic_cast<ChBodyAuxRef*>(GetBody())) {
             frame = frame >> body_ar->GetFrameRefToCOM();
         }
@@ -169,7 +169,7 @@ void ChCollisionModelMulticore::Populate() {
 
                 auto ct_shape = chrono_types::make_shared<ctCollisionShape>();
                 ct_shape->A = real3(position.x(), position.y(), position.z());
-                ct_shape->B = real3((chrono::real)points.size(), (chrono::real)local_convex_data.size(), 0);
+                ct_shape->B = real3((real)points.size(), (real)local_convex_data.size(), 0);
                 ct_shape->C = real3(0, 0, 0);
                 ct_shape->R = quaternion(rotation.e0(), rotation.e1(), rotation.e2(), rotation.e3());
                 for (const auto& p : points) {
@@ -239,6 +239,7 @@ void ChCollisionModelMulticore::Populate() {
                     ChVector3d p2 = position + rotation.Rotate(tri.p2);
                     ChVector3d p3 = position + rotation.Rotate(tri.p3);
                     auto shape_triangle = chrono_types::make_shared<ChCollisionShapeTriangle>(material, p1, p2, p3);
+                    shape_triangle->SetParentShape(shape_trimesh);
 
                     auto ct_shape = chrono_types::make_shared<ctCollisionShape>();
                     ct_shape->A = FromChVector(p1);

@@ -20,25 +20,22 @@
 #define CH_PART_H
 
 #include <string>
+#include <cstdint>
 #include <vector>
 
-#include "chrono/physics/ChBody.h"
-#include "chrono/physics/ChShaft.h"
-#include "chrono/physics/ChLink.h"
-#include "chrono/physics/ChShaftsCouple.h"
-#include "chrono/physics/ChLinkTSDA.h"
-#include "chrono/physics/ChLinkRSDA.h"
-#include "chrono/physics/ChLoadsBody.h"
+#include "chrono/physics/ChAssembly.h"
+#include "chrono/physics/ChJoint.h"
 #include "chrono/physics/ChContactMaterialNSC.h"
 #include "chrono/physics/ChContactMaterialSMC.h"
 
-#include "chrono/utils/ChCompositeInertia.h"
+#include "chrono/utils/ChBodyGeometry.h"
+#include "chrono/physics/ChMassProperties.h"
+
+#include "chrono/input_output/ChOutput.h"
+#include "chrono/input_output/ChCheckpoint.h"
 
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/ChSubsysDefs.h"
-#include "chrono_vehicle/ChVehicleGeometry.h"
-#include "chrono_vehicle/ChVehicleJoint.h"
-#include "chrono_vehicle/ChVehicleOutput.h"
 
 #include "chrono_thirdparty/rapidjson/document.h"
 
@@ -65,6 +62,13 @@ class CH_VEHICLE_API ChPart {
 
     /// Return flag indicating whether or not the part is fully constructed.
     bool IsInitialized() const { return m_initialized; }
+
+    /// Get the tag of the associated vehicle.
+    /// This method can only be called after part initialization.
+    virtual uint16_t GetVehicleTag() const;
+
+    /// Get the tag for component bodies.
+    int GetBodyTag() const { return m_obj_tag; }
 
     /// Get the subsystem mass.
     /// Note that the correct value is reported only *after* the subsystem is initialized.
@@ -106,22 +110,28 @@ class CH_VEHICLE_API ChPart {
     bool OutputEnabled() const { return m_output; }
 
     /// Export this subsystem's component list to the specified JSON object.
-    /// Derived classes should override this function and first invoke the base class implementation,
-    /// followed by calls to the various static Export***List functions, as appropriate.
+    /// This base class implementation exports information for component physical items.
+    /// An assembly of parts should override this function and invoke ExportComponentList() for each component part.
     virtual void ExportComponentList(rapidjson::Document& jsonDocument) const;
 
-    /// Output data for this subsystem's component list to the specified database.
-    virtual void Output(ChVehicleOutput& database) const {}
+    /// Save states of this subsystem's components to the specified checkpoint database.
+    /// This base class implementation outputs states for component physical items.
+    /// An assembly of parts should override this function and invoke SaveCheckpoint() for each component part.
+    virtual void SaveCheckpoint(ChCheckpoint& database) const;
+
+    /// Load states of this subsystem's components from the specified checkpoint database.
+    /// This base class implementation imports states for component physical items.
+    /// An assembly of parts should override this function and invoke LoadCheckpoint() for each component part.
+    virtual void LoadCheckpoint(ChCheckpoint& database);
 
     /// Utility function for transforming inertia tensors between centroidal frames.
     /// It converts an inertia matrix specified in a centroidal frame aligned with the
     /// vehicle reference frame to an inertia matrix expressed in a centroidal body
     /// reference frame.
-    static ChMatrix33<> TransformInertiaMatrix(
-        const ChVector3d& moments,        ///< moments of inertia in vehicle-aligned centroidal frame
-        const ChVector3d& products,       ///< products of inertia in vehicle-aligned centroidal frame
-        const ChMatrix33<>& vehicle_rot,  ///< vehicle absolute orientation matrix
-        const ChMatrix33<>& body_rot      ///< body absolute orientation matrix
+    static ChMatrix33<> TransformInertiaMatrix(const ChVector3d& moments,        ///< moments of inertia in vehicle-aligned centroidal frame
+                                               const ChVector3d& products,       ///< products of inertia in vehicle-aligned centroidal frame
+                                               const ChMatrix33<>& vehicle_rot,  ///< vehicle absolute orientation matrix
+                                               const ChMatrix33<>& body_rot      ///< body absolute orientation matrix
     );
 
   protected:
@@ -155,6 +165,19 @@ class CH_VEHICLE_API ChPart {
     /// A derived class must override this function and first invoke the base class implementation.
     virtual void Create(const rapidjson::Document& d);
 
+    /// Populate lists of Chrono physics items in this subsystem.
+    virtual void PopulateComponentList() {}
+
+    /// Initialize the part (populate components and mark as initialized).
+    /// A derived class should call this at the end of its initialization phase.
+    void Initialize();
+
+    /// Get reference to the components of the vehicle part.
+    const ChAssembly::Components& GetComponents() const { return m_components; }
+
+    /// Get the list of bodies.
+    virtual std::vector<std::shared_ptr<ChBody>> GetBodyList() const { return m_components.bodies; }
+
     /// Export the list of bodies to the specified JSON document.
     void ExportBodyList(rapidjson::Document& jsonDocument, std::vector<std::shared_ptr<ChBody>> bodies) const;
 
@@ -165,8 +188,12 @@ class CH_VEHICLE_API ChPart {
     void ExportJointList(rapidjson::Document& jsonDocument, std::vector<std::shared_ptr<ChLink>> joints) const;
 
     /// Export the list of shaft couples to the specified JSON document.
-    void ExportCouplesList(rapidjson::Document& jsonDocument,
-                           std::vector<std::shared_ptr<ChShaftsCouple>> couples) const;
+    void ExportCouplesList(rapidjson::Document& jsonDocument, std::vector<std::shared_ptr<ChShaftsCouple>> couples) const;
+
+    /// Export the list of shaft-body constraints to the specified JSON document.
+    void ExportShaftBodyConstraintList(rapidjson::Document& jsonDocument,
+                                       std::vector<std::shared_ptr<ChShaftBodyRotation>> rot_constraints,
+                                       std::vector<std::shared_ptr<ChShaftBodyTranslation>> trans_constraints) const;
 
     /// Export the list of markers to the specified JSON document.
     void ExportMarkerList(rapidjson::Document& jsonDocument, std::vector<std::shared_ptr<ChMarker>> markers) const;
@@ -178,8 +205,13 @@ class CH_VEHICLE_API ChPart {
     void ExportRotSpringList(rapidjson::Document& jsonDocument, std::vector<std::shared_ptr<ChLinkRSDA>> springs) const;
 
     /// Export the list of body-body loads to the specified JSON document.
-    void ExportBodyLoadList(rapidjson::Document& jsonDocument,
-                            std::vector<std::shared_ptr<ChLoadBodyBody>> loads) const;
+    void ExportBodyLoadList(rapidjson::Document& jsonDocument, std::vector<std::shared_ptr<ChLoadBodyBody>> loads) const;
+
+    /// Export the list of linear motors to the specified JSON document.
+    void ExportLinMotorList(rapidjson::Document& jsonDocument, std::vector<std::shared_ptr<ChLinkMotorLinear>> loads) const;
+
+    /// Export the list of rotational motors to the specified JSON document.
+    void ExportRotMotorList(rapidjson::Document& jsonDocument, std::vector<std::shared_ptr<ChLinkMotorRotation>> loads) const;
 
     /// Erase all visual shapes from the visual model associated with the specified physics item (if any).
     static void RemoveVisualizationAssets(std::shared_ptr<ChPhysicsItem> item);
@@ -188,7 +220,6 @@ class CH_VEHICLE_API ChPart {
     static void RemoveVisualizationAsset(std::shared_ptr<ChPhysicsItem> item, std::shared_ptr<ChVisualShape> shape);
 
     std::string m_name;  ///< subsystem name
-    bool m_initialized;  ///< specifies whether ot not the part is fully constructed
     bool m_output;       ///< specifies whether or not output is generated for this subsystem
 
     std::shared_ptr<ChPart> m_parent;  ///< parent subsystem (empty if parent is vehicle)
@@ -196,11 +227,17 @@ class CH_VEHICLE_API ChPart {
     ChMatrix33<> m_inertia;            ///< inertia tensor (relative to subsystem COM)
     ChFrame<> m_com;                   ///< COM frame (relative to subsystem reference frame)
     ChFrame<> m_xform;                 ///< subsystem frame expressed in the global frame
+    int m_obj_tag;                     ///< tag for part objects
+
+    ChAssembly::Components m_components;
 
   private:
+    bool m_initialized;  ///< specifies whether or not the part is fully constructed
+
     friend class ChAxle;
     friend class ChWheeledVehicle;
     friend class ChTrackedVehicle;
+    friend class ChTrackAssembly;
 };
 
 /// @} vehicle

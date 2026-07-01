@@ -51,10 +51,10 @@ void ChSolverMulticore::ComputeSRhs(custom_vector<real>& gamma,
 
 bool init_eigen_vec = 0;
 
-real ChSolverMulticore::LargestEigenValue(ChSchurProduct& SchurProduct, DynamicVector<real>& temp, real lambda) {
+real ChSolverMulticore::LargestEigenValue(ChSchurProduct& SchurProduct, VectorType& temp, real lambda) {
     eigen_vec.resize(temp.size());
     if (init_eigen_vec == 0) {
-        eigen_vec = 1;
+        eigen_vec.setOnes();
         init_eigen_vec = 1;
     }
 
@@ -66,12 +66,12 @@ real ChSolverMulticore::LargestEigenValue(ChSchurProduct& SchurProduct, DynamicV
 
     for (int i = 0; i < data_manager->settings.solver.max_power_iteration; i++) {
         SchurProduct(eigen_vec, temp);
-        lambda = Sqrt((temp, temp));
+        lambda = temp.norm();
         if (lambda == 0) {
             return 1;
         }
         printf("Lambda: %.20f \n", lambda);
-        if (Abs(lambda_old - lambda) < data_manager->settings.solver.power_iter_tolerance) {
+        if (std::abs(lambda_old - lambda) < data_manager->settings.solver.power_iter_tolerance) {
             break;
         }
         eigen_vec = 1.0 / lambda * temp;

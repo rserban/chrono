@@ -4,10 +4,10 @@
 # Cannot be used stand-alone (it's loaded by CMake config. file in parent dir.)
 #===============================================================================
 
-option(ENABLE_MODULE_VSG "Enable the Chrono VSG module" OFF)
+option(CH_ENABLE_MODULE_VSG "Enable the Chrono VSG module" OFF)
 
 # Return now if this module is not enabled
-if(NOT ENABLE_MODULE_VSG)
+if(NOT CH_ENABLE_MODULE_VSG)
    mark_as_advanced(FORCE vsg_DIR)
    mark_as_advanced(FORCE vsgXchange_DIR)
    mark_as_advanced(FORCE vsgImGui_DIR)
@@ -15,16 +15,6 @@ if(NOT ENABLE_MODULE_VSG)
 endif()
 
 message(STATUS "\n==== Chrono VSG module ====\n")
-
-# VSG requires C++17 support. Disable module if not available
-if(NOT CH_CXX17)
-   message("Chrono::VSG requires C++17 support which is not available; disabling Chrono::VSG")
-   set(ENABLE_MODULE_VSG OFF CACHE BOOL "Enable the Chrono VSG module" FORCE)
-   mark_as_advanced(FORCE vsg_DIR)
-   mark_as_advanced(FORCE vsgXchange_DIR)
-   mark_as_advanced(FORCE vsgImGui_DIR)
-   return()
-endif()
 
 mark_as_advanced(CLEAR VSG_LIBRARY)
 mark_as_advanced(CLEAR VSG_ROOT)
@@ -47,57 +37,53 @@ message(STATUS "vsgImGui version:   ${vsgImGui_VERSION}")
 # Check if vsgXchange is a static library. 
 # If yes, we assume it includes STB and we do not add those files in the the Chrono library
 # (else we'd get multiple defined symbols at link time).
-get_target_property(vsg_type vsgXchange::vsgXchange TYPE)
-if (vsg_type STREQUAL STATIC_LIBRARY)
-    set(INCLUDE_STB OFF)
+get_target_property(VSGXCHANGE_TYPE vsgXchange::vsgXchange TYPE)
+if (VSGXCHANGE_TYPE STREQUAL STATIC_LIBRARY)
+    set(VSGXCHANGE_STATIC TRUE)
     message(STATUS "vsgXchange library: static")
 else()
-    set(INCLUDE_STB ON)
+    set(VSGXCHANGE_STATIC FALSE)
     message(STATUS "vsgXchange library: dynamic")
 endif()
 
 #-------------------------------------------------------------------------------
-# List all the files in the ChronoEngine_vsg lib
+# List all the files in the Chrono_vsg lib
 
 set(CE_VSG_BASE_FILES
     ChApiVSG.h
-    ChVisualSystemVSG.cpp
     ChVisualSystemVSG.h
+    ChVisualSystemVSG.cpp
     ChGuiComponentVSG.h
+    ChGuiComponentVSG.cpp
     ChEventHandlerVSG.h
 )
-
-set(CE_VSG_SHAPES_FILES
-    shapes/GetSurfaceShapeData.cpp
-    shapes/GetSurfaceShapeData.h
-    shapes/ShaderUtils.cpp
-    shapes/ShaderUtils.h
-    shapes/ShapeBuilder.cpp
-    shapes/ShapeBuilder.h
-)
-
-set(CE_VSG_RESOURCES_FILES
-    resources/chronoLineShader_frag.h
-    resources/chronoLineShader_vert.h
-    resources/chronoPbrShader_frag.h
-    resources/chronoPbrShader_vert.h
-    resources/pcShader_frag.h
-    resources/pcShader_vert.h
-    resources/cubemapShaders.h
-)
+source_group("" FILES ${CE_VSG_BASE_FILES})
 
 set(CE_VSG_UTILS_FILES
-    utils/ChUtilsVSG.cpp
-    utils/ChUtilsVSG.h
-    utils/ChConversionsVSG.cpp
-    utils/ChConversionsVSG.h)
-
-source_group("" FILES ${CE_VSG_BASE_FILES})
-source_group("shapes" FILES ${CE_VSG_SHAPES_FILES})
-source_group("resources" FILES ${CE_VSG_RESOURCES_FILES})
+    utils/ChDataUtilsVSG.cpp
+    utils/ChDataUtilsVSG.h
+    utils/ChShaderUtilsVSG.cpp
+    utils/ChShaderUtilsVSG.h
+    utils/ChShapeBuilderVSG.cpp
+    utils/ChShapeBuilderVSG.h
+)
 source_group("utils" FILES ${CE_VSG_UTILS_FILES})
 
-if(INCLUDE_STB)
+set(CE_VSG_IMPL_FILES
+    impl/BaseGuiComponents.cpp
+    impl/BaseGuiComponents.h
+    impl/BaseEventHandlers.cpp
+    impl/BaseEventHandlers.h
+    impl/VSGnodes.cpp
+    impl/VSGnodes.h
+    impl/VSGvisitors.h
+    impl/pcShaders.h
+    impl/cubemapShaders.h
+    impl/quadmapShaders.h
+)
+source_group("impl" FILES ${CE_VSG_IMPL_FILES})
+
+if(NOT VSGXCHANGE_STATIC)
     set(CE_VSG_STB_FILES
         ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb.h
         ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image.h
@@ -105,41 +91,109 @@ if(INCLUDE_STB)
         ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image_write.h
         ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image_write.cpp
     )
-    
-    source_group("utils" FILES ${CE_VSG_STB_FILES})
+    source_group("impl//stb" FILES ${CE_VSG_STB_FILES})
 else()
     set(CE_VSG_STB_FILES "")
 endif()
 
-#-------------------------------------------------------------------------------
-# Let some variables be visible also from outside this directory
+#-----------------------------------------------------------------------------
+# Add the Chrono_vsg library
+#-----------------------------------------------------------------------------
 
-#-------------------------------------------------------------------------------
-# Create the ChronoEngine_vsg library
-
-add_library(ChronoEngine_vsg
+add_library(Chrono_vsg
             ${CE_VSG_BASE_FILES}
-            ${CE_VSG_SHAPES_FILES}
-            ${CE_VSG_RESOURCES_FILES}
             ${CE_VSG_UTILS_FILES}
+            ${CE_VSG_IMPL_FILES}
             ${CE_VSG_STB_FILES})
+add_library(Chrono::vsg ALIAS Chrono_vsg)
 
-target_compile_definitions(ChronoEngine_vsg PRIVATE "CH_API_COMPILE_VSG")
+set_target_properties(Chrono_vsg PROPERTIES DEBUG_POSTFIX ${CH_DEBUG_POSTFIX})
 
-target_link_libraries(ChronoEngine_vsg
-                      ChronoEngine
+if(CH_WHOLE_PROG_OPT)
+  set_target_properties(Chrono_vsg PROPERTIES COMPILE_FLAGS "/GL")
+  set_target_properties(Chrono_vsg PROPERTIES LINK_FLAGS "/LTCG")
+endif()
+
+if (CH_STATIC)
+  set_target_properties(Chrono_vsg PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
+if(MSVC)
+  set_target_properties(Chrono_vsg PROPERTIES MSVC_RUNTIME_LIBRARY ${CH_MSVC_RUNTIME_LIBRARY})
+endif()
+
+target_compile_definitions(Chrono_vsg PRIVATE $<$<COMPILE_LANGUAGE:CXX>:CH_API_COMPILE_VSG>)
+
+target_link_libraries(Chrono_vsg PRIVATE Chrono_core)
+target_link_libraries(Chrono_vsg PUBLIC
                       vsg::vsg
-                      vsgImGui::vsgImGui
                       vsgXchange::vsgXchange)
 
-#-------------------------------------------------------------------------------
-# Install the ChronoEngine_vsg library
+# According to https://github.com/ocornut/imgui/issues/586, there should be only one copy of ImGui in the final executable.
+# If vsgImGui is a static library, we assume it includes ImGui and we do not add those files in the the Chrono library
+get_target_property(_vsgimgui_type vsgImGui::vsgImGui TYPE)
+if(_vsgimgui_type STREQUAL "STATIC_LIBRARY")
+    message(STATUS "vsgImGui is static; hide it behind Chrono_vsg")
 
-install(TARGETS ChronoEngine_vsg
+    target_link_libraries(Chrono_vsg
+        PRIVATE
+            "$<LINK_LIBRARY:WHOLE_ARCHIVE,vsgImGui::vsgImGui>"
+    )
+    # Header file access still needs to be exposed
+    target_include_directories(Chrono_vsg PUBLIC $<TARGET_PROPERTY:vsgImGui::vsgImGui,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_compile_definitions(Chrono_vsg PUBLIC $<TARGET_PROPERTY:vsgImGui::vsgImGui,INTERFACE_COMPILE_DEFINITIONS>)
+    target_compile_options(Chrono_vsg PUBLIC $<TARGET_PROPERTY:vsgImGui::vsgImGui,INTERFACE_COMPILE_OPTIONS>)
+
+    # Windows doesn't make symbols from static libraries available for export by default, so we need to explicitly enable that.
+    if(MSVC)
+        target_link_options(Chrono_vsg
+            PRIVATE
+                "$<$<CXX_COMPILER_ID:MSVC>:/OPT:NOREF>"
+        )
+    endif()
+else()
+    message(STATUS "vsgImGui is shared")
+    target_link_libraries(Chrono_vsg PUBLIC vsgImGui::vsgImGui)
+endif()
+
+install(TARGETS Chrono_vsg
+        EXPORT ChronoTargets
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
+        ARCHIVE DESTINATION lib
+        INCLUDES DESTINATION include/chrono_vsg)
 
+#-------------------------------------------------------------------------------
+# Install files
+#-------------------------------------------------------------------------------
+
+# Old way (install headers preserving directory structure)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
         DESTINATION include/chrono_vsg
         FILES_MATCHING PATTERN "*.h")
+
+# Install 3rd party headers
+if(NOT VSGXCHANGE_STATIC)
+  install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb
+          DESTINATION include/chrono_thirdparty
+          FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+endif()
+
+# On Windows, extract DLLs from targets and install (always look for Release DLLs)
+#if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+#    get_target_property(VSG_DLL vsg::vsg IMPORTED_LOCATION_RELEASE)
+#    get_target_property(VSGIMGUI_DLL vsgImGui::vsgImGui IMPORTED_LOCATION_RELEASE)
+#    if(EXISTS "${VSG_DLL}")
+#      install(FILES "${VSG_DLL}" DESTINATION bin)
+#    endif()
+#    if(EXISTS "${VSGIMGUI_DLL}")
+#      install(FILES "${VSGIMGUI_DLL}" DESTINATION bin)
+#    endif()
+#
+#    if(NOT VSGXCHANGE_STATIC)
+#      get_target_property(VSGXCHANGE_DLL vsgXchange::vsgXchange IMPORTED_LOCATION_RELEASE)
+#      if(EXISTS "${VSGXCHANGE_DLL}")
+#        install(FILES "${VSGXCHANGE_DLL}" DESTINATION bin)
+#      endif()
+#    endif()
+#endif()

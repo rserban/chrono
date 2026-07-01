@@ -150,7 +150,7 @@ ChApi bool AddTriangleMeshGeometry(
     ChBody* body,                                                         ///< associated body
     ChContactMaterialSharedPtr material,                                  ///< contact material
     const std::string& obj_filename,                                      ///< name of Wavefront OBJ file
-    const std::string& name,                                              ///< mesh name
+    const std::string& name = "",                                         ///< mesh name
     const ChVector3d& pos = ChVector3d(0, 0, 0),                          ///< position on body
     const ChQuaterniond& rot = ChQuaterniond(1, 0, 0, 0),                 ///< orientation wrt body frame
     bool visualization = true,                                            ///< create visualization shape
@@ -269,7 +269,8 @@ ChApi std::shared_ptr<ChBody> CreateBoxContainer(
     const ChQuaterniond& rot = ChQuaterniond(1, 0, 0, 0),  ///< body orientation
     bool collide = true,                                   ///< enable collision
     bool overlap = true,                                   ///< include overlap at container edges
-    bool closed = false                                    ///< create top wall
+    bool closed = false,                                   ///< create top wall
+    bool wireframe = false                                 ///< set wireframe rendering
 );
 
 /// Create a fixed body with collision and visualization representing a cylindrical volume.

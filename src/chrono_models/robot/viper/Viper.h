@@ -105,8 +105,8 @@ class CH_MODELS_API ViperPart {
     /// This is the absolute linear acceleration of the part reference frame.
     const ChVector3d& GetLinAcc() const { return m_body->GetFrameRefToAbs().GetPosDt2(); }
 
-    /// Return the angular acceleratino of the Viper part.
-    /// This is the absolute angular acceleratin of the part reference frame.
+    /// Return the angular acceleration of the Viper part.
+    /// This is the absolute angular acceleration of the part reference frame.
     const ChVector3d GetAngAcc() const { return m_body->GetFrameRefToAbs().GetAngAccParent(); }
 
   protected:
@@ -425,6 +425,25 @@ class CH_MODELS_API ViperSpeedDriver : public ViperDriver {
 
     double m_ramp;
     double m_speed;
+};
+
+/// Viper Direct Control Driver.
+/// This driver allows direct control of the drive speeds, steer angles, and lift angles for all wheels individually.
+class CH_MODELS_API ViperDirectControl : public ViperDriver {
+  public:
+    ViperDirectControl() {}
+
+    ~ViperDirectControl() {}
+
+    /// Set Direct control of drive speeds, steer angles, and lift angles
+    void SetDirectControl(
+      std::array<double, 4> m_drive_speeds, 
+      std::array<double, 4> m_steer_angles,
+      std::array<double, 4> m_lift_angles
+    );
+  private:
+    virtual DriveMotorType GetDriveMotorType() const override { return DriveMotorType::SPEED; }
+    virtual void Update(double time) override {}
 };
 
 /// @} robot_models_viper

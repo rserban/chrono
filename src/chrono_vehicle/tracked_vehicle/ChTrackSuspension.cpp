@@ -26,21 +26,24 @@
 namespace chrono {
 namespace vehicle {
 
-ChTrackSuspension::ChTrackSuspension(const std::string& name, bool has_shock, bool lock_arm)
-    : ChPart(name), m_has_shock(has_shock), m_lock_arm(lock_arm), m_track(nullptr) {}
+ChTrackSuspension::ChTrackSuspension(const std::string& name, bool has_shock, bool lock_arm) : ChPart(name), m_has_shock(has_shock), m_lock_arm(lock_arm), m_track(nullptr) {}
 
-void ChTrackSuspension::Initialize(std::shared_ptr<ChChassis> chassis,
-                                   const ChVector3d& location,
-                                   ChTrackAssembly* track) {
+void ChTrackSuspension::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector3d& location, ChTrackAssembly* track) {
     m_parent = chassis;
     m_rel_loc = location;
     m_track = track;
+    m_obj_tag = VehicleObjTag::Generate(GetVehicleTag(), VehiclePartTag::TRACK_SUSPENSION);
+
+    // Call concrete construction function here, to create the arm (carrier) body!
+    Construct(chassis, location, track);
 
     m_road_wheel->Initialize(chassis, GetCarrierBody(), location, track);
 
     // Set collision flags for the road wheel body
-    m_road_wheel->GetBody()->GetCollisionModel()->SetFamily(TrackedCollisionFamily::WHEELS);
-    m_road_wheel->GetBody()->GetCollisionModel()->DisallowCollisionsWith(TrackedCollisionFamily::IDLERS);
+    m_road_wheel->GetBody()->GetCollisionModel()->SetFamily(VehicleCollisionFamily::TRACK_WHEEL_FAMILY);
+    m_road_wheel->GetBody()->GetCollisionModel()->DisallowCollisionsWith(VehicleCollisionFamily::IDLER_FAMILY);
+
+    ChPart::Initialize();
 }
 
 void ChTrackSuspension::SetOutput(bool state) {
@@ -59,6 +62,12 @@ void ChTrackSuspension::ExportComponentList(rapidjson::Document& jsonDocument) c
         m_road_wheel->ExportComponentList(jsonSubDocument);
         jsonDocument.AddMember("road wheel", jsonSubDocument, jsonDocument.GetAllocator());
     }
+}
+
+void ChTrackSuspension::SaveCheckpoint(ChCheckpoint& database) const {
+    ChPart::SaveCheckpoint(database);
+
+    m_road_wheel->SaveCheckpoint(database);
 }
 
 }  // end namespace vehicle

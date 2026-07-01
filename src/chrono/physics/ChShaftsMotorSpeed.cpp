@@ -58,13 +58,13 @@ bool ChShaftsMotorSpeed::Initialize(std::shared_ptr<ChShaft> shaft_1, std::share
     return true;
 }
 
-void ChShaftsMotorSpeed::Update(double mytime, bool update_assets) {
+void ChShaftsMotorSpeed::Update(double time, UpdateFlags update_flags) {
     // Inherit time changes of parent class
-    ChShaftsMotor::Update(mytime, update_assets);
+    ChShaftsMotor::Update(time, update_flags);
 
     // update class data
 
-    motor_function->Update(mytime);  // call callbacks if any
+    motor_function->Update(time);  // call callbacks if any
 }
 
 void ChShaftsMotorSpeed::IntStateGather(const unsigned int off_x,  // offset in x state vector
@@ -83,12 +83,12 @@ void ChShaftsMotorSpeed::IntStateScatter(const unsigned int off_x,  // offset in
                                          const unsigned int off_v,  // offset in v state vector
                                          const ChStateDelta& v,     // state vector, speed part
                                          const double T,            // time
-                                         bool full_update           // perform complete update
+                                         UpdateFlags update_flags    // perform complete update?
 ) {
     // aux = x(off_x);
     aux_dt = v(off_v);
 
-    Update(T, full_update);
+    Update(T, update_flags);
 }
 
 void ChShaftsMotorSpeed::IntStateGatherAcceleration(const unsigned int off_a, ChStateDelta& a) {
@@ -141,6 +141,7 @@ void ChShaftsMotorSpeed::IntLoadResidual_CqL(const unsigned int off_L,    // off
 void ChShaftsMotorSpeed::IntLoadConstraint_C(const unsigned int off_L,  // offset in Qc residual
                                              ChVectorDynamic<>& Qc,     // result: the Qc residual, Qc += c*C
                                              const double c,            // a scaling factor
+                                             const double c_vel,        // the scaling factor if the constraint is at speed level
                                              bool do_clamp,             // apply clamping to c*C?
                                              double recovery_clamp      // value for min/max clamping of c*C
 ) {
@@ -163,7 +164,8 @@ void ChShaftsMotorSpeed::IntLoadConstraint_C(const unsigned int off_L,  // offse
 
 void ChShaftsMotorSpeed::IntLoadConstraint_Ct(const unsigned int off_L,  // offset in Qc residual
                                               ChVectorDynamic<>& Qc,     // result: the Qc residual, Qc += c*Ct
-                                              const double c             // a scaling factor
+                                              const double c,            ///< a scaling factor
+                                              const double c_vel         ///< the scaling factor if the constraint is at speed level
 ) {
     double ct = -motor_function->GetVal(GetChTime());
     Qc(off_L) += c * ct;

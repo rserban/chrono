@@ -22,18 +22,17 @@
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChLinkMate.h"
-
 #include "chrono/physics/ChLoadContainer.h"
 #include "chrono/physics/ChLoadsBody.h"
+#include "chrono/utils/ChUtils.h"
 
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
-#include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
+#include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 
 using namespace chrono;
 using namespace chrono::irrlicht;
-using namespace filesystem;
+using namespace std::filesystem;
 
 // Used to sort the Eigen matrix
 namespace Eigen {
@@ -139,8 +138,7 @@ class EigenSolver {
 };
 
 //====================================
-// Test 1
-// First example: Pendulum
+// Pendulum test
 //====================================
 void test_pendulum() {
     std::cout << "\n-------------------------------------------------" << std::endl;
@@ -163,10 +161,9 @@ void test_pendulum() {
     // because there is no stiffness matrix in the system.
     bool use_Kc = true;
 
-    // ====================================
     // Build the system
-    // ====================================
-    // The physical system: it contains all physical objects.
+    // ----------------
+
     ChSystemNSC sys;
 
     auto load_container = chrono_types::make_shared<ChLoadContainer>();
@@ -242,33 +239,32 @@ void test_pendulum() {
     sys.SetSolver(mkl_solver);
 
     // The pendulum has one rigid-motion degree of freedom. We need to use the
-    // static solver: ChStaticNonLinearRigidMotion().
-    ChStaticNonLinearRigidMotion rigid_static_analysis;
-    rigid_static_analysis.SetIncrementalSteps(10);
+    // static solver: ChStaticNonLinearAnalysis().
+    ChStaticNonLinearAnalysis rigid_static_analysis;
     rigid_static_analysis.SetMaxIterations(100);
     rigid_static_analysis.SetResidualTolerance(1e-16);
     rigid_static_analysis.SetVerbose(false);
 
     sys.Setup();
 
-    // ====================================
     // Static analysis
-    // ====================================
+    // ---------------
+
     std::cout << std::endl
               << "The initial position of the end mass is:\n"
               << "\tx:  " << my_mass->GetPos().x() << "\ty:  " << my_mass->GetPos().y()
               << "\tz:  " << my_mass->GetPos().z() << std::endl;
 
     // First, perform a full assembly to calculate the reaction forces/torques at the initial system configuration
-    sys.DoAssembly(AssemblyLevel::FULL);
+    sys.DoAssembly(AssemblyAnalysis::Level::FULL);
 
-    // Second, perform the static analysis using the solver ChStaticNonLinearRigidMotion()
+    // Second, perform the static analysis using the solver ChStaticNonLinearAnalysis()
     sys.DoStaticAnalysis(rigid_static_analysis);
 
     while (vis->Run()) {
         vis->BeginScene();
         vis->Render();
-        tools::drawCoordsys(vis.get(), ChCoordsys<>(VNULL, QUNIT), 1.0);
+        tools::DrawCoordsys(vis.get(), ChCoordsys<>(VNULL, QUNIT), 1.0);
         vis->EndScene();
     }
 
@@ -285,9 +281,9 @@ void test_pendulum() {
     std::cout << "\tThe reaction torques at the root are:\n"
               << "\t\tmx:  " << rtorque.x() << "\tmy:  " << rtorque.y() << "\tmz:  " << rtorque.z() << std::endl;
 
-    // ====================================
     // Eigenvalue analysis
-    // ====================================
+    // -------------------
+
     EigenSolver eig_solver(sys);
     eig_solver.ShowAllEigenvalues();
 
@@ -296,8 +292,7 @@ void test_pendulum() {
 }
 
 // ====================================
-// Test 2
-// Second example: Anchor chain
+// Anchor chain
 // ====================================
 void test_anchorchain() {
     std::cout << "\n-------------------------------------------------" << std::endl;
@@ -455,13 +450,15 @@ void test_anchorchain() {
     std::string out_dir = GetChronoOutputPath() + "ANCHOR_CHAIN";
     std::cout << "out_dir is:\n" << out_dir << std::endl;
 
-    if (true) {  // static analysis
+    // Static analysis
+    // ---------------
+
+    {
         std::cout << "\n\n******** Static analysis ******** \n" << std::endl;
 
         // Set solver for static analysis
-        ChStaticNonLinearRigidMotion rigid_static_analysis;
+        ChStaticNonLinearAnalysis rigid_static_analysis;
         rigid_static_analysis.SetCorrectionTolerance(1e-16, 1e-16);
-        rigid_static_analysis.SetIncrementalSteps(10);
         rigid_static_analysis.SetMaxIterations(100);
         rigid_static_analysis.SetVerbose(false);
 
@@ -479,9 +476,9 @@ void test_anchorchain() {
                   << anchorC->GetPos().z() << std::endl;
 
         // First, perform a full assembly to calculate the reaction forces/torques at the initial system configuration
-        sys.DoAssembly(AssemblyLevel::FULL);
+        sys.DoAssembly(AssemblyAnalysis::Level::FULL);
 
-        // Second, perform the static analysis using the solver ChStaticNonLinearRigidMotion()
+        // Second, perform the static analysis using the solver ChStaticNonLinearAnalysis()
         sys.DoStaticAnalysis(rigid_static_analysis);
 
         std::cout << "\nAfter doing the static nonlinear analysis:" << std::endl;
@@ -564,7 +561,10 @@ void test_anchorchain() {
         }
     }
 
-    if (true) {  // eigenvalue analysis
+    // Eigenvalue analysis
+    // -------------------
+
+    {
         std::cout << "\n\n******** Eigenvalue analysis ******** \n" << std::endl;
 
         // solve the eigenvalues at the equilibrium status
@@ -616,7 +616,10 @@ void test_anchorchain() {
         }
     }
 
-    if (true) {  // dynamic analysis
+    // Dynamic analysis
+    // ----------------
+
+    {
         std::cout << "\n\n******** Dynamic analysis ******** \n" << std::endl;
 
         // use HHT second order integrator (but slower)
@@ -626,7 +629,7 @@ void test_anchorchain() {
             hht_stepper->SetVerbose(false);
             hht_stepper->SetStepControl(false);
             hht_stepper->SetAlpha(-0.2);
-            hht_stepper->SetModifiedNewton(false);
+            hht_stepper->SetJacobianUpdateMethod(ChTimestepperImplicit::JacobianUpdate::EVERY_ITERATION);
         }
 
         auto DoDynamicsUnderImpulse = [&](const ChVector3d& vec_f, const std::string& filename) {
@@ -660,7 +663,7 @@ void test_anchorchain() {
             while (vis->Run() && frame < Nframes) {
                 vis->BeginScene();
                 vis->Render();
-                tools::drawCoordsys(vis.get(), ChCoordsys<>({xC, 0, 0}, QUNIT), 1.0);
+                tools::DrawCoordsys(vis.get(), ChCoordsys<>({xC, 0, 0}, QUNIT), 1.0);
                 vis->EndScene();
 
                 // A short period later, the excitation force is removed to allow free vibration
@@ -692,7 +695,7 @@ void test_anchorchain() {
             }
         };
 
-        // store the equilibrium status
+        // Store the equilibrium status
         double T0;
         ChState X0;
         ChStateDelta V0;
@@ -710,7 +713,7 @@ void test_anchorchain() {
         DoDynamicsUnderImpulse(vec_fx, "vibration_x");
 
         // recover the system to the exactly same equilibrium status
-        sys.StateScatter(X0, V0, T0, true);
+        sys.StateScatter(X0, V0, T0, UpdateFlags::UPDATE_ALL);
         sys.StateScatterAcceleration(A0);
         sys.StateScatterReactions(L0);
         // excitation in Y direction (Out-of-plane motion is expected)
@@ -719,7 +722,7 @@ void test_anchorchain() {
         DoDynamicsUnderImpulse(vec_fy, "vibration_y");
 
         // recover the system to the exactly same equilibrium status
-        sys.StateScatter(X0, V0, T0, true);
+        sys.StateScatter(X0, V0, T0, UpdateFlags::UPDATE_ALL);
         sys.StateScatterAcceleration(A0);
         sys.StateScatterReactions(L0);
         // excitation in Z direction (In-plane vertical motion is expected)
@@ -730,12 +733,26 @@ void test_anchorchain() {
 }
 
 int main(int argc, char* argv[]) {
-    std::cout << "Copyright (c) 2017 projectchrono.org\n"
-              << "Chrono version: " << CHRONO_VERSION << std::endl;
+    std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << std::endl;
 
-    // test_pendulum();
+    // Select test
+    int test = 0;
+    std::cout << "Options:\n";
+    std::cout << "  1. Pendulum" << std::endl;
+    std::cout << "  2. Anchored chain" << std::endl;
+    std::cout << "\nSelect test: ";
+    std::cin >> test;
+    std::cout << std::endl;
+    ChClampValue(test, 1, 3);
 
-    test_anchorchain();
+    switch (test) {
+        case 1:
+            test_pendulum();
+            break;
+        case 2:
+            test_anchorchain();
+            break;
+    }
 
     return 0;
 }

@@ -14,7 +14,8 @@
 #define CH_VISUAL_SHAPE_H
 
 #include "chrono/core/ChFrame.h"
-#include "chrono/core/ChFrame.h"
+
+#include "chrono/geometry/ChGeometry.h"
 
 #include "chrono/assets/ChColor.h"
 #include "chrono/assets/ChVisualMaterial.h"
@@ -24,7 +25,7 @@ namespace chrono {
 /// @addtogroup chrono_assets
 /// @{
 
-class ChPhysicsItem;
+class ChObj;
 
 /// Base class for a visualization asset for rendering (run-time or post processing).
 /// Encapsulates basic information about the shape position, materials, and visibility.
@@ -33,10 +34,10 @@ class ChApi ChVisualShape {
     virtual ~ChVisualShape() {}
 
     /// Set this visualization asset as visible.
-    void SetVisible(bool mv) { visible = mv; }
+    void SetVisible(bool mv) { is_visible = mv; }
 
     /// Return true if the asset is set as visible.
-    bool IsVisible() const { return visible; }
+    bool IsVisible() const { return is_visible; }
 
     /// Set the diffuse color for this shape.
     /// This changes the color of the first material in the list of materials for this shape.
@@ -65,14 +66,20 @@ class ChApi ChVisualShape {
     /// If no materials are defined, return an empty string (no texture for the default material).
     std::string GetTexture() const;
 
-    /// Set this visualization shape as modifiable (default: false for primitive shapes, true otherwise).
-    /// Set to false to indicate that the asset never changes and therefore does not require updates
-    /// (e.g. for a non-deformable triangular mesh). Note that this also includes changes in materials.
-    /// A particular visualization system may take advantage of this setting to accelerate rendering.
+    /// Set this visualization shape as modifiable (default: false).
+    /// Set to true to indicate that the asset may change and therefore requires updates (e.g. for a deformable
+    /// triangular mesh). Note that this also includes changes in materials. 
+    /// A visualization system may take advantage of this setting to accelerate rendering.
     void SetMutable(bool val) { is_mutable = val; }
 
     /// Return true if the visualization shape is marked as modifiable.
     bool IsMutable() const { return is_mutable; }
+
+    /// Set shape rendering as double-faced (default: false).
+    void SetDoubleFaced(bool val) { is_double_faced = val; }
+
+    /// Return true if the visualization shape must be rendered double-faced.
+    bool IsDoubleFaced() const { return is_double_faced; }
 
     /// Add a visualization material and return its index in the list of materials.
     int AddMaterial(std::shared_ptr<ChVisualMaterial> material);
@@ -85,10 +92,14 @@ class ChApi ChVisualShape {
     std::vector<std::shared_ptr<ChVisualMaterial>>& GetMaterials() { return material_list; }
 
     /// Get the specified material in the list.
-    std::shared_ptr<ChVisualMaterial> GetMaterial(int i) { return material_list[i]; }
+    std::shared_ptr<ChVisualMaterial> GetMaterial(int i) const { return material_list[i]; }
 
     /// Get the number of visualization materials.
     unsigned int GetNumMaterials() const { return (unsigned int)material_list.size(); }
+
+    /// Get the shape bounding box.
+    /// The default implementation returns an inverted AABB.
+    virtual ChAABB GetBoundingBox() const { return ChAABB(); }
 
     /// Method to allow serialization of transient data to archives.
     virtual void ArchiveOut(ChArchiveOut& archive_out);
@@ -99,12 +110,13 @@ class ChApi ChVisualShape {
   protected:
     ChVisualShape();
 
-    /// Update this visual shape with information for the owning physical object.
+    /// Update this visual shape with information for the owning object.
     /// Since a visual shape can be shared in multiple instances, this function may be called with different updaters.
-    virtual void Update(ChPhysicsItem* updater, const ChFrame<>& frame) {}
+    virtual void Update(ChObj* updater, const ChFrame<>& frame) {}
 
-    bool visible;     ///< shape visibility flag
-    bool is_mutable;  ///< flag indicating whether the shape is rigid or deformable
+    bool is_visible;       ///< shape visibility flag
+    bool is_mutable;       ///< flag indicating whether the shape is rigid or deformable
+    bool is_double_faced;  ///< flag indicating that the shape should be rendered double-faced
 
     std::vector<std::shared_ptr<ChVisualMaterial>> material_list;  ///< list of visualization materials
 

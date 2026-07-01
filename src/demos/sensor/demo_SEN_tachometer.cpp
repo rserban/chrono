@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
                                                           cam_offset_pose,  // offset pose
                                                           400,              // image width
                                                           400,              // image height
-                                                          CH_PI / 3,        // camera's horizontal field of view
+                                                          CH_PI_3,        // camera's horizontal field of view
                                                           1,                // supersample factor for antialiasing
                                                           CameraLensModelType::PINHOLE,
                                                           false);  // FOV
@@ -66,7 +66,8 @@ int main(int argc, char* argv[]) {
     cam1->PushFilter(chrono_types::make_shared<ChFilterVisualize>(400, 400, "World Ray Tracing"));
     manager->AddSensor(cam1);
 
-    auto tachometer = chrono_types::make_shared<ChTachometerSensor>(body, 5.f, cam_offset_pose, Y);
+    auto tachometer =
+        chrono_types::make_shared<ChTachometerSensor>(body, 5.f, cam_offset_pose, ChTachometerSensor::Axis::Y);
     tachometer->SetName("Tachometer");
     tachometer->SetLag(0);
     tachometer->SetCollectionWindow(0.02f);

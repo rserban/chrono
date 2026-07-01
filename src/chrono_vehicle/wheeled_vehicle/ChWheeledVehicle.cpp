@@ -22,24 +22,18 @@
 #include "chrono_thirdparty/rapidjson/prettywriter.h"
 #include "chrono_thirdparty/rapidjson/stringbuffer.h"
 
+using std::cout;
+using std::endl;
+
 namespace chrono {
 namespace vehicle {
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-ChWheeledVehicle::ChWheeledVehicle(const std::string& name, ChContactMethod contact_method)
-    : ChVehicle(name, contact_method), m_parking_on(false) {}
+ChWheeledVehicle::ChWheeledVehicle(const std::string& name, ChContactMethod contact_method) : ChVehicle(name, contact_method), m_parking_on(false) {}
 
-ChWheeledVehicle::ChWheeledVehicle(const std::string& name, ChSystem* system)
-    : ChVehicle(name, system), m_parking_on(false) {}
+ChWheeledVehicle::ChWheeledVehicle(const std::string& name, ChSystem* system) : ChVehicle(name, system), m_parking_on(false) {}
 
-// -----------------------------------------------------------------------------
 // Initialize a tire and attach it to one of the vehicle's wheels.
-// -----------------------------------------------------------------------------
-void ChWheeledVehicle::InitializeTire(std::shared_ptr<ChTire> tire,
-                                      std::shared_ptr<ChWheel> wheel,
-                                      VisualizationType tire_vis,
-                                      ChTire::CollisionType tire_coll) {
+void ChWheeledVehicle::InitializeTire(std::shared_ptr<ChTire> tire, std::shared_ptr<ChWheel> wheel, VisualizationType tire_vis, ChTire::CollisionType tire_coll) {
     wheel->m_tire = tire;
     tire->Initialize(wheel);
     tire->InitializeInertiaProperties();
@@ -50,12 +44,9 @@ void ChWheeledVehicle::InitializeTire(std::shared_ptr<ChTire> tire,
     InitializeInertiaProperties();
 }
 
-// -----------------------------------------------------------------------------
-// Update the state of this vehicle at the current time.
-// The vehicle system is provided the current driver inputs (throttle between 0
-// and 1, steering between -1 and +1, braking between 0 and 1), and a reference
-// to the terrain system.
-// -----------------------------------------------------------------------------
+// Update the state of this vehicle at the current time. The vehicle system is provided the current driver inputs
+// (throttle between 0 and 1, steering between -1 and +1, braking between 0 and 1), and a reference to the terrain
+// system.
 void ChWheeledVehicle::Synchronize(double time, const DriverInputs& driver_inputs) {
     double powertrain_torque = m_powertrain_assembly ? m_powertrain_assembly->GetOutputTorque() : 0;
     double driveline_speed = m_driveline ? m_driveline->GetOutputDriveshaftSpeed() : 0;
@@ -101,10 +92,8 @@ void ChWheeledVehicle::Synchronize(double time, const DriverInputs& driver_input
     Synchronize(time, driver_inputs);
 }
 
-// -----------------------------------------------------------------------------
 // Advance the state of this vehicle by the specified time step.
-// -----------------------------------------------------------------------------
-void ChWheeledVehicle::Advance(double step) {
+void ChWheeledVehicle::Advance(double step, bool do_collision) {
     // Advance state of the associated powertrain (if any)
     if (m_powertrain_assembly) {
         m_powertrain_assembly->Advance(step);
@@ -122,12 +111,10 @@ void ChWheeledVehicle::Advance(double step) {
     }
 
     // Invoke base class function to advance state of underlying Chrono system.
-    ChVehicle::Advance(step);
+    ChVehicle::Advance(step, do_collision);
 }
 
-// -----------------------------------------------------------------------------
 // Enable/disable differential locking.
-// -----------------------------------------------------------------------------
 void ChWheeledVehicle::LockAxleDifferential(int axle, bool lock) {
     if (m_driveline)
         m_driveline->LockAxleDifferential(axle, lock);
@@ -144,9 +131,7 @@ void ChWheeledVehicle::DisconnectDriveline() {
         m_driveline->Disconnect();
 }
 
-// -----------------------------------------------------------------------------
 // Brake behavior
-// -----------------------------------------------------------------------------
 void ChWheeledVehicle::EnableBrakeLocking(bool lock) {
     for (auto& axle : m_axles) {
         if (axle->m_brake_left)
@@ -167,9 +152,7 @@ void ChWheeledVehicle::ApplyParkingBrake(bool lock) {
     m_parking_on = lock;
 }
 
-// -----------------------------------------------------------------------------
 // Set visualization type for the various subsystems
-// -----------------------------------------------------------------------------
 void ChWheeledVehicle::SetSubchassisVisualizationType(VisualizationType vis) {
     for (auto& sc : m_subchassis)
         sc->SetVisualizationType(vis);
@@ -214,58 +197,29 @@ void ChWheeledVehicle::SetWheelCollide(bool state) {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Enable/disable collision between the chassis and all other vehicle subsystems
-// This only controls collisions between the chassis and the tire systems.
-// -----------------------------------------------------------------------------
+// Enable/disable collision between the chassis and all other vehicle subsystems This only controls collisions between
+// the chassis and the tire systems.
 void ChWheeledVehicle::SetChassisVehicleCollide(bool state) {
     if (state) {
         // Chassis collides with tires
-        m_chassis->GetBody()->GetCollisionModel()->AllowCollisionsWith(WheeledCollisionFamily::TIRE);
-        m_chassis->GetBody()->GetCollisionModel()->AllowCollisionsWith(WheeledCollisionFamily::WHEEL);
+        m_chassis->GetBody()->GetCollisionModel()->AllowCollisionsWith(VehicleCollisionFamily::TIRE_FAMILY);
+        m_chassis->GetBody()->GetCollisionModel()->AllowCollisionsWith(VehicleCollisionFamily::WHEEL_FAMILY);
         for (auto& c : m_chassis_rear) {
-            c->GetBody()->GetCollisionModel()->AllowCollisionsWith(WheeledCollisionFamily::TIRE);
-            c->GetBody()->GetCollisionModel()->AllowCollisionsWith(WheeledCollisionFamily::WHEEL);
+            c->GetBody()->GetCollisionModel()->AllowCollisionsWith(VehicleCollisionFamily::TIRE_FAMILY);
+            c->GetBody()->GetCollisionModel()->AllowCollisionsWith(VehicleCollisionFamily::WHEEL_FAMILY);
         }
     } else {
         // Chassis does not collide with tires
-        m_chassis->GetBody()->GetCollisionModel()->DisallowCollisionsWith(WheeledCollisionFamily::TIRE);
-        m_chassis->GetBody()->GetCollisionModel()->DisallowCollisionsWith(WheeledCollisionFamily::WHEEL);
+        m_chassis->GetBody()->GetCollisionModel()->DisallowCollisionsWith(VehicleCollisionFamily::TIRE_FAMILY);
+        m_chassis->GetBody()->GetCollisionModel()->DisallowCollisionsWith(VehicleCollisionFamily::WHEEL_FAMILY);
         for (auto& c : m_chassis_rear) {
-            c->GetBody()->GetCollisionModel()->DisallowCollisionsWith(WheeledCollisionFamily::TIRE);
-            c->GetBody()->GetCollisionModel()->DisallowCollisionsWith(WheeledCollisionFamily::WHEEL);
+            c->GetBody()->GetCollisionModel()->DisallowCollisionsWith(VehicleCollisionFamily::TIRE_FAMILY);
+            c->GetBody()->GetCollisionModel()->DisallowCollisionsWith(VehicleCollisionFamily::WHEEL_FAMILY);
         }
     }
 }
 
-// -----------------------------------------------------------------------------
-// Enable/disable output from the various subsystems
-// -----------------------------------------------------------------------------
-void ChWheeledVehicle::SetSuspensionOutput(int id, bool state) {
-    m_axles[id]->m_suspension->SetOutput(state);
-}
-
-void ChWheeledVehicle::SetSteeringOutput(int id, bool state) {
-    m_steerings[id]->SetOutput(state);
-}
-
-void ChWheeledVehicle::SetSubchassisOutput(int id, bool state) {
-    m_subchassis[id]->SetOutput(state);
-}
-
-void ChWheeledVehicle::SetAntirollbarOutput(int id, bool state) {
-    assert(m_axles[id]->m_antirollbar);
-    m_axles[id]->m_antirollbar->SetOutput(state);
-}
-
-void ChWheeledVehicle::SetDrivelineOutput(bool state) {
-    if (m_driveline)
-        m_driveline->SetOutput(state);
-}
-
-// -----------------------------------------------------------------------------
 // Get the specified wheel or tire (axle, side, location)
-// -----------------------------------------------------------------------------
 std::shared_ptr<ChWheel> ChWheeledVehicle::GetWheel(int axle, VehicleSide side, WheelLocation location) const {
     return m_axles[axle]->GetWheel(side, location);
 }
@@ -274,16 +228,12 @@ std::shared_ptr<ChTire> ChWheeledVehicle::GetTire(int axle, VehicleSide side, Wh
     return m_axles[axle]->GetWheel(side, location)->GetTire();
 }
 
-// -----------------------------------------------------------------------------
 // Get the specified brake (axle, side)
-// -----------------------------------------------------------------------------
 std::shared_ptr<ChBrake> ChWheeledVehicle::GetBrake(int axle, VehicleSide side) const {
     return m_axles[axle]->GetBrake(side);
 }
 
-// -----------------------------------------------------------------------------
 // Calculate the total vehicle mass
-// -----------------------------------------------------------------------------
 void ChWheeledVehicle::InitializeInertiaProperties() {
     m_mass = 0;
 
@@ -313,9 +263,7 @@ void ChWheeledVehicle::InitializeInertiaProperties() {
         steering->AddMass(m_mass);
 }
 
-// -----------------------------------------------------------------------------
 // Calculate current vehicle inertia properties
-// -----------------------------------------------------------------------------
 void ChWheeledVehicle::UpdateInertiaProperties() {
     // 1. Calculate vehicle COM location relative to the global reference frame
     // 2. Calculate vehicle inertia relative to global reference frame
@@ -355,10 +303,11 @@ void ChWheeledVehicle::UpdateInertiaProperties() {
     //    Notes: - vehicle COM frame aligned with vehicle frame
     //           - 'com' still scaled by total mass here
     const ChMatrix33<>& A = GetTransform().GetRotMat();
-    m_inertia = A.transpose() * (inertia - utils::CompositeInertia::InertiaShiftMatrix(com) / GetMass()) * A;
+    m_inertia = A.transpose() * (inertia - CompositeInertia::InertiaShiftMatrix(com) / GetMass()) * A;
 }
 
 // -----------------------------------------------------------------------------
+
 const ChVector3d& ChWheeledVehicle::GetSpindlePos(int axle, VehicleSide side) const {
     return m_axles[axle]->m_suspension->GetSpindlePos(side);
 }
@@ -394,62 +343,155 @@ double ChWheeledVehicle::GetSteeringAngle(int axle, VehicleSide side) const {
     return angle;
 }
 
-// -----------------------------------------------------------------------------
-// Estimate the maximum steering angle based on a bicycle model, from the vehicle
-// minimum turning radius, the wheelbase, and the track of the front suspension.
-// -----------------------------------------------------------------------------
+// Estimate the maximum steering angle based on a bicycle model, from the vehicle minimum turning radius, the wheelbase,
+// and the track of the front suspension.
 double ChWheeledVehicle::GetMaxSteeringAngle() const {
     return std::asin(GetWheelbase() / (GetMinTurningRadius() - 0.5 * GetWheeltrack(0)));
 }
 
 // -----------------------------------------------------------------------------
-// Log constraint violations
-// -----------------------------------------------------------------------------
+
 void ChWheeledVehicle::LogConstraintViolations() {
     // Report constraint violations for the suspension joints
     for (size_t i = 0; i < m_axles.size(); i++) {
-        std::cout << "\n---- AXLE " << i << " LEFT side suspension constraint violations\n\n";
+        cout << "\n---- AXLE " << i << " LEFT side suspension constraint violations\n\n";
         m_axles[i]->m_suspension->LogConstraintViolations(LEFT);
-        std::cout << "\n---- AXLE " << i << " RIGHT side suspension constraint violations\n\n";
+        cout << "\n---- AXLE " << i << " RIGHT side suspension constraint violations\n\n";
         m_axles[i]->m_suspension->LogConstraintViolations(RIGHT);
     }
 
     // Report constraint violations for the steering joints
     for (size_t i = 0; i < m_steerings.size(); i++) {
-        std::cout << "\n---- STEERING subsystem " << i << " constraint violations\n\n";
+        cout << "\n---- STEERING subsystem " << i << " constraint violations\n\n";
         m_steerings[i]->LogConstraintViolations();
+    }
+}
+
+void ChWheeledVehicle::LogSubsystemTypes(std::ostream& os) {
+    os << "\nSubsystem types\n";
+
+    {
+        os << "Chassis:        " << m_chassis->GetTemplateName() << "\n";
+
+        int body_tag = m_chassis->GetBodyTag();
+        auto vehicle_tag = VehicleObjTag::ExtractVehicleTag(body_tag);
+        auto part_tag = VehicleObjTag::ExtractPartTag(body_tag);
+        os << "         vehicle tag: " << m_chassis->GetVehicleTag();
+        os << "         body tag:    " << body_tag << " [ " << vehicle_tag << " + " << part_tag << " ]" << endl;
+    }
+
+    if (m_powertrain_assembly) {
+        os << "Powertrain:\n";
+        os << "  Engine:       " << GetEngine()->GetTemplateName() << "\n";
+        os << "  Transmission: " << GetTransmission()->GetTemplateName() << "\n";
+    }
+
+    if (m_driveline)
+        os << "Driveline:      " << m_driveline->GetTemplateName() << "\n";
+
+    for (int i = 0; i < m_steerings.size(); i++) {
+        os << "Steering " << i << ":     " << m_steerings[i]->GetTemplateName() << "\n";
+
+        int body_tag = m_steerings[i]->GetBodyTag();
+        auto vehicle_tag = VehicleObjTag::ExtractVehicleTag(body_tag);
+        auto part_tag = VehicleObjTag::ExtractPartTag(body_tag);
+        os << "         vehicle tag: " << m_steerings[i]->GetVehicleTag();
+        os << "         body tag:    " << body_tag << " [ " << vehicle_tag << " + " << part_tag << " ]" << endl;
+    }
+
+    for (int i = 0; i < m_axles.size(); i++) {
+        os << "Axle " << i << "\n";
+
+        {
+            os << "  Suspension:   " << m_axles[i]->m_suspension->GetTemplateName() << "\n";
+
+            int body_tag = m_axles[i]->m_suspension->GetBodyTag();
+            auto vehicle_tag = VehicleObjTag::ExtractVehicleTag(body_tag);
+            auto part_tag = VehicleObjTag::ExtractPartTag(body_tag);
+            os << "         vehicle tag: " << m_axles[i]->m_suspension->GetVehicleTag();
+            os << "         body tag:    " << body_tag << " [ " << vehicle_tag << " + " << part_tag << " ]" << endl;
+        }
+
+        if (m_axles[i]->m_antirollbar) {
+            os << "  Antiroll bar: " << m_axles[i]->m_antirollbar->GetTemplateName() << "\n";
+
+            int body_tag = m_axles[i]->m_antirollbar->GetBodyTag();
+            auto vehicle_tag = VehicleObjTag::ExtractVehicleTag(body_tag);
+            auto part_tag = VehicleObjTag::ExtractPartTag(body_tag);
+            os << "         vehicle tag: " << m_axles[i]->m_antirollbar->GetVehicleTag();
+            os << "         body tag:    " << body_tag << " [ " << vehicle_tag << " + " << part_tag << " ]" << endl;
+        }
+
+        if (m_axles[i]->m_brake_left) {
+            os << "  Brake:        " << m_axles[i]->m_brake_left->GetTemplateName() << "\n";
+            os << "         vehicle tag: " << m_axles[i]->m_wheels[0]->GetVehicleTag();
+        }
+
+        {
+            os << "  Wheel:        " << m_axles[i]->m_wheels[0]->GetTemplateName() << "\n";
+
+            int body_tag = m_axles[i]->m_wheels[0]->GetBodyTag();
+            auto vehicle_tag = VehicleObjTag::ExtractVehicleTag(body_tag);
+            auto part_tag = VehicleObjTag::ExtractPartTag(body_tag);
+            os << "         vehicle tag: " << m_axles[i]->m_wheels[0]->GetVehicleTag();
+            os << "         body tag:    " << body_tag << " [ " << vehicle_tag << " + " << part_tag << " ]" << endl;
+        }
+
+        if (m_axles[i]->m_wheels.size() == 2) {
+            os << "  Tire:         " << GetTire(i, LEFT, SINGLE)->GetTemplateName() << "\n";
+        } else {
+            os << "  Tire:         " << GetTire(i, LEFT, INNER)->GetTemplateName() << "\n";
+        }
     }
 }
 
 // -----------------------------------------------------------------------------
 
-void ChWheeledVehicle::LogSubsystemTypes() {
-    std::cout << "\nSubsystem types\n";
-    std::cout << "Chassis:        " << m_chassis->GetTemplateName() << "\n";
-    if (m_powertrain_assembly) {
-        std::cout << "Powertrain:\n";
-        std::cout << "  Engine:       " << GetEngine()->GetTemplateName() << "\n";
-        std::cout << "  Transmission: " << GetTransmission()->GetTemplateName() << "\n";
-    }
-    if (m_driveline)
-        std::cout << "Driveline:      " << m_driveline->GetTemplateName() << "\n";
+std::vector<std::shared_ptr<ChBody>> ChWheeledVehicle::GetBodyList() const {
+    std::vector<std::shared_ptr<ChBody>> bodies;
 
-    for (int i = 0; i < m_steerings.size(); i++) {
-        std::cout << "Steering " << i << ":     " << m_steerings[i]->GetTemplateName() << "\n";
+    {
+        auto b = m_chassis->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
     }
 
-    for (int i = 0; i < m_axles.size(); i++) {
-        std::cout << "Axle " << i << "\n";
-        std::cout << "  Suspension:   " << m_axles[i]->m_suspension->GetTemplateName() << "\n";
-        if (m_axles[i]->m_antirollbar)
-            std::cout << "  Antiroll bar: " << m_axles[i]->m_brake_left->GetTemplateName() << "\n";
-        if (m_axles[i]->m_brake_left)
-            std::cout << "  Brake:        " << m_axles[i]->m_brake_left->GetTemplateName() << "\n";
-        if (m_axles[i]->m_wheels.size() == 2)
-            std::cout << "  Tire:         " << GetTire(i, LEFT, SINGLE)->GetTemplateName() << "\n";
-        else
-            std::cout << "  Tire:         " << GetTire(i, LEFT, INNER)->GetTemplateName() << "\n";
+    for (auto& c : m_chassis_rear) {
+        auto b = c->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
     }
+
+    for (auto& sc : m_subchassis) {
+        auto b = sc->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
+    }
+
+    for (auto& axle : m_axles) {
+        {
+            auto b = axle->m_suspension->GetBodyList();
+            bodies.insert(bodies.end(), b.begin(), b.end());
+        }
+        for (auto& wheel : axle->GetWheels()) {
+            {
+                auto b = wheel->GetBodyList();
+                bodies.insert(bodies.end(), b.begin(), b.end());
+            }
+            if (wheel->GetTire()) {
+                auto b = wheel->GetTire()->GetBodyList();
+                bodies.insert(bodies.end(), b.begin(), b.end());
+            }
+        }
+        if (axle->m_antirollbar) {
+            auto b = axle->m_antirollbar->GetBodyList();
+            bodies.insert(bodies.end(), b.begin(), b.end());
+        }
+    }
+
+    for (auto& steering : m_steerings) {
+        auto b = steering->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
+    }
+
+    return bodies;
 }
 
 // -----------------------------------------------------------------------------
@@ -460,8 +502,7 @@ std::string ChWheeledVehicle::ExportComponentList() const {
 
     std::string template_name = GetTemplateName();
     jsonDocument.AddMember("name", rapidjson::StringRef(m_name.c_str()), jsonDocument.GetAllocator());
-    jsonDocument.AddMember("template", rapidjson::Value(template_name.c_str(), jsonDocument.GetAllocator()).Move(),
-                           jsonDocument.GetAllocator());
+    jsonDocument.AddMember("template", rapidjson::Value(template_name.c_str(), jsonDocument.GetAllocator()).Move(), jsonDocument.GetAllocator());
 
     {
         rapidjson::Document jsonSubDocument(&jsonDocument.GetAllocator());
@@ -540,52 +581,199 @@ void ChWheeledVehicle::ExportComponentList(const std::string& filename) const {
     of.close();
 }
 
-void ChWheeledVehicle::Output(int frame, ChVehicleOutput& database) const {
-    database.WriteTime(frame, m_system->GetChTime());
+// -----------------------------------------------------------------------------
 
-    if (m_chassis->OutputEnabled()) {
-        database.WriteSection(m_chassis->GetName());
-        m_chassis->Output(database);
+void ChWheeledVehicle::SetAxleOutput(int id, bool state) {
+    m_axles[id]->m_suspension->SetOutput(state);
+    m_axles[id]->m_brake_left->SetOutput(state);
+    m_axles[id]->m_brake_right->SetOutput(state);
+    if (m_axles[id]->m_antirollbar)
+        m_axles[id]->m_antirollbar->SetOutput(state);
+}
+
+void ChWheeledVehicle::SetSteeringOutput(int id, bool state) {
+    m_steerings[id]->SetOutput(state);
+}
+
+void ChWheeledVehicle::SetSubchassisOutput(int id, bool state) {
+    m_subchassis[id]->SetOutput(state);
+}
+
+void ChWheeledVehicle::SetDrivelineOutput(bool state) {
+    if (m_driveline)
+        m_driveline->SetOutput(state);
+}
+
+void ChWheeledVehicle::InitializeOutput() {
+    // Resize output structures
+    m_out_chassis_rear.resize(m_chassis_rear.size());
+    m_out_subchassis.resize(m_subchassis.size());
+    m_out_steering.resize(m_steerings.size());
+    m_out_axles.resize(m_axles.size());
+
+    // For each vehicle subsystem, collect components from their parts
+    if (m_chassis->OutputEnabled())
+        m_out_chassis.comp.push_back(&m_chassis->GetComponents());
+    if (m_driveline && m_driveline->OutputEnabled())
+        m_out_driveline.comp.push_back(&m_driveline->GetComponents());
+    for (size_t i = 0; i < m_chassis_rear.size(); i++)
+        if (m_chassis_rear[i]->OutputEnabled())
+            m_out_chassis_rear[i].comp.push_back(&m_chassis_rear[i]->GetComponents());
+    for (size_t i = 0; i < m_subchassis.size(); i++)
+        if (m_subchassis[i]->OutputEnabled())
+            m_out_subchassis[i].comp.push_back(&m_subchassis[i]->GetComponents());
+    for (size_t i = 0; i < m_steerings.size(); i++)
+        if (m_steerings[i]->OutputEnabled())
+            m_out_steering[i].comp.push_back(&m_steerings[i]->GetComponents());
+    for (size_t i = 0; i < m_axles.size(); i++)
+        if (m_axles[i]->m_suspension->OutputEnabled()) {
+            m_out_axles[i].comp.push_back(&m_axles[i]->m_suspension->GetComponents());
+            m_out_axles[i].comp.push_back(&m_axles[i]->m_brake_left->GetComponents());
+            m_out_axles[i].comp.push_back(&m_axles[i]->m_brake_right->GetComponents());
+            if (m_axles[i]->m_antirollbar)
+                m_out_axles[i].comp.push_back(&m_axles[i]->m_antirollbar->GetComponents());
+        }
+
+    // For each vehicle subsystem, create its output DB
+    switch (m_out_format) {
+        case ChOutput::Format::ASCII:
+            if (m_chassis->OutputEnabled())
+                m_out_chassis.db = chrono_types::make_unique<ChOutputASCII>(m_out_dir, m_out_name + "_chassis", m_out_mode);
+            if (m_driveline && m_driveline->OutputEnabled())
+                m_out_driveline.db = chrono_types::make_unique<ChOutputASCII>(m_out_dir, m_out_name + "_driveline", m_out_mode);
+            for (size_t i = 0; i < m_chassis_rear.size(); i++)
+                if (m_chassis_rear[i]->OutputEnabled())
+                    m_out_chassis_rear[i].db = chrono_types::make_unique<ChOutputASCII>(m_out_dir, m_out_name + "_chassis_rear_" + std::to_string(i), m_out_mode);
+            for (size_t i = 0; i < m_subchassis.size(); i++)
+                if (m_subchassis[i]->OutputEnabled())
+                    m_out_subchassis[i].db = chrono_types::make_unique<ChOutputASCII>(m_out_dir, m_out_name + "_subchassis_" + std::to_string(i), m_out_mode);
+            for (size_t i = 0; i < m_steerings.size(); i++)
+                if (m_steerings[i]->OutputEnabled())
+                    m_out_steering[i].db = chrono_types::make_unique<ChOutputASCII>(m_out_dir, m_out_name + "_steering_" + std::to_string(i), m_out_mode);
+            for (size_t i = 0; i < m_axles.size(); i++)
+                if (m_axles[i]->m_suspension->OutputEnabled())
+                    m_out_axles[i].db = chrono_types::make_unique<ChOutputASCII>(m_out_dir, m_out_name + "_axle_" + std::to_string(i), m_out_mode);
+            break;
+        case ChOutput::Format::HDF5:
+#ifdef CHRONO_HAS_HDF5
+            if (m_chassis->OutputEnabled())
+                m_out_chassis.db = chrono_types::make_unique<ChOutputHDF5>(m_out_dir, m_out_name + "_chassis", m_out_mode);
+            if (m_driveline && m_driveline->OutputEnabled())
+                m_out_driveline.db = chrono_types::make_unique<ChOutputHDF5>(m_out_dir, m_out_name + "_driveline", m_out_mode);
+            for (size_t i = 0; i < m_chassis_rear.size(); i++)
+                if (m_chassis_rear[i]->OutputEnabled())
+                    m_out_chassis_rear[i].db = chrono_types::make_unique<ChOutputHDF5>(m_out_dir, m_out_name + "_chassis_rear_" + std::to_string(i), m_out_mode);
+            for (size_t i = 0; i < m_subchassis.size(); i++)
+                if (m_subchassis[i]->OutputEnabled())
+                    m_out_subchassis[i].db = chrono_types::make_unique<ChOutputHDF5>(m_out_dir, m_out_name + "_subchassis_" + std::to_string(i), m_out_mode);
+            for (size_t i = 0; i < m_steerings.size(); i++)
+                if (m_steerings[i]->OutputEnabled())
+                    m_out_steering[i].db = chrono_types::make_unique<ChOutputHDF5>(m_out_dir, m_out_name + "_steering_" + std::to_string(i), m_out_mode);
+            for (size_t i = 0; i < m_axles.size(); i++)
+                if (m_axles[i]->m_suspension->OutputEnabled())
+                    m_out_axles[i].db = chrono_types::make_unique<ChOutputHDF5>(m_out_dir, m_out_name + "_axle_" + std::to_string(i), m_out_mode);
+#endif
+            break;
     }
+}
+
+void ChWheeledVehicle::WriteOutput(int frame, double time) const {
+    if (m_chassis->OutputEnabled())
+        m_out_chassis.Write(frame, time);
+
+    if (m_driveline && m_driveline->OutputEnabled())
+        m_out_driveline.Write(frame, time);
+
+    for (size_t i = 0; i < m_chassis_rear.size(); i++)
+        if (m_chassis_rear[i]->OutputEnabled())
+            m_out_chassis_rear[i].Write(frame, time);
+
+    for (size_t i = 0; i < m_subchassis.size(); i++)
+        if (m_subchassis[i]->OutputEnabled())
+            m_out_subchassis[i].Write(frame, time);
+
+    for (size_t i = 0; i < m_steerings.size(); i++)
+        if (m_steerings[i]->OutputEnabled())
+            m_out_steering[i].Write(frame, time);
+
+    for (size_t i = 0; i < m_axles.size(); i++)
+        if (m_axles[i]->m_suspension->OutputEnabled())
+            m_out_axles[i].Write(frame, time);
+}
+
+// -----------------------------------------------------------------------------
+
+void ChWheeledVehicle::SaveCheckpoint(ChCheckpoint& database) const {
+    m_chassis->SaveCheckpoint(database);
 
     for (auto& c : m_chassis_rear) {
-        if (c->OutputEnabled()) {
-            database.WriteSection(c->GetName());
-            c->Output(database);
-        }
+        c->SaveCheckpoint(database);
     }
 
     for (auto& subchassis : m_subchassis) {
-        if (subchassis->OutputEnabled()) {
-            database.WriteSection(subchassis->GetName());
-            subchassis->Output(database);
-        }
+        subchassis->SaveCheckpoint(database);
     }
 
     for (auto& steering : m_steerings) {
-        if (steering->OutputEnabled()) {
-            database.WriteSection(steering->GetName());
-            steering->Output(database);
-        }
+        steering->SaveCheckpoint(database);
     }
 
     for (auto& axle : m_axles) {
-        if (axle->m_suspension->OutputEnabled()) {
-            database.WriteSection(axle->m_suspension->GetName());
-            axle->m_suspension->Output(database);
+        axle->m_suspension->SaveCheckpoint(database);
+        if (axle->m_brake_left) {
+            axle->m_brake_left->SaveCheckpoint(database);
         }
-        if (axle->m_brake_left && axle->m_brake_left->OutputEnabled()) {
-            database.WriteSection(axle->m_brake_left->GetName());
-            axle->m_brake_left->Output(database);
+        if (axle->m_brake_right) {
+            axle->m_brake_right->SaveCheckpoint(database);
         }
-        if (axle->m_brake_right && axle->m_brake_right->OutputEnabled()) {
-            database.WriteSection(axle->m_brake_right->GetName());
-            axle->m_brake_right->Output(database);
+        if (axle->m_antirollbar) {
+            axle->m_antirollbar->SaveCheckpoint(database);
         }
-        if (axle->m_antirollbar && axle->m_antirollbar->OutputEnabled()) {
-            database.WriteSection(axle->m_antirollbar->GetName());
-            axle->m_antirollbar->Output(database);
+    }
+
+    if (m_driveline)
+        m_driveline->SaveCheckpoint(database);
+
+    if (m_powertrain_assembly) {
+        GetEngine()->SaveCheckpoint(database);
+        GetTransmission()->SaveCheckpoint(database);
+    }
+}
+
+void ChWheeledVehicle::LoadCheckpoint(ChCheckpoint& database) {
+    m_chassis->LoadCheckpoint(database);
+
+    for (auto& c : m_chassis_rear) {
+        c->LoadCheckpoint(database);
+    }
+
+    for (auto& subchassis : m_subchassis) {
+        subchassis->LoadCheckpoint(database);
+    }
+
+    for (auto& steering : m_steerings) {
+        steering->LoadCheckpoint(database);
+    }
+
+    for (auto& axle : m_axles) {
+        axle->m_suspension->LoadCheckpoint(database);
+        if (axle->m_brake_left) {
+            axle->m_brake_left->LoadCheckpoint(database);
         }
+        if (axle->m_brake_right) {
+            axle->m_brake_right->LoadCheckpoint(database);
+        }
+        if (axle->m_antirollbar) {
+            axle->m_antirollbar->LoadCheckpoint(database);
+        }
+    }
+
+    if (m_driveline)
+        m_driveline->LoadCheckpoint(database);
+
+    if (m_powertrain_assembly) {
+        GetEngine()->LoadCheckpoint(database);
+        GetTransmission()->LoadCheckpoint(database);
     }
 }
 

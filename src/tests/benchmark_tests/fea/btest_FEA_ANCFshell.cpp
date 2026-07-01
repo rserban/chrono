@@ -169,13 +169,13 @@ ANCFshell<N>::ANCFshell(SolverType solver_type) {
     auto mesh = chrono_types::make_shared<ChMesh>();
     m_system->Add(mesh);
 
-    auto vis_surf = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto vis_surf = chrono_types::make_shared<ChVisualShapeFEA>();
     vis_surf->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     vis_surf->SetWireframe(true);
     vis_surf->SetDrawInUndeformedReference(true);
     mesh->AddVisualShapeFEA(vis_surf);
 
-    auto vis_node = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto vis_node = chrono_types::make_shared<ChVisualShapeFEA>();
     vis_node->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
     vis_node->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     vis_node->SetSymbolsThickness(0.004);
@@ -226,9 +226,9 @@ void ANCFshell<N>::SimulateVis() {
     while (vis->Run()) {
         vis->BeginScene();
         vis->Render();
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(1, 0, 0), ChColor(1, 0, 0));
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 1, 0), ChColor(0, 1, 0));
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 0, 1), ChColor(0, 0, 1));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(1, 0, 0), ChColor(1, 0, 0));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 1, 0), ChColor(0, 1, 0));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 0, 1), ChColor(0, 0, 1));
         ExecuteStep();
         vis->EndScene();
     }

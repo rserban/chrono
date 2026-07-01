@@ -41,7 +41,7 @@ class ChApi ChRayTest {
     ChRayTest(std::shared_ptr<ChCollisionData> data);
 
     /// Check for intersection of the given ray with all collision shapes in the system.
-    /// Uses a variant of the 3D Digital Differential Analyser (Akira Fujimoto, "ARTS: Accelerated Ray Tracing Systems",
+    /// Uses a variant of the 3D Digital Differential Analyzer (Akira Fujimoto, "ARTS: Accelerated Ray Tracing Systems",
     /// 1986) to efficiently traverse the broadphase grid and analytical shape-ray intersection tests.
     bool Check(const real3& start,  ///< ray start point
                const real3& end,    ///< ray end point
@@ -59,7 +59,7 @@ class ChApi ChRayTest {
     bool CheckShape(const ConvexBase& shape,  ///< candidate shape
                     const real3& start,       ///< ray start point
                     const real3& end,         ///< ray end point
-                    real3& normal,            ///< [output] normal to shape at intersectin point
+                    real3& normal,            ///< [output] normal to shape at intersection point
                     real& mindist2            ///< [output] smallest squared distance to ray origin
     );
 

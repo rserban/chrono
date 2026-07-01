@@ -32,13 +32,13 @@
 #include "chrono/physics/ChLinkMotorLinearSpeed.h"
 #include "chrono/physics/ChLinkMotorRotationSpeed.h"
 
-#include "chrono/multicore_math/ChMulticoreMath.h"
-
-#include "chrono_multicore/physics/Ch3DOFContainer.h"
 #include "chrono_multicore/ChDataManager.h"
 #include "chrono_multicore/ChMulticoreDefines.h"
 #include "chrono_multicore/ChSettings.h"
 #include "chrono_multicore/ChMeasures.h"
+#include "chrono_multicore/physics/Ch3DOFContainer.h"
+#include "chrono_multicore/solver/ChSolverMulticore.h"
+#include "chrono_multicore/solver/ChIterativeSolverMulticore.h"
 
 namespace chrono {
 
@@ -51,11 +51,11 @@ class settings_container;
 /// Base class for Chrono::Multicore systems.
 class CH_MULTICORE_API ChSystemMulticore : public ChSystem {
   public:
-    ChSystemMulticore();
+    ChSystemMulticore(const std::string& name = "");
     ChSystemMulticore(const ChSystemMulticore& other);
     virtual ~ChSystemMulticore();
 
-    virtual bool AdvanceDynamics() override;
+    virtual bool AdvanceDynamics(bool do_collision = true) override;
     virtual void AddBody(std::shared_ptr<ChBody> body) override;
     virtual void AddShaft(std::shared_ptr<ChShaft> shaft) override;
     virtual void AddLink(std::shared_ptr<ChLinkBase> link) override;
@@ -79,38 +79,27 @@ class CH_MULTICORE_API ChSystemMulticore : public ChSystem {
 
     /// Change the default composition laws for contact surface materials
     /// (coefficient of friction, cohesion, compliance, etc.).
-    virtual void SetMaterialCompositionStrategy(
-        std::unique_ptr<ChContactMaterialCompositionStrategy>&& strategy) override;
+    virtual void SetMaterialCompositionStrategy(std::unique_ptr<ChContactMaterialCompositionStrategy>&& strategy) override;
 
     virtual void PrintStepStats();
 
     /// Get the total number of bodies added to the system, including fixed and sleeping bodies.
-    virtual unsigned int GetNumBodies() const override {
-        return data_manager->num_rigid_bodies + data_manager->num_fluid_bodies;
-    }
+    virtual unsigned int GetNumBodies() const override { return data_manager->num_rigid_bodies + data_manager->num_particles; }
 
     /// Get the number of shafts.
     virtual unsigned int GetNumShafts() const override { return data_manager->num_shafts; }
 
     /// Gets the number of contacts.
-    virtual unsigned int GetNumContacts() override;
+    virtual unsigned int GetNumContacts() const override;
 
     /// Get the number of scalar constraints in the system.
-    virtual unsigned int GetNumConstraints() override {
-        return GetNumConstraintsBilateral() + GetNumConstraintsUnilateral();
-    }
+    virtual unsigned int GetNumConstraints() override { return GetNumConstraintsBilateral() + GetNumConstraintsUnilateral(); }
 
     /// Get the number of bilateral scalar constraints.
-    virtual unsigned int GetNumConstraintsBilateral() override {
-        return data_manager->num_bilaterals;
-        ;
-    }
+    virtual unsigned int GetNumConstraintsBilateral() override { return data_manager->num_bilaterals; }
 
     /// Get the number of unilateral scalar constraints.
-    virtual unsigned int GetNumConstraintsUnilateral() override {
-        return data_manager->num_unilaterals;
-        ;
-    }
+    virtual unsigned int GetNumConstraintsUnilateral() override { return data_manager->num_unilaterals; }
 
     /// Return the time (in seconds) spent for computing the time step.
     virtual double GetTimerStep() const override;
@@ -128,7 +117,7 @@ class CH_MULTICORE_API ChSystemMulticore : public ChSystem {
     /// Return the time (in seconds) for calculating/loading Jacobian information, within the time step.
     virtual double GetTimerJacobian() const override;
 
-    /// Return the time (in seconds) for runnning the collision detection step, within the time step.
+    /// Return the time (in seconds) for running the collision detection step, within the time step.
     virtual double GetTimerCollision() const override;
 
     /// Return the time (in seconds) for system setup, within the time step.
@@ -137,7 +126,7 @@ class CH_MULTICORE_API ChSystemMulticore : public ChSystem {
     /// Return the time (in seconds) for updating auxiliary data, within the time step.
     virtual double GetTimerUpdate() const override;
 
-    /// Calculate cummulative contact forces for all bodies in the system.
+    /// Calculate cumulative contact forces for all bodies in the system.
     /// Note that this function must be explicitly called by the user at each time where
     /// calls to GetContactableForce or ContactableTorque are made.
     virtual void CalculateContactForces() {}
@@ -176,9 +165,7 @@ class CH_MULTICORE_API ChSystemMulticore : public ChSystem {
     ///                          If passing 0, then num_threads_eigen = num_threads_chrono.
     /// </pre>
     /// By default, num_threads_chrono is set to omp_get_num_procs() and num_threads_eigen is set to 1.
-    virtual void SetNumThreads(int num_threads_chrono,
-                               int num_threads_collision = 0,
-                               int num_threads_eigen = 0) override;
+    virtual void SetNumThreads(int num_threads_chrono, int num_threads_collision = 0, int num_threads_eigen = 0) override;
 
     /// Enable dynamic adjustment of number of threads between the specified limits.
     /// The initial number of threads is set to min_threads.
@@ -211,7 +198,7 @@ class CH_MULTICORE_API ChSystemMulticore : public ChSystem {
 /// Multicore system using non-smooth contact (complementarity-based) method.
 class CH_MULTICORE_API ChSystemMulticoreNSC : public ChSystemMulticore {
   public:
-    ChSystemMulticoreNSC();
+    ChSystemMulticoreNSC(const std::string& name = "");
     ChSystemMulticoreNSC(const ChSystemMulticoreNSC& other);
 
     /// "Virtual" copy constructor (covariant return type).
@@ -242,7 +229,7 @@ class CH_MULTICORE_API ChSystemMulticoreNSC : public ChSystemMulticore {
 /// Multicore system using smooth contact (penalty-based) method.
 class CH_MULTICORE_API ChSystemMulticoreSMC : public ChSystemMulticore {
   public:
-    ChSystemMulticoreSMC();
+    ChSystemMulticoreSMC(const std::string& name = "");
     ChSystemMulticoreSMC(const ChSystemMulticoreSMC& other);
 
     /// "Virtual" copy constructor (covariant return type).
@@ -261,9 +248,7 @@ class CH_MULTICORE_API ChSystemMulticoreSMC : public ChSystemMulticore {
 
     virtual void PrintStepStats() override;
 
-    double GetTimerProcessContact() const {
-        return data_manager->system_timer.GetTime("ChIterativeSolverMulticoreSMC_ProcessContact");
-    }
+    double GetTimerProcessContact() const { return data_manager->system_timer.GetTime("ChIterativeSolverMulticoreSMC_ProcessContact"); }
 };
 
 /// @} multicore_physics

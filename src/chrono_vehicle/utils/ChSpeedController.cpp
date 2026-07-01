@@ -24,23 +24,68 @@
 #include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/utils/ChSpeedController.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 
 using namespace rapidjson;
 
 namespace chrono {
 namespace vehicle {
 
+ChSpeedController::ChSpeedController() : m_speed(0), m_csv(nullptr), m_collect(false) {}
+
+ChSpeedController::~ChSpeedController() {
+    delete m_csv;
+}
+
+void ChSpeedController::Reset(const ChFrameMoving<>& ref_frame) {
+    m_speed = Vdot(ref_frame.GetPosDt(), ref_frame.GetRotMat().GetAxisX());
+    m_err = 0;
+    m_erri = 0;
+    m_errd = 0;
+
+    OnReset(ref_frame);
+}
+
+double ChSpeedController::Advance(const ChFrameMoving<>& ref_frame, double target_speed, double time, double step) {
+    m_speed = Vdot(ref_frame.GetPosDt(), ref_frame.GetRotMat().GetAxisX());
+    double speed = OnAdvance(ref_frame, target_speed, time, step);
+    return speed;
+}
+
+void ChSpeedController::StartDataCollection() {
+    // Return now if currently collecting data.
+    if (m_collect)
+        return;
+    // Create the ChWriterCSV object if needed (first call to this function).
+    if (!m_csv) {
+        m_csv = new ChWriterCSV("\t");
+        m_csv->Stream().setf(std::ios::scientific | std::ios::showpos);
+        m_csv->Stream().precision(6);
+    }
+    // Enable data collection.
+    m_collect = true;
+}
+
+void ChSpeedController::StopDataCollection() {
+    // Suspend data collection.
+    m_collect = false;
+}
+
+void ChSpeedController::WriteOutputFile(const std::string& filename) {
+    // Do nothing if data collection was never enabled.
+    if (m_csv)
+        m_csv->WriteToFile(filename);
+}
+
 // -----------------------------------------------------------------------------
-// Implementation of the class ChSpeedController
+// Implementation of the class ChSpeedControllerPID
 // -----------------------------------------------------------------------------
-ChSpeedController::ChSpeedController() : m_speed(0), m_err(0), m_errd(0), m_erri(0), m_csv(nullptr), m_collect(false) {
+ChSpeedControllerPID::ChSpeedControllerPID() {
     // Default PID controller gains all zero (no control).
     SetGains(0, 0, 0);
 }
 
-ChSpeedController::ChSpeedController(const std::string& filename)
-    : m_speed(0), m_err(0), m_errd(0), m_erri(0), m_csv(nullptr), m_collect(false) {
+ChSpeedControllerPID::ChSpeedControllerPID(const std::string& filename) {
     Document d;
     ReadFileJSON(filename, d);
     if (d.IsNull())
@@ -53,21 +98,13 @@ ChSpeedController::ChSpeedController(const std::string& filename)
     std::cout << "Loaded JSON " << filename << std::endl;
 }
 
-ChSpeedController::~ChSpeedController() {
+ChSpeedControllerPID::~ChSpeedControllerPID() {
     delete m_csv;
 }
 
-void ChSpeedController::Reset(const ChFrameMoving<>& ref_frame) {
-    m_speed = Vdot(ref_frame.GetPosDt(), ref_frame.GetRotMat().GetAxisX());
-    m_err = 0;
-    m_erri = 0;
-    m_errd = 0;
-}
+void ChSpeedControllerPID::OnReset(const ChFrameMoving<>& ref_frame) {}
 
-double ChSpeedController::Advance(const ChFrameMoving<>& ref_frame, double target_speed, double time, double step) {
-    // Current vehicle speed.
-    m_speed = Vdot(ref_frame.GetPosDt(), ref_frame.GetRotMat().GetAxisX());
-
+double ChSpeedControllerPID::OnAdvance(const ChFrameMoving<>& ref_frame, double target_speed, double time, double step) {
     // If data collection is enabled, append current target and sentinel locations.
     if (m_collect) {
         *m_csv << time << target_speed << m_speed << std::endl;
@@ -85,33 +122,8 @@ double ChSpeedController::Advance(const ChFrameMoving<>& ref_frame, double targe
     // Cache new error
     m_err = err;
 
-    // Return PID output (steering value)
+    // Return PID output (speed value)
     return m_Kp * m_err + m_Ki * m_erri + m_Kd * m_errd;
-}
-
-void ChSpeedController::StartDataCollection() {
-    // Return now if currently collecting data.
-    if (m_collect)
-        return;
-    // Create the ChWriterCSV object if needed (first call to this function).
-    if (!m_csv) {
-        m_csv = new utils::ChWriterCSV("\t");
-        m_csv->Stream().setf(std::ios::scientific | std::ios::showpos);
-        m_csv->Stream().precision(6);
-    }
-    // Enable data collection.
-    m_collect = true;
-}
-
-void ChSpeedController::StopDataCollection() {
-    // Suspend data collection.
-    m_collect = false;
-}
-
-void ChSpeedController::WriteOutputFile(const std::string& filename) {
-    // Do nothing if data collection was never enabled.
-    if (m_csv)
-        m_csv->WriteToFile(filename);
 }
 
 }  // end namespace vehicle

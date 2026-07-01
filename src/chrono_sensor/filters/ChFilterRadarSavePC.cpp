@@ -15,15 +15,15 @@
 //
 // =============================================================================
 
+#include <vector>
+#include <sstream>
+
+#include "chrono/core/ChDataPath.h"
+#include "chrono/input_output/ChWriterCSV.h"
+
 #include "chrono_sensor/filters/ChFilterRadarSavePC.h"
 #include "chrono_sensor/sensors/ChOptixSensor.h"
 #include "chrono_sensor/utils/CudaMallocHelper.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
-
-#include <vector>
-#include <sstream>
 
 #include <cuda_runtime_api.h>
 
@@ -39,7 +39,7 @@ CH_SENSOR_API ChFilterRadarSavePC::~ChFilterRadarSavePC() {}
 CH_SENSOR_API void ChFilterRadarSavePC::Apply() {
     std::string filename = m_path + "frame_" + std::to_string(m_frame_number) + ".csv";
     m_frame_number++;
-    utils::ChWriterCSV csv_writer(",");
+    ChWriterCSV csv_writer(",");
     for (int i = 0; i < m_buffer_in->Beam_return_count; i++) {
         csv_writer << m_buffer_in->Buffer[i].x << m_buffer_in->Buffer[i].y << m_buffer_in->Buffer[i].z
                    << m_buffer_in->Buffer[i].vel_x << m_buffer_in->Buffer[i].vel_y << m_buffer_in->Buffer[i].vel_z
@@ -76,8 +76,8 @@ CH_SENSOR_API void ChFilterRadarSavePC::Initialize(std::shared_ptr<ChSensor> pSe
     for (auto s : split_string) {
         if (s != "") {
             partial_path += s + "\\";
-            if (!filesystem::path(partial_path).exists()) {
-                if (!filesystem::create_directory(filesystem::path(partial_path))) {
+            if (!exists(std::filesystem::path(partial_path))) {
+                if (!CreateOutputDirectory(std::filesystem::path(partial_path))) {
                     std::cerr << "Could not create directory: " << partial_path << std::endl;
                 } else {
                     std::cout << "Created directory for sensor data: " << partial_path << std::endl;
@@ -98,8 +98,8 @@ CH_SENSOR_API void ChFilterRadarSavePC::Initialize(std::shared_ptr<ChSensor> pSe
     for (auto s : split_string) {
         if (s != "") {
             partial_path += s + "/";
-            if (!filesystem::path(partial_path).exists()) {
-                if (!filesystem::create_directory(filesystem::path(partial_path))) {
+            if (!exists(std::filesystem::path(partial_path))) {
+                if (!CreateOutputDirectory(std::filesystem::path(partial_path))) {
                     std::cerr << "Could not create directory: " << partial_path << std::endl;
                 } else {
                     std::cout << "Created directory for sensor data: " << partial_path << std::endl;

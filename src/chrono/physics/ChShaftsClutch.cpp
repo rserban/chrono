@@ -42,9 +42,9 @@ bool ChShaftsClutch::Initialize(std::shared_ptr<ChShaft> shaft_1, std::shared_pt
     return true;
 }
 
-void ChShaftsClutch::Update(double mytime, bool update_assets) {
+void ChShaftsClutch::Update(double time, UpdateFlags update_flags) {
     // Inherit time changes of parent class
-    ChShaftsCouple::Update(mytime, update_assets);
+    ChShaftsCouple::Update(time, update_flags);
 
     // update class data
     // ...
@@ -77,6 +77,7 @@ void ChShaftsClutch::IntLoadResidual_CqL(const unsigned int off_L,    // offset 
 void ChShaftsClutch::IntLoadConstraint_C(const unsigned int off_L,  // offset in Qc residual
                                          ChVectorDynamic<>& Qc,     // result: the Qc residual, Qc += c*C
                                          const double c,            // a scaling factor
+                                         const double c_vel,        // the scaling factor if the constraint is at speed level
                                          bool do_clamp,             // apply clamping to c*C?
                                          double recovery_clamp      // value for min/max clamping of c*C
 ) {

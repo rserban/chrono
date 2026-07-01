@@ -24,10 +24,10 @@ The following tutorial is based on **SolidEdge**, but it can be adapted to other
 
 # Prepare a STEP file
  
-The CASCADE module is able to directly parse sub-assemblies and sub-parts that have been saved into a single STEP file. However, it is better to prepare the assembly with certain guidelines, before saving it: noticeably, we will put some 'auxiliary' objects in the assembly (the markers) that we will use from the C++ programming side in order to retrieve useful coordinates for building the constraints between the parts. This process is explained in the folowing example.
+The CASCADE module is able to directly parse sub-assemblies and sub-parts that have been saved into a single STEP file. However, it is better to prepare the assembly with certain guidelines, before saving it: noticeably, we will put some 'auxiliary' objects in the assembly (the markers) that we will use from the C++ programming side in order to retrieve useful coordinates for building the constraints between the parts. This process is explained in the following example.
 
 <div class="ce-info">
-Creating a demo mechanism (a car, a robot, etc.) might take hours. To make things simplier, we load a ready-to-use model that can be downloaded from the website of a manufaturer of industrial robots, see [download page](http://www.abb.com/product/seitp327/5356453900282c5cc1256efc0028d55d.aspx?productLanguage=us&country=00&tabKey=7 ) from the [ABB](www.abb.com) website. We downloaded the 3D model for the IRB 7600 robot: by the way it is already in STEP format, so it could be loaded directly by the CASCADE unit, but we prefer to mofify it in SolidEdge and save it again.
+Creating a demo mechanism (a car, a robot, etc.) might take hours. To make things simpler, we load a ready-to-use model that can be downloaded from the website of a manufacturer of industrial robots, see [download page](http://www.abb.com/product/seitp327/5356453900282c5cc1256efc0028d55d.aspx?productLanguage=us&country=00&tabKey=7 ) from the [ABB](www.abb.com) website. We downloaded the 3D model for the IRB 7600 robot: by the way it is already in STEP format, so it could be loaded directly by the CASCADE unit, but we prefer to modify it in SolidEdge and save it again.
 </div>
 
 - Start SolidEdge (we use the v18 version in this example)
@@ -53,7 +53,7 @@ Creating a demo mechanism (a car, a robot, etc.) might take hours. To make thing
 	- menu File / Close and return, to go back to general assembly.
 	- Repeat the last steps to create the other subassemblies, named for example 'Bicep', 'Forearm', 'Wrist', etc. 
 
-- The created subassemblies are still empty. So we must move the imported parts into them. Drag and drop a part from parent assembly to a child asembly does not work in SolidEdge v.18, yet a simple way to do this is to 
+- The created subassemblies are still empty. So we must move the imported parts into them. Drag and drop a part from parent assembly to a child assembly does not work in SolidEdge v.18, yet a simple way to do this is to 
 	- select the part in the parent assembly, 
 	- press Ctrl+C to copy, 
 	- then select the sublevel in the Assembly PathFinder, 
@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
 
 	ChGlobals* GLOBAL_Vars = DLL_CreateGlobals();
 
-	// 1- Create a ChronoENGINE physical system: all bodies and constraints
+	// 1- Create a Chrono physical system: all bodies and constraints
 	//    will be handled by this ChSystem object.
 	ChSystem my_system;
 
@@ -396,7 +396,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_base_turret;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem8/marker#1" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_base_turret);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_base_turret);
 	else std::cout << "Warning. Desired marker not found in document \n";
 		// Transform the abs coordinates of the marker because everything was rotated/moved by 'root_frame' :
 	frame_marker_base_turret %= root_frame;
@@ -410,7 +410,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_turret_bicep;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem4/marker#2" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_turret_bicep);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_turret_bicep);
 	else std::cout << "Warning. Desired marker not found in document \n";
 	frame_marker_turret_bicep %= root_frame;
 
@@ -423,7 +423,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_bicep_elbow;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem1/marker#2" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_bicep_elbow);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_bicep_elbow);
 	else std::cout << "Warning. Desired marker not found in document \n";
 	frame_marker_bicep_elbow %= root_frame;
 
@@ -436,7 +436,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_elbow_forearm;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem5/marker#2" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_elbow_forearm);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_elbow_forearm);
 	else std::cout << "Warning. Desired marker not found in document \n";
 	frame_marker_elbow_forearm %= root_frame;
 	
@@ -449,7 +449,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_forearm_wrist;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem7/marker#2" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_forearm_wrist);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_forearm_wrist);
 	else std::cout << "Warning. Desired marker not found in document \n";
 	frame_marker_forearm_wrist %= root_frame;
 
@@ -462,7 +462,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_wrist_hand;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem6/marker#2" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_wrist_hand);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_wrist_hand);
 	else std::cout << "Warning. Desired marker not found in document \n";
 	frame_marker_wrist_hand %= root_frame;
 
@@ -475,7 +475,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_turret_cylinder;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem4/marker#3" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_turret_cylinder);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_turret_cylinder);
 	else std::cout << "Warning. Desired marker not found in document \n";
 	frame_marker_turret_cylinder %= root_frame;
 
@@ -488,7 +488,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_cylinder_rod;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem3/marker#2" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_cylinder_rod);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_cylinder_rod);
 	else std::cout << "Warning. Desired marker not found in document \n";
 	frame_marker_cylinder_rod %= root_frame;
 
@@ -501,7 +501,7 @@ Important! In the STEP file, some subassemblies have multiple instances of the m
 
 	ChFramed frame_marker_rod_bicep;
 	if (mydoc.GetNamedShape(shape_marker, "Assem10/Assem2/marker#2" ))
-		ChCascadeDoc::FromCascadeToChrono(shape_marker.Location(), frame_marker_rod_bicep);
+		ChCascadeDoc::ConvertFrameCascadeToChrono(shape_marker.Location(), frame_marker_rod_bicep);
 	else std::cout << "Warning. Desired marker not found in document \n";
 	frame_marker_rod_bicep %= root_frame;
 
@@ -548,7 +548,7 @@ Set motions for Z and Y coordinates of the 'my_link_teacher' marker, so that the
 	ChFunctionConst*	 motlaw_z4 = new ChFunctionConst();
 	ChFunctionSequence* motlaw_z_seq = new ChFunctionSequence();
 	motlaw_z_seq->InsertFunct(motlaw_z1, 1,  1, true); 
-	motlaw_z_seq->InsertFunct(motlaw_z2, 1,  1, true);  // true = force c0 continuity, traslating fx
+	motlaw_z_seq->InsertFunct(motlaw_z2, 1,  1, true);  // true = force c0 continuity, translating fx
 	motlaw_z_seq->InsertFunct(motlaw_z3, 1,  1, true);
 	motlaw_z_seq->InsertFunct(motlaw_z4, 1,  1, true);
 	ChFunctionRepeat* motlaw_z = new ChFunctionRepeat();
@@ -565,7 +565,7 @@ Set motions for Z and Y coordinates of the 'my_link_teacher' marker, so that the
 	motlaw_y4->SetDuration(1);
 	ChFunctionSequence* motlaw_y_seq = new ChFunctionSequence();
 	motlaw_y_seq->InsertFunct(motlaw_y1, 1,  1, true);
-	motlaw_y_seq->InsertFunct(motlaw_y2, 1,  1, true);  // true = force c0 continuity, traslating fx
+	motlaw_y_seq->InsertFunct(motlaw_y2, 1,  1, true);  // true = force c0 continuity, translating fx
 	motlaw_y_seq->InsertFunct(motlaw_y3, 1,  1, true);
 	motlaw_y_seq->InsertFunct(motlaw_y4, 1,  1, true);
 	ChFunctionRepeat* motlaw_y = new ChFunctionRepeat();
@@ -593,7 +593,7 @@ Set motions for Z and Y coordinates of the 'my_link_teacher' marker, so that the
 
 
 Modify the settings of the solver. 
-By default, the solver might not have sufficient precision to keep the robot joints 'mounted'. Expecially, the SOR, SSOR and other fixed point methods cannot simulate well this robot problem because the mass of the last body in the kinematic chain, i.e. the hand, is very low when compared to other bodies, so the convergence of the solver would be bad when 'pulling the hand' as in this 'teaching mode' IK. So switch to a more precise solver; this SOLVER_ITERATIVE_MINRES is fast and precise (although it is not fit for frictional collisions):
+By default, the solver might not have sufficient precision to keep the robot joints 'mounted'. Especially, the SOR, SSOR and other fixed point methods cannot simulate well this robot problem because the mass of the last body in the kinematic chain, i.e. the hand, is very low when compared to other bodies, so the convergence of the solver would be bad when 'pulling the hand' as in this 'teaching mode' IK. So switch to a more precise solver; this SOLVER_ITERATIVE_MINRES is fast and precise (although it is not fit for frictional collisions):
 
 ~~~{.cpp}
 	my_system.SetLcpSolverType(ChSystem::SOLVER_MINRES);

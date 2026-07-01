@@ -31,16 +31,17 @@ class ContactReporter (chrono.ReportContactCallback):
         self.m_box2 = box2
         super().__init__()
 
-    def OnReportContact(         self,
-                                 pA,
-                                 pB,
-                                 plane_coord,
-                                 distance,
-                                 eff_radius,
-                                 cforce,
-                                 ctorque,
-                                 modA,
-                                 modB):
+    def OnReportContact(self,
+                        pA,
+                        pB,
+                        plane_coord,
+                        distance,
+                        eff_radius,
+                        cforce,
+                        ctorque,
+                        modA,
+                        modB,
+                        cnstr_offset):
         frc = plane_coord * cforce;
         bodyA = chrono.CastToChBody(modA)
         bodyB = chrono.CastToChBody(modB)
@@ -156,7 +157,7 @@ vis.AttachSystem(sys)
 vis.SetWindowSize(1024,768)
 vis.SetWindowTitle('SMC callbacks')
 vis.Initialize()
-vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
+vis.AddLogo(chrono.GetChronoDataFile('logo_chrono_alpha.png'))
 vis.AddSkyBox()
 vis.AddCamera(chrono.ChVector3d(4, 4, -6))
 vis.AddTypicalLights()
@@ -173,9 +174,9 @@ sys.GetContactContainer().RegisterAddContactCallback(cmaterial)
 while vis.Run():
     vis.BeginScene() 
     vis.Render()
-    chronoirr.drawGrid(vis, 0.5, 0.5, 12, 12,
+    chronoirr.DrawGrid(vis, 0.5, 0.5, 12, 12,
                        chrono.ChCoordsysd(chrono.ChVector3d(0, 0, 0), chrono.QuatFromAngleX(chrono.CH_PI_2)))
-    chronoirr.drawAllCOGs(vis, 1.0)
+    chronoirr.DrawAllCOMs(vis, 1.0)
     vis.EndScene()
     sys.DoStepDynamics(1e-3)
     

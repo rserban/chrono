@@ -51,8 +51,8 @@ class ChApi ChRoundedBox : public ChVolume {
     /// Return the radius of a bounding sphere for this geometry.
     virtual double GetBoundingSphereRadius() const override;
 
-    /// Computes the baricenter of the box.
-    virtual ChVector3d Baricenter() const override { return ChVector3d(0); }
+    /// Computes the barycenter of the box.
+    virtual ChVector3d Barycenter() const override { return ChVector3d(0); }
 
     /// Evaluate position in rounded box volume.
     virtual ChVector3d Evaluate(double parU, double parV, double parW) const override;
@@ -79,16 +79,16 @@ class ChApi ChRoundedBox : public ChVolume {
     virtual void ArchiveIn(ChArchiveIn& archive_in) override;
 
     /// Return the volume of this type of solid with given dimensions.
-    static double GetVolume(const ChVector3d& lengths, double srad);
+    static double CalcVolume(const ChVector3d& lengths, double srad);
 
     /// Return the gyration matrix of this type of solid with given dimensions.
-    static ChMatrix33<> GetGyration(const ChVector3d& lengths, double srad);
+    static ChMatrix33<> CalcGyration(const ChVector3d& lengths, double srad);
 
     /// Return the bounding box of this type of solid with given dimensions.
-    static ChAABB GetBoundingBox(const ChVector3d& lengths, double srad);
+    static ChAABB CalcBoundingBox(const ChVector3d& lengths, double srad);
 
     /// Return the radius of a bounding sphere.
-    static double GetBoundingSphereRadius(const ChVector3d& lengths, double srad);
+    static double CalcBoundingSphereRadius(const ChVector3d& lengths, double srad);
 
     ChVector3d hlen;  ///< box halflengths
     double srad;      ///< radius of sweeping sphere

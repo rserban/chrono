@@ -42,11 +42,7 @@ namespace vehicle {
 // Construction of the base terrain node.
 // -----------------------------------------------------------------------------
 ChVehicleCosimTerrainNode::ChVehicleCosimTerrainNode(double length, double width)
-    : ChVehicleCosimBaseNode("TERRAIN"),
-      m_dimX(length / 2),
-      m_dimY(width / 2),
-      m_load_mass(50),
-      m_interface_type(InterfaceType::BODY) {}
+    : ChVehicleCosimBaseNode("TERRAIN"), m_dimX(length), m_dimY(width), m_load_mass(50), m_interface_type(InterfaceType::BODY) {}
 
 // -----------------------------------------------------------------------------
 
@@ -89,10 +85,34 @@ void ChVehicleCosimTerrainNode::Initialize() {
             cout << "[Terrain node] Send: terrain width = " << init_dim[2] << endl;
         }
 
-        // 2. Receive number of interacting object from MBS node
+        // Send path information to MBS node
+        unsigned int num_path_points = (unsigned int)m_path_points.size();
+        MPI_Send(&num_path_points, 1, MPI_INT, MBS_NODE_RANK, 0, MPI_COMM_WORLD);
+        if (num_path_points > 0) {
+            std::vector<double> all_points(3 * num_path_points);
+            unsigned int start_idx = 0;
+            for (unsigned int i = 0; i < num_path_points; i++) {
+                all_points[start_idx + 0] = m_path_points[i].x();
+                all_points[start_idx + 1] = m_path_points[i].y();
+                all_points[start_idx + 2] = m_path_points[i].z();
+                start_idx += 3;
+            }
+            MPI_Send(all_points.data(), 3 * num_path_points, MPI_DOUBLE, MBS_NODE_RANK, 0, MPI_COMM_WORLD);
+        }
+
+        // 2. Receive number of interacting objects from MBS node and then their initial locations
 
         MPI_Status status;
         MPI_Recv(&m_num_objects, 1, MPI_INT, MBS_NODE_RANK, 0, MPI_COMM_WORLD, &status);
+
+        std::vector<double> all_locations(3 * m_num_objects);
+        MPI_Recv(all_locations.data(), 3 * m_num_objects, MPI_DOUBLE, MBS_NODE_RANK, 0, MPI_COMM_WORLD, &status);
+        unsigned int start_idx = 0;
+        for (int i = 0; i < m_num_objects; i++) {
+            ChVector3d loc(all_locations[start_idx + 0], all_locations[start_idx + 1], all_locations[start_idx + 2]);
+            m_init_loc.push_back(loc);
+            start_idx += 3;
+        }
 
         // 3. Receive expected communication interface type
 
@@ -151,21 +171,23 @@ void ChVehicleCosimTerrainNode::InitializeTireData() {
 
     // Exchange data with each TIRE node
     for (int i = 0; i < m_num_objects; i++) {
+        m_geometry[i] = chrono_types::make_shared<utils::ChBodyGeometry>();
+
         // Receive tire geometry
-        RecvGeometry(m_geometry[i], TIRE_NODE_RANK(i));
+        RecvGeometry(*m_geometry[i], TIRE_NODE_RANK(i));
 
         // If using MESH interface, there must be one and exactly one mesh
-        if (m_interface_type == InterfaceType::MESH && m_geometry[i].m_coll_meshes.size() != 1) {
+        if (m_interface_type == InterfaceType::MESH && m_geometry[i]->coll_meshes.size() != 1) {
             cout << "ERROR: using MESH interface, but tire geometry does not include a mesh!" << endl;
             MPI_Abort(MPI_COMM_WORLD, 1);
         }
 
         // Set size of collision model for this tire
-        m_aabb[i] = m_geometry[0].CalculateAABB();
+        m_aabb[i] = m_geometry[0]->CalculateAABB();
 
         // Resize mesh state vectors (if used)
         if (m_interface_type == InterfaceType::MESH) {
-            unsigned int nv = m_geometry[i].m_coll_meshes[0].m_trimesh->GetNumVertices();
+            unsigned int nv = m_geometry[i]->coll_meshes[0].trimesh->GetNumVertices();
             m_mesh_state[i].vpos.resize(nv);
             m_mesh_state[i].vvel.resize(nv);
         }
@@ -190,20 +212,21 @@ void ChVehicleCosimTerrainNode::InitializeTrackData() {
         m_obj_map[i] = 0;
 
     // Receive track shoe geometry from the tracked MBS node
-    RecvGeometry(m_geometry[0], MBS_NODE_RANK);
+    m_geometry[0] = chrono_types::make_shared<utils::ChBodyGeometry>();
+    RecvGeometry(*m_geometry[0], MBS_NODE_RANK);
 
     // If using MESH interface, there must be one and exactly one mesh
-    if (m_interface_type == InterfaceType::MESH && m_geometry[0].m_coll_meshes.size() != 1) {
+    if (m_interface_type == InterfaceType::MESH && m_geometry[0]->coll_meshes.size() != 1) {
         cout << "ERROR: using MESH interface, but shoe geometry does not include a mesh!" << endl;
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
     // Set size of collision model for each track shoe
-    m_aabb[0] = m_geometry[0].CalculateAABB();
+    m_aabb[0] = m_geometry[0]->CalculateAABB();
 
     // Resize mesh state vectors (if used)
     if (m_interface_type == InterfaceType::MESH) {
-        unsigned int nv = m_geometry[0].m_coll_meshes[0].m_trimesh->GetNumVertices();
+        unsigned int nv = m_geometry[0]->coll_meshes[0].trimesh->GetNumVertices();
         m_mesh_state[0].vpos.resize(nv);
         m_mesh_state[0].vvel.resize(nv);
     }
@@ -238,6 +261,10 @@ void ChVehicleCosimTerrainNode::Synchronize(int step_number, double time) {
             break;
     }
 
+    // Receive vehicle location
+    MPI_Status status;
+    MPI_Recv(m_chassis_loc.data(), 3, MPI_DOUBLE, MBS_NODE_RANK, step_number, MPI_COMM_WORLD, &status);
+
     // Let derived classes perform optional operations
     OnSynchronize(step_number, time);
 }
@@ -271,9 +298,8 @@ void ChVehicleCosimTerrainNode::SynchronizeWheeledBody(int step_number, double t
 
         if (m_rank == TERRAIN_NODE_RANK) {
             // Send wheel contact force
-            double force_data[] = {m_rigid_contact[i].force.x(),  m_rigid_contact[i].force.y(),
-                                   m_rigid_contact[i].force.z(),  m_rigid_contact[i].moment.x(),
-                                   m_rigid_contact[i].moment.y(), m_rigid_contact[i].moment.z()};
+            double force_data[] = {m_rigid_contact[i].force.x(),  m_rigid_contact[i].force.y(),  m_rigid_contact[i].force.z(),
+                                   m_rigid_contact[i].moment.x(), m_rigid_contact[i].moment.y(), m_rigid_contact[i].moment.z()};
             MPI_Send(force_data, 6, MPI_DOUBLE, TIRE_NODE_RANK(i), step_number, MPI_COMM_WORLD);
 
             if (m_verbose)
@@ -294,20 +320,15 @@ void ChVehicleCosimTerrainNode::SynchronizeTrackedBody(int step_number, double t
     // Receive rigid body data for all track shoes
     if (m_rank == TERRAIN_NODE_RANK) {
         MPI_Status status;
-        MPI_Recv(all_states.data(), 13 * m_num_objects, MPI_DOUBLE, MBS_NODE_RANK, step_number, MPI_COMM_WORLD,
-                 &status);
+        MPI_Recv(all_states.data(), 13 * m_num_objects, MPI_DOUBLE, MBS_NODE_RANK, step_number, MPI_COMM_WORLD, &status);
 
         // Unpack rigid body data
         start_idx = 0;
         for (int i = 0; i < m_num_objects; i++) {
-            m_rigid_state[i].pos =
-                ChVector3d(all_states[start_idx + 0], all_states[start_idx + 1], all_states[start_idx + 2]);
-            m_rigid_state[i].rot = ChQuaternion<>(all_states[start_idx + 3], all_states[start_idx + 4],
-                                                  all_states[start_idx + 5], all_states[start_idx + 6]);
-            m_rigid_state[i].lin_vel =
-                ChVector3d(all_states[start_idx + 7], all_states[start_idx + 8], all_states[start_idx + 9]);
-            m_rigid_state[i].ang_vel =
-                ChVector3d(all_states[start_idx + 10], all_states[start_idx + 11], all_states[start_idx + 12]);
+            m_rigid_state[i].pos = ChVector3d(all_states[start_idx + 0], all_states[start_idx + 1], all_states[start_idx + 2]);
+            m_rigid_state[i].rot = ChQuaternion<>(all_states[start_idx + 3], all_states[start_idx + 4], all_states[start_idx + 5], all_states[start_idx + 6]);
+            m_rigid_state[i].lin_vel = ChVector3d(all_states[start_idx + 7], all_states[start_idx + 8], all_states[start_idx + 9]);
+            m_rigid_state[i].ang_vel = ChVector3d(all_states[start_idx + 10], all_states[start_idx + 11], all_states[start_idx + 12]);
             start_idx += 13;
         }
     }
@@ -347,7 +368,7 @@ void ChVehicleCosimTerrainNode::SynchronizeTrackedBody(int step_number, double t
 void ChVehicleCosimTerrainNode::SynchronizeWheeledMesh(int step_number, double time) {
     for (int i = 0; i < m_num_objects; i++) {
         if (m_rank == TERRAIN_NODE_RANK) {
-            auto nv = m_geometry[i].m_coll_meshes[0].m_trimesh->GetNumVertices();
+            auto nv = m_geometry[i]->coll_meshes[0].trimesh->GetNumVertices();
 
             // Receive mesh state data
             MPI_Status status;
@@ -356,11 +377,9 @@ void ChVehicleCosimTerrainNode::SynchronizeWheeledMesh(int step_number, double t
 
             for (unsigned int iv = 0; iv < nv; iv++) {
                 unsigned int offset = 3 * iv;
-                m_mesh_state[i].vpos[iv] =
-                    ChVector3d(vert_data[offset + 0], vert_data[offset + 1], vert_data[offset + 2]);
+                m_mesh_state[i].vpos[iv] = ChVector3d(vert_data[offset + 0], vert_data[offset + 1], vert_data[offset + 2]);
                 offset += 3 * nv;
-                m_mesh_state[i].vvel[iv] =
-                    ChVector3d(vert_data[offset + 0], vert_data[offset + 1], vert_data[offset + 2]);
+                m_mesh_state[i].vvel[iv] = ChVector3d(vert_data[offset + 0], vert_data[offset + 1], vert_data[offset + 2]);
             }
 
             ////if (m_verbose)
@@ -384,8 +403,7 @@ void ChVehicleCosimTerrainNode::SynchronizeWheeledMesh(int step_number, double t
 
         if (m_rank == TERRAIN_NODE_RANK) {
             // Send vertex indices and forces.
-            MPI_Send(m_mesh_contact[i].vidx.data(), m_mesh_contact[i].nv, MPI_INT, TIRE_NODE_RANK(i), step_number,
-                     MPI_COMM_WORLD);
+            MPI_Send(m_mesh_contact[i].vidx.data(), m_mesh_contact[i].nv, MPI_INT, TIRE_NODE_RANK(i), step_number, MPI_COMM_WORLD);
 
             double* force_data = new double[3 * m_mesh_contact[i].nv];
             for (int iv = 0; iv < m_mesh_contact[i].nv; iv++) {
@@ -397,8 +415,7 @@ void ChVehicleCosimTerrainNode::SynchronizeWheeledMesh(int step_number, double t
             delete[] force_data;
 
             if (m_verbose)
-                cout << "[Terrain node] step number: " << step_number << "  num contacts: " << GetNumContacts()
-                     << "  vertices in contact: " << m_mesh_contact[i].nv << endl;
+                cout << "[Terrain node] step number: " << step_number << "  num contacts: " << GetNumContacts() << "  vertices in contact: " << m_mesh_contact[i].nv << endl;
         }
     }
 }
@@ -436,8 +453,7 @@ void ChVehicleCosimTerrainNode::OutputData(int frame) {
 // Print mesh vertex data, as received at synchronization.
 void ChVehicleCosimTerrainNode::PrintMeshUpdateData(int i) {
     cout << "[Terrain node] mesh vertices and faces" << endl;
-    std::for_each(m_mesh_state[i].vpos.begin(), m_mesh_state[i].vpos.end(),
-                  [](const ChVector3d& a) { cout << a.x() << "  " << a.y() << "  " << a.z() << endl; });
+    std::for_each(m_mesh_state[i].vpos.begin(), m_mesh_state[i].vpos.end(), [](const ChVector3d& a) { cout << a.x() << "  " << a.y() << "  " << a.z() << endl; });
 }
 
 }  // end namespace vehicle

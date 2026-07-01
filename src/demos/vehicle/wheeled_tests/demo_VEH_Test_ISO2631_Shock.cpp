@@ -25,8 +25,8 @@
 #include "chrono/utils/ChFilters.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
@@ -38,15 +38,7 @@
 
 #include "chrono/assets/ChVisualSystem.h"
 #include "chrono_vehicle/ChVehicleVisualSystem.h"
-
-#ifdef CHRONO_IRRLICHT
-    #include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
-    #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
-using namespace chrono::irrlicht;
-#endif
-
 #ifdef CHRONO_VSG
-    #include "chrono_vehicle/driver/ChInteractiveDriverVSG.h"
     #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
 using namespace chrono::vsg3d;
 #endif
@@ -61,9 +53,6 @@ using namespace chrono::utils;
 using namespace chrono::vehicle;
 
 // =============================================================================
-
-// Run-time visualization system (IRRLICHT, VSG, or NONE)
-ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
 // JSON file for vehicle model
 std::string vehicle_file("hmmwv/vehicle/HMMWV_Vehicle.json");
@@ -141,7 +130,7 @@ int main(int argc, char* argv[]) {
     // --------------------------
 
     // Create the vehicle system
-    WheeledVehicle vehicle(vehicle::GetDataFile(vehicle_file), ChContactMethod::NSC);
+    WheeledVehicle vehicle(GetVehicleDataFile(vehicle_file), ChContactMethod::NSC);
     vehicle.Initialize(ChCoordsys<>(initLoc, QUNIT));
     ////vehicle.GetChassis()->SetFixed(true);
     vehicle.SetChassisVisualizationType(VisualizationType::PRIMITIVES);
@@ -155,12 +144,12 @@ int main(int argc, char* argv[]) {
     vehicle.GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // Create the ground
-    RigidTerrain terrain(vehicle.GetSystem(), vehicle::GetDataFile(rigidterrain_file));
+    RigidTerrain terrain(vehicle.GetSystem(), GetVehicleDataFile(rigidterrain_file));
     terrain.Initialize();
 
     // Create and initialize the powertrain system
-    auto engine = ReadEngineJSON(vehicle::GetDataFile(engine_file));
-    auto transmission = ReadTransmissionJSON(vehicle::GetDataFile(transmission_file));
+    auto engine = ReadEngineJSON(GetVehicleDataFile(engine_file));
+    auto transmission = ReadTransmissionJSON(GetVehicleDataFile(transmission_file));
     auto powertrain = chrono_types::make_shared<ChPowertrainAssembly>(engine, transmission);
     vehicle.InitializePowertrain(powertrain);
 
@@ -171,15 +160,15 @@ int main(int argc, char* argv[]) {
         switch (iTire) {
             default:
             case 1: {
-                auto tireL = chrono_types::make_shared<TMeasyTire>(vehicle::GetDataFile(tmeasy_tire_file));
-                auto tireR = chrono_types::make_shared<TMeasyTire>(vehicle::GetDataFile(tmeasy_tire_file));
+                auto tireL = chrono_types::make_shared<TMeasyTire>(GetVehicleDataFile(tmeasy_tire_file));
+                auto tireR = chrono_types::make_shared<TMeasyTire>(GetVehicleDataFile(tmeasy_tire_file));
                 vehicle.InitializeTire(tireL, axle->m_wheels[0], VisualizationType::MESH, collision_type);
                 vehicle.InitializeTire(tireR, axle->m_wheels[1], VisualizationType::MESH, collision_type);
                 break;
             }
             case 2: {
-                auto tireL = chrono_types::make_shared<FialaTire>(vehicle::GetDataFile(fiala_tire_file));
-                auto tireR = chrono_types::make_shared<FialaTire>(vehicle::GetDataFile(fiala_tire_file));
+                auto tireL = chrono_types::make_shared<FialaTire>(GetVehicleDataFile(fiala_tire_file));
+                auto tireR = chrono_types::make_shared<FialaTire>(GetVehicleDataFile(fiala_tire_file));
                 vehicle.InitializeTire(tireL, axle->m_wheels[0], VisualizationType::MESH, collision_type);
                 vehicle.InitializeTire(tireR, axle->m_wheels[1], VisualizationType::MESH, collision_type);
                 break;
@@ -197,20 +186,12 @@ int main(int argc, char* argv[]) {
     ChISO2631_Shock_SeatCushionLogger seat_logger(step_size);
 
     // Create the driver
-    auto path = ChBezierCurve::Read(vehicle::GetDataFile(path_file));
-    ChPathFollowerDriver driver(vehicle, vehicle::GetDataFile(steering_controller_file),
-                                vehicle::GetDataFile(speed_controller_file), path, "my_path", target_speed);
+    auto path = ChBezierCurve::Read(GetVehicleDataFile(path_file));
+    ChPathFollowerDriver driver(vehicle, GetVehicleDataFile(steering_controller_file),
+                                GetVehicleDataFile(speed_controller_file), path, "my_path", target_speed);
     driver.Initialize();
 
     // Create the vehicle run-time visualization
-#ifndef CHRONO_IRRLICHT
-    if (vis_type == ChVisualSystem::Type::IRRLICHT)
-        vis_type = ChVisualSystem::Type::VSG;
-#endif
-#ifndef CHRONO_VSG
-    if (vis_type == ChVisualSystem::Type::VSG)
-        vis_type = ChVisualSystem::Type::IRRLICHT;
-#endif
 
     std::string title = "Vehicle Shock Test Demo ";
 
@@ -231,46 +212,23 @@ int main(int argc, char* argv[]) {
     }
 
     std::shared_ptr<ChVehicleVisualSystem> vis;
-    switch (vis_type) {
-        case ChVisualSystem::Type::IRRLICHT: {
-#ifdef CHRONO_IRRLICHT
-            // Create the vehicle Irrlicht interface
-            auto vis_irr = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
-            vis_irr->SetWindowTitle(title);
-            vis_irr->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
-            vis_irr->Initialize();
-            vis_irr->AddLightDirectional();
-            vis_irr->AddSkyBox();
-            vis_irr->AddLogo();
-            vis_irr->AttachVehicle(&vehicle);
-
-            vis = vis_irr;
-#endif
-            break;
-        }
-        case ChVisualSystem::Type::VSG: {
 #ifdef CHRONO_VSG
-            // Create the vehicle VSG interface
-            auto vis_vsg = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
-            vis_vsg->SetWindowTitle(title);
-            vis_vsg->AttachVehicle(&vehicle);
-            vis_vsg->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
-            vis_vsg->SetWindowSize(ChVector2i(1200, 900));
-            vis_vsg->SetWindowPosition(ChVector2i(100, 300));
-            vis_vsg->SetUseSkyBox(true);
-            vis_vsg->SetCameraAngleDeg(40);
-            vis_vsg->SetLightIntensity(1.0f);
-            vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
-            vis_vsg->SetShadows(true);
-            vis_vsg->Initialize();
+    // Create the vehicle VSG interface
+    auto vis_vsg = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
+    vis_vsg->SetWindowTitle(title);
+    vis_vsg->AttachVehicle(&vehicle);
+    vis_vsg->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
+    vis_vsg->SetWindowSize(1280, 800);
+    vis_vsg->SetWindowPosition(100, 100);
+    vis_vsg->EnableSkyTexture(SkyMode::DOME);
+    vis_vsg->SetCameraAngleDeg(40);
+    vis_vsg->SetLightIntensity(1.0f);
+    vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis_vsg->EnableShadows();
+    vis_vsg->Initialize();
 
-            vis = vis_vsg;
+    vis = vis_vsg;
 #endif
-            break;
-        }
-        default:
-            break;
-    }
 
     // ---------------
     // Simulation loop
@@ -280,7 +238,7 @@ int main(int argc, char* argv[]) {
     double xstart = 100.0;  // start logging when the vehicle crosses this x position
     double xend = 160.0;    // end logging here, this also the end of our world
 
-    if (!vis || vis_type == ChVisualSystem::Type::NONE) {
+    if (!vis) {
         double v_pos;
         while ((v_pos = vehicle.GetSpindlePos(0, LEFT).x()) < xend) {
             // Driver inputs

@@ -200,8 +200,8 @@ class ChApi ChElasticityReissnerOrthotropic : public ChElasticityReissner {
         const double angle        ///< layer angle respect to x (if needed) -not used in this, isotropic
     );
 
-    /// /// Compute the 12x12 stiffness matrix [Km] , that is [ds/de], the tangent of the constitutive relation
-    /// stresses/strains.
+    // Compute the 12x12 stiffness matrix [Km] , that is [ds/de], the tangent of the constitutive relation
+    // stresses/strains.
     virtual void ComputeStiffnessMatrix(
         ChMatrixRef mC,           ///< tangent matrix
         const ChVector3d& eps_u,  ///< strains along \e u direction
@@ -439,7 +439,7 @@ class ChApi ChDampingReissnerRayleigh : public ChDampingReissner {
     /// Construct the Rayleigh damping model from the stiffness model used by the shell layer.
     /// This is important because the Rayleigh damping is proportional to the stiffness,
     /// so the model must know which is the stiffness matrix of the material.
-    /// Note: melasticity must be alreay set with proper values: its [E] stiffness matrix will be
+    /// Note: melasticity must be already set with proper values: its [E] stiffness matrix will be
     /// fetched just once for all.
     ChDampingReissnerRayleigh(std::shared_ptr<ChElasticityReissner> melasticity, const double& mbeta = 0);
 

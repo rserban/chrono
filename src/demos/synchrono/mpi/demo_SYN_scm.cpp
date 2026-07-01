@@ -25,7 +25,7 @@
 #include "chrono/core/ChRealtimeStep.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/terrain/SCMTerrain.h"
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
 
@@ -36,7 +36,7 @@
 #include "chrono_synchrono/agent/SynWheeledVehicleAgent.h"
 #include "chrono_synchrono/agent/SynSCMTerrainAgent.h"
 #include "chrono_synchrono/communication/mpi/SynMPICommunicator.h"
-#include "chrono_synchrono/utils/SynDataLoader.h"
+#include "chrono_synchrono/utils/SynDataPath.h"
 #include "chrono_synchrono/utils/SynLog.h"
 
 #ifdef CHRONO_IRRLICHT
@@ -44,11 +44,14 @@
 #endif
 
 #ifdef CHRONO_SENSOR
+    #include "chrono_sensor/ChConfigSensor.h"
     #include "chrono_sensor/ChSensorManager.h"
-    #include "chrono_sensor/sensors/ChCameraSensor.h"
     #include "chrono_sensor/filters/ChFilterAccess.h"
-    #include "chrono_sensor/filters/ChFilterSave.h"
-    #include "chrono_sensor/filters/ChFilterVisualize.h"
+    #ifdef CHRONO_HAS_OPTIX
+        #include "chrono_sensor/sensors/ChCameraSensor.h"
+        #include "chrono_sensor/filters/ChFilterSave.h"
+        #include "chrono_sensor/filters/ChFilterVisualize.h"
+    #endif
 using namespace chrono::sensor;
 #endif
 
@@ -178,14 +181,13 @@ int main(int argc, char* argv[]) {
     terrain->SetPlotType(SCMTerrain::PLOT_SINKAGE, 0, 0.1);
     terrain->SetMeshWireframe(true);
 
-    // The physics do not change when you add a moving patch, you just make it much easier for the SCM
-    // implementation to do its job by restricting where it has to look for contacts
-    terrain->AddMovingPatch(hmmwv.GetVehicle().GetChassisBody(), ChVector3d(0, 0, 0), ChVector3d(5, 3, 1));
+    // Enable an active domain associated with the entire vehicle
+    terrain->AddActiveDomain(hmmwv.GetVehicle().GetChassisBody(), ChVector3d(0, 0, 0), ChVector3d(5, 3, 1));
 
     if (flat_patch) {
         terrain->Initialize(size_x, size_y, 1 / dpu);
     } else {
-        terrain->Initialize(vehicle::GetDataFile("terrain/height_maps/slope.bmp"), size_x, size_y, 0.0, 5.0, 1 / dpu);
+        terrain->Initialize(GetVehicleDataFile("terrain/height_maps/slope.bmp"), size_x, size_y, 0.0, 5.0, 1 / dpu);
     }
 
     // Create an SCMTerrainAgent and add it to the SynChrono manager
@@ -238,7 +240,7 @@ int main(int argc, char* argv[]) {
     int render_steps = (int)std::ceil(render_step_size / step_size);
 #endif
 
-#ifdef CHRONO_SENSOR
+#if defined(CHRONO_SENSOR) && defined(CHRONO_HAS_OPTIX)
     ChSensorManager sensor_manager(hmmwv.GetSystem());
     if (cli.HasValueInVector<int>("sens", node_id)) {
         sensor_manager.scene->AddPointLight({100, 100, 100}, {1, 1, 1}, 6000);
@@ -272,7 +274,7 @@ int main(int argc, char* argv[]) {
             chrono::ChFrame<double>(camera_loc, rotation),  // offset pose
             cam_res_width,                                  // image width
             cam_res_height,                                 // image height
-            (float)CH_PI / 3                                // FOV
+            (float)CH_PI_3                                // FOV
         );
 
         overhead_camera->SetName("Overhead Cam");
@@ -344,7 +346,7 @@ int main(int argc, char* argv[]) {
             app->Advance(step_size);
 #endif
 
-#ifdef CHRONO_SENSOR
+#if defined(CHRONO_SENSOR) && defined(CHRONO_HAS_OPTIX)
         sensor_manager.Update();
 #endif
 

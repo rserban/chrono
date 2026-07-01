@@ -86,6 +86,14 @@ class CH_VEHICLE_API ChDriver {
     /// Overwrite the value for the clutch braking input (input is clamped in [0,+1]).
     void SetClutch(double clutch);
 
+    /// Checkpoint the state of this driver to the given checkpoint file.
+    /// The default implementation saves the driver inputs.
+    virtual void WriteCheckpoint(ChCheckpoint::Format format, const std::string& filename) const;
+
+    /// Initialize this driver from the given checkpoint file. 
+    /// The default implementation reads the driver inputs
+    virtual void ReadCheckpoint(ChCheckpoint::Format format, const std::string& filename);
+
   protected:
     ChVehicle& m_vehicle;  ///< reference to associated vehicle
     double m_throttle;     ///< current value of throttle input

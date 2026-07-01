@@ -12,6 +12,8 @@
 // Authors: Alessandro Tasora
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono_modal/ChKrylovSchurEig.h"
 #include "chrono/solver/ChDirectSolverLS.h"
 #include "chrono/solver/ChDirectSolverLScomplex.h"
@@ -23,10 +25,6 @@
 #include <numeric>
 
 using namespace Eigen;
-
-using Matrix = Eigen::MatrixXd;
-using Vector = Eigen::VectorXd;
-using SpMatrix = Eigen::SparseMatrix<double>;
 
 namespace chrono {
 
@@ -77,31 +75,20 @@ callback_Ax_sparse_complexshiftinvert::callback_Ax_sparse_complexshiftinvert(
     const chrono::ChSparseMatrix& As,
     const chrono::ChSparseMatrix& Bs,
     std::complex<double> shift,
-    ChDirectSolverLScomplex* mlinear_solver  // optional direct solver/factorization. Default is ChSolverSparseComplexQR
+    std::shared_ptr<ChDirectSolverLScomplex>
+        linear_solver  // optional direct solver/factorization. Default is ChSolverSparseComplexQR
     )
-    : Bd(Bs.cast<std::complex<double>>()), sigma(shift), linear_solver(mlinear_solver) {
-    if (!linear_solver) {
-        linear_solver = new ChSolverSparseComplexQR();
-        default_solver = true;
-    } else {
-        default_solver = false;
-    }
-
-    linear_solver->A() = (As.cast<std::complex<double>>() - (shift * Bs.cast<std::complex<double>>()));
+    : Bd(Bs.cast<std::complex<double>>()), m_sigma(shift), m_linear_solver(linear_solver) {
+    linear_solver->A() = (As.cast<std::complex<double>>() - (m_sigma * Bs.cast<std::complex<double>>()));
     linear_solver->Setup();  // factorize
-}
-
-callback_Ax_sparse_complexshiftinvert::~callback_Ax_sparse_complexshiftinvert() {
-    if (default_solver)
-        delete linear_solver;
 }
 
 void callback_Ax_sparse_complexshiftinvert::compute(
     chrono::ChVectorDynamic<std::complex<double>>& A_x,     // output: result of A*x
     const chrono::ChVectorDynamic<std::complex<double>>& x  // input:  x in A*x
 ) {
-    linear_solver->Solve(Bd * x);
-    A_x = linear_solver->x();
+    m_linear_solver->Solve(Bd * x);
+    A_x = m_linear_solver->x();
 };
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -151,11 +138,11 @@ void ordschur(ChMatrixDynamic<std::complex<double>>& U,
 // test the convergence of the ith eigenvalue in Krylov-Schur iteration
 int testConverge(ChMatrixDynamic<std::complex<double>>& H, int k, int i, double tol) {
     /*
-    % H is the hessenberg matrix after truncation
+    % H is the Hessenberg matrix after truncation
     % The test rule is
     %    | b_i | < max( ||H(1:k, 1:k)||_F * epsilon, tol * | \lambda_i | )
-    % Return:
-    % flag - 1 : not converge
+    % Return flag:
+    % -1 : not converge
     % 1 : real eigenvalue converges
     % 2 : complex eigenvalue pair converges
     %
@@ -168,7 +155,7 @@ int testConverge(ChMatrixDynamic<std::complex<double>>& H, int k, int i, double 
 
     double epsilon = 2e-16;
     if (i < k) {
-        delta = pow(H(i - 1, i - 1).real() - H(i, i).real(), 2) +
+        delta = std::pow(H(i - 1, i - 1).real() - H(i, i).real(), 2) +
                 4 * H(i - 1, i - 1).imag() * H(i, i).imag();  // (H(i, i) - H(i+1, i+1))^2 + 4 * H(i+1, i) * H(i, i+ 1);
     } else {
         delta = 1;
@@ -181,7 +168,7 @@ int testConverge(ChMatrixDynamic<std::complex<double>>& H, int k, int i, double 
             flag = -1;
         }
     } else {  // complex case
-        std::complex<double> lambda(H(i - 1, i - 1).real() + H(i, i).real(), sqrt(-delta));
+        std::complex<double> lambda(H(i - 1, i - 1).real() + H(i, i).real(), std::sqrt(-delta));
         lambda *= 0.5;
         if (std::abs(H(k, i - 1)) < std::max(H.norm() * epsilon, std::abs(lambda) * tol)) {
             flag = 2;
@@ -198,14 +185,16 @@ void truncateKrylov(ChMatrixDynamic<std::complex<double>>& Q,
                     const int m) {
     auto Qo = Q;
     auto Ho = H;
+    // Q = [Q(:, 1 : k),   Q(:, m + 1)];
     Q.setZero(Qo.rows(), k + 1);
-    Q << Qo(Eigen::all, seq(0, k - 1)), Qo(Eigen::all, m);  // Q = [Q(:, 1 : k),   Q(:, m + 1)];
+    Q << Qo(Eigen::placeholders::all, seq(0, k - 1)), Qo(Eigen::placeholders::all, m);
 
+    // H = [H(1:k, 1:k); H(m + 1, 1:k)];
     H.setZero(k + 1, k);
-    H << Ho(seq(0, k - 1), seq(0, k - 1)), Ho(m, seq(0, k - 1));  // H = [H(1:k, 1:k); H(m + 1, 1:k)];
+    H << Ho(seq(0, k - 1), seq(0, k - 1)), Ho(m, seq(0, k - 1));
 }
 
-// Perform Schur decompostion on A and put the needed k eigenvalues
+// Perform Schur decomposition on A and put the needed k eigenvalues
 // on the upper left block.
 void sortSchur(ChMatrixDynamic<std::complex<double>>& US,
                ChMatrixDynamic<std::complex<double>>& TS,
@@ -239,11 +228,11 @@ void sortSchur(ChMatrixDynamic<std::complex<double>>& US,
     int k2 = ix[k + 1];
     // here must use k2 not k1+1 because k1+1 maybe out of bounds
     // Also, there is a degeneracy problem.
-    // Alex: since  we did a Eigen::ComplexSchur(), then all eigens are on the diagonal as complexes, not 2x2 diag
+    // Alex: since we did a Eigen::ComplexSchur(), then all eigens are on the diagonal as complexes, not 2x2 diag
     // blocks, so do instead:
-    double delta = pow(T(k1, k1).real() - T(k2, k2).real(), 2) + 4 * T(k1, k1).imag() * T(k2, k2).imag();
+    double delta = std::pow(T(k1, k1).real() - T(k2, k2).real(), 2) + 4 * T(k1, k1).imag() * T(k2, k2).imag();
     if ((k2 - k1 == 1) && (delta < 0)) {
-        isC = 1;  // DARIO: using ComplexSchur I assume we should never hit this branch
+        isC = 1;  // DARIOM: using ComplexSchur I assume we should never hit this branch
     } else {
         isC = 0;
     }
@@ -342,8 +331,9 @@ void KrylovSchur(
         sortSchur(U, T, isC, H(seq(p - 1, m - 1), seq(p - 1, m - 1)), k - p + 1);  // matlab: H.block(p:m, p:m)
         H(seq(p - 1, m - 1), seq(p - 1, m - 1)) = T;                               // H(p:m, p:m) = T;
         H(seq(0, p - 1 - 1), seq(p - 1, m - 1)) =
-            H(seq(0, p - 1 - 1), seq(p - 1, m - 1)) * U;                          // H(1:p-1, p:m) = H(1:p-1, p:m) * U;
-        Q(Eigen::all, seq(p - 1, m - 1)) = Q(Eigen::all, seq(p - 1, m - 1)) * U;  // Q(:, p:m) = Q(:, p:m) * U;
+            H(seq(0, p - 1 - 1), seq(p - 1, m - 1)) * U;  // H(1:p-1, p:m) = H(1:p-1, p:m) * U;
+        Q(Eigen::placeholders::all, seq(p - 1, m - 1)) =
+            Q(Eigen::placeholders::all, seq(p - 1, m - 1)) * U;       // Q(:, p:m) = Q(:, p:m) * U;
         H.row(m)(seq(p - 1, m - 1)) = H(m, m - 1) * U.bottomRows(1);  // H(m+1, p:m) = H(m+1, m) * U(end, :);
         // disp('err'); disp(Ax(Q(:, 1:m)) - Q(:, 1:m+1) * H(1:m+1, 1:m));
         // disp('Q'); disp(Q); disp('H'); disp(H);
@@ -367,7 +357,7 @@ void KrylovSchur(
         }
     }
 
-    // return the convergence infomation
+    // return the convergence information
     ni = i;
     if (p > k) {
         flag = 0;  // converges
@@ -398,7 +388,7 @@ ChKrylovSchurEig::ChKrylovSchurEig(
     const double tol                            // tolerance
 ) {
     ChMatrixDynamic<std::complex<double>> Q;  // orthonormal matrix with dimension [n x k+1] or [n x k+2]
-    ChMatrixDynamic<std::complex<double>> H;  // `Hessenberg' matrix with dimension [k+1 x k] or [k+2 x k+1]
+    ChMatrixDynamic<std::complex<double>> H;  // Hessenberg matrix with dimension [k+1 x k] or [k+2 x k+1]
     KrylovSchur(Q, H, isC, flag, nc, ni, Ax_function, v1, n, k, m, maxIt, tol);
     Eigen::ComplexEigenSolver<ChMatrixDynamic<std::complex<double>>> es(H.topLeftCorner(k + isC, k + isC), true);
     eig = es.eigenvalues();

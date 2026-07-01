@@ -17,6 +17,7 @@
 
 #include "chrono/assets/ChColor.h"
 #include "chrono/core/ChClassFactory.h"
+#include "chrono/utils/ChUtils.h"
 
 namespace chrono {
 
@@ -108,37 +109,20 @@ ChColor ChColor::HSV2RGB(const ChVector3f& hsv) {
     return c;
 }
 
-ChColor ChColor::ComputeFalseColor(double v, double vmin, double vmax, bool out_of_range_as_bw) {
-    ChColor c = {1.0, 1.0, 1.0};  // default white
-    double dv;
+ChColor ChColor::Interp(const ChColor& c1, const ChColor& c2, double f) {
+    ChClamp(f, 0.0, 1.0);
+    ChColor c;
+    c.R = (1 - f) * c1.R + f * c2.R;
+    c.G = (1 - f) * c1.G + f * c2.G;
+    c.B = (1 - f) * c1.B + f * c2.B;
+    return c;
+}
 
-    if (out_of_range_as_bw) {
-        if (v < vmin)
-            return ChColor(0, 0, 0);
-        if (v > vmax)
-            return ChColor(1, 1, 1);
-    }
-
-    if (v < vmin)
-        v = vmin;
-    if (v > vmax)
-        v = vmax;
-    dv = vmax - vmin;
-
-    if (v < (vmin + 0.25 * dv)) {
-        c.R = 0;
-        c.G = (float)(4 * (v - vmin) / dv);
-    } else if (v < (vmin + 0.5 * dv)) {
-        c.R = 0;
-        c.B = (float)(1 + 4 * (vmin + 0.25 * dv - v) / dv);
-    } else if (v < (vmin + 0.75 * dv)) {
-        c.R = (float)(4 * (v - vmin - 0.5 * dv) / dv);
-        c.B = 0;
-    } else {
-        c.G = (float)(1 + 4 * (vmin + 0.75 * dv - v) / dv);
-        c.B = 0;
-    }
-
+ChColor ChColor::Mix(const ChColor& c1, const ChColor& c2) {
+    ChColor c;
+    c.R = std::sqrt((c1.R * c1.R + c2.R * c2.R) / 2);
+    c.G = std::sqrt((c1.G * c1.G + c2.G * c2.G) / 2);
+    c.B = std::sqrt((c1.B * c1.B + c2.B * c2.B) / 2);
     return c;
 }
 

@@ -25,16 +25,19 @@
 #include "chrono/fea/ChElementBeamEuler.h"
 #include "chrono/fea/ChBuilderBeam.h"
 #include "chrono/fea/ChMesh.h"
+#include "chrono/physics/ChLoadsBody.h"
+#include "chrono/physics/ChLoadsNodeXYZ.h"
+#include "chrono/physics/ChLoadContainer.h"
 
 #include "chrono_modal/ChModalAssembly.h"
+#include "chrono_modal/ChModalSolverUndamped.h"
+#include "chrono_modal/ChUnsymGenEigenvalueSolver.h"
 #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
 #include "chrono/solver/ChDirectSolverLS.h"
 #ifdef CHRONO_PARDISO_MKL
     #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 #endif
-
-#include "chrono_thirdparty/filesystem/path.h"
 
 using namespace chrono;
 using namespace chrono::modal;
@@ -47,10 +50,10 @@ const std::string out_dir = GetChronoOutputPath() + "MODAL_REDUCTION";
 int ID_current_example = 1;
 bool modal_analysis = true;
 
-double beam_Young = 100.e6;
+double beam_Young = 1200.e6;
 double beam_density = 1000;
 double beam_wz = 0.3;
-double beam_wy = 0.05;
+double beam_wy = 0.1;
 double beam_L = 6;
 int n_elements = 8;
 
@@ -58,32 +61,44 @@ int n_elements = 8;
 double damping_alpha = 0.0001;
 double damping_beta = 0.01;
 
-double step_size = 0.05;
+double step_size = 0.01;
 
 unsigned int num_modes = 12;
 bool USE_STATIC_CORRECTION = false;
 bool UPDATE_INTERNAL_NODES = true;
 bool USE_LINEAR_INERTIAL_TERM = true;
-bool USE_GRAVITY = false;
+bool USE_GRAVITY = true;
 
 // static stuff for GUI:
-bool SWITCH_EXAMPLE = false;
+bool UPDATE_EXAMPLE = false;
 bool FIX_SUBASSEMBLY = true;
-bool DO_MODAL_REDUCTION = false;
+bool DO_MODAL_REDUCTION = true;
 bool ADD_INTERNAL_BODY = false;
+bool ADD_INTERNAL_BUSHING = false;
+bool ADD_INTERNAL_LOAD = false;
 bool ADD_BOUNDARY_BODY = false;
-bool ADD_FORCE = true;
+bool ADD_FORCE = false;
 bool ADD_OTHER_ASSEMBLY = false;
 
-void MakeAndRunDemoCantilever(ChSystem& sys,
-                              ChVisualSystemIrrlicht& vis,
-                              bool do_modal_reduction,
-                              bool add_internal_body,
-                              bool add_boundary_body,
-                              bool add_force,
-                              bool add_other_assemblies,
-                              bool fix_subassembly) {
-    std::cout << "\n\nRUN TEST" << std::endl;
+void CreateCantilever(ChSystem& sys,
+                      ChVisualSystemIrrlicht& vis,
+                      bool do_modal_reduction,
+                      bool add_internal_body,
+                      bool add_internal_bushing,
+                      bool add_internal_load,
+                      bool add_boundary_body,
+                      bool add_force,
+                      bool add_other_assemblies,
+                      bool fix_subassembly) {
+    std::cout << "\n\nTest parameters:\n"
+              << "- reduced model: " << (do_modal_reduction ? "YES" : "NO") << "\n"
+              << "- internal body: " << (add_internal_body ? "YES" : "NO") << "\n"
+              << "- internal bushing: " << (add_internal_bushing ? "YES" : "NO") << "\n"
+              << "- internal load: " << (add_internal_load ? "YES" : "NO") << "\n"
+              << "- boundary body: " << (add_boundary_body ? "YES" : "NO") << "\n"
+              << "- tip force: "  << (add_force ? "YES" : "NO") << "\n"
+              << "- other subassembly: " << (add_other_assemblies ? "YES" : "NO") << "\n"
+              << "- fix_subassembly: " << (fix_subassembly ? "YES" : "NO") << std::endl;
 
     // Clear previous demo, if any:
     sys.Clear();
@@ -105,6 +120,12 @@ void MakeAndRunDemoCantilever(ChSystem& sys,
     // 1. HERTING: free-free modes are used as the modal basis;
     // 2. CRAIG_BAMPTON: clamped-clamped modes are used as the modal basis.
     modal_assembly->SetReductionType(ChModalAssembly::ReductionType::HERTING);
+
+#ifdef CHRONO_PARDISO_MKL
+    // Provide MKL solver to compute modal reduction
+    auto mkl_modal_solver = chrono_types::make_shared<ChSolverPardisoMKL>();
+    modal_assembly->SetModalSolver(mkl_modal_solver);
+#endif
 
     // Now populate the assembly to analyze.
     // In this demo, make a cantilever with fixed end
@@ -182,9 +203,9 @@ void MakeAndRunDemoCantilever(ChSystem& sys,
         // sys.Add(my_root);
     }
 
-    if (add_internal_body) {
+    if (add_internal_body || add_internal_bushing || add_internal_load) {
         // BODY: in the middle, as internal
-        auto my_body_B = chrono_types::make_shared<ChBodyEasyBox>(0.9, 1.4, 1.2, 100);
+        auto my_body_B = chrono_types::make_shared<ChBodyEasyBox>(0.3, 1.4, 1.2, 100);
         my_body_B->SetPos(ChVector3d(beam_L * 0.5, 0, 0));
         modal_assembly->AddInternal(my_body_B);
 
@@ -192,11 +213,42 @@ void MakeAndRunDemoCantilever(ChSystem& sys,
         my_mid_constr->Initialize(builder.GetLastBeamNodes()[n_elements / 2], my_body_B,
                                   ChFrame<>(ChVector3d(beam_L * 0.5, 0, 0), QUNIT));
         modal_assembly->AddInternal(my_mid_constr);
+
+        if (add_internal_bushing) {
+            // BODY: will be connected via ChLoadBodyBody bushing
+            auto my_body_S = chrono_types::make_shared<ChBodyEasyBox>(0.4, 1.5, 1.3, 100);
+            my_body_S->SetPos(ChVector3d(beam_L * 0.42, 0, 0));
+            modal_assembly->AddInternal(my_body_S);
+
+            // BUSHING: will connect my_body_S to my_body_B
+            auto my_load_bushing = chrono_types::make_shared<ChLoadBodyBodyBushingMate>(my_body_S, my_body_B, ChFramed(my_body_S->GetPos()),
+                                                                                        ChVector3d(300000, 15000, 300000),  // bushing stiffness in x y z
+                                                                                        ChVector3d(0.2, 0.2, 0.2),          // bushing damping in x y z
+                                                                                        ChVector3d(4000, 4000, 4000),       // bushing rotational stiffness in x y z
+                                                                                        ChVector3d(0.8, 0.8, 0.8)           // bushing rotational damping in x y z
+            );
+            auto my_load_container = chrono_types::make_shared<ChLoadContainer>();
+            my_load_container->Add(my_load_bushing);
+            modal_assembly->AddInternal(my_load_container);
+        }
+
+        if (add_internal_load) {
+            // LOAD: apply a force as an internal  ChLoad to an internal ChBody:
+            auto my_load_force = chrono_types::make_shared<ChLoadBodyForce>(my_body_B,                // body to apply the force to
+                                                                            ChVector3d(0, 0, -1500),  // force F applied to body
+                                                                            false,                    // force vector F is in absolute frame (false) or in body frame (true)
+                                                                            VNULL,                    // position of application of the force
+                                                                            true);                    // position is in absolute frame (false) or in body frame (true)
+
+            auto my_load_container = chrono_types::make_shared<ChLoadContainer>();
+            my_load_container->Add(my_load_force);
+            modal_assembly->AddInternal(my_load_container);
+        }
     }
 
     if (add_boundary_body) {
         // BODY: in the end, as boundary
-        auto my_body_C = chrono_types::make_shared<ChBodyEasyBox>(0.8, 0.8, 0.8, 200);
+        auto my_body_C = chrono_types::make_shared<ChBodyEasyBox>(0.4, 0.7, 0.7, 200);
         my_body_C->SetPos(ChVector3d(beam_L, 0, 0));
         modal_assembly->Add(my_body_C);
 
@@ -254,70 +306,40 @@ void MakeAndRunDemoCantilever(ChSystem& sys,
         // Add a force to internal nodes in the same way as in a full-state assembly
         auto my_node_internal =
             std::dynamic_pointer_cast<ChNodeFEAxyzrot>(modal_assembly->GetMeshesInternal().front()->GetNodes().back());
-        my_node_internal->SetForce(ChVector3d(0, -1, 0));
+        my_node_internal->SetForce(ChVector3d(0, 0, 1000));
         my_node_internal->SetTorque(ChVector3d(0, 2, 0));
+
     }
 
     // set gravity
     if (USE_GRAVITY)
-        sys.SetGravitationalAcceleration(ChVector3d(0, 0, -9.81));  // -Z axis
+        sys.SetGravitationalAcceleration(ChVector3d(0, -9.81, 0));  // -Y axis
     else
         sys.SetGravitationalAcceleration(ChVector3d(0, 0, 0));
 
-    // Just for later reference, dump  M,R,K,Cq matrices. Ex. for comparison with Matlab eigs()
     sys.Setup();
-    sys.Update();
+    sys.Update(UpdateFlags::UPDATE_ALL);
 
-    modal_assembly->WriteSubassemblyMatrices(true, true, true, true, out_dir + "/dump");
+    // modal_assembly->WriteSubassemblyMatrices(true, true, true, true, out_dir + "/dump");
 
     if (do_modal_reduction) {
-        // HERE PERFORM THE MODAL REDUCTION!
-
-        modal_assembly->DoModalReduction(
-            num_modes,  // The number of modes to retain from modal reduction, or a ChModalSolveUndamped with more
-                        // settings
-            ChModalDampingRayleigh(
-                damping_alpha,
-                damping_beta)  // The damping model - Optional parameter: default is ChModalDampingNone().
-        );
-
-        // OPTIONAL
-
-        // Just for later reference, dump reduced M,R,K,Cq matrices. Ex. for comparison with Matlab eigs()
-        modal_assembly->WriteSubassemblyMatrices(true, true, true, true, out_dir + "/dump_reduced");
-
-    } else {
-        // Otherwise we perform a conventional modal analysis on the full ChModalAssembly.
-        modal_assembly->ComputeModes(num_modes);
-
-        // If you need to focus on modes in specific frequency regions, use {nmodes, about_freq} pairs as in :
-        /*
-        modal_assembly->ComputeModes(ChModalSolveUndamped(
-            { { 8, 1e-3 },{2, 2.5} },   // 8 smallest freq.modes, plus 2 modes closest to 2.5 Hz
-            500,                        // max iterations per each {modes,freq} pair
-            1e-10,                      // tolerance
-            false,                      // verbose
-            ChGeneralizedEigenvalueSolverKrylovSchur()) //  solver type
-        );
-        */
-
-        std::cout << " The undamped modal frequencies of the modal assembly (not the whole system) in full state are: "
-                  << std::endl;
-        for (int i = 0; i < modal_assembly->GetUndampedFrequencies().rows(); ++i)
-            std::cout << " Mode n." << i << "  frequency [Hz]: " << modal_assembly->GetUndampedFrequencies()(i)
-                      << std::endl;
+        auto eigen_solver = chrono_types::make_shared<ChUnsymGenEigenvalueSolverKrylovSchur>();
+        ChModalSolverUndamped<ChUnsymGenEigenvalueSolverKrylovSchur> modal_solver(num_modes, 1e-5, true, false,
+                                                                                  eigen_solver);
+        ChModalDampingRayleigh modal_damping(damping_alpha, damping_beta);
+        modal_assembly->DoModalReduction(modal_solver, modal_damping);
     }
 
     // VISUALIZATION ASSETS:
 
-    auto visualizeInternalA = chrono_types::make_shared<ChVisualShapeFEA>(mesh_internal);
+    auto visualizeInternalA = chrono_types::make_shared<ChVisualShapeFEA>();
     visualizeInternalA->SetFEMdataType(ChVisualShapeFEA::DataType::ELEM_BEAM_MY);
-    visualizeInternalA->SetColorscaleMinMax(-600, 600);
+    visualizeInternalA->SetColormapRange(-600, 600);
     visualizeInternalA->SetSmoothFaces(true);
     visualizeInternalA->SetWireframe(false);
     mesh_internal->AddVisualShapeFEA(visualizeInternalA);
 
-    auto visualizeInternalB = chrono_types::make_shared<ChVisualShapeFEA>(mesh_internal);
+    auto visualizeInternalB = chrono_types::make_shared<ChVisualShapeFEA>();
     visualizeInternalB->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_CSYS);
     visualizeInternalB->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     visualizeInternalB->SetSymbolsThickness(0.2);
@@ -325,7 +347,7 @@ void MakeAndRunDemoCantilever(ChSystem& sys,
     visualizeInternalB->SetZbufferHide(false);
     mesh_internal->AddVisualShapeFEA(visualizeInternalB);
 
-    auto visualizeBoundaryB = chrono_types::make_shared<ChVisualShapeFEA>(mesh_boundary);
+    auto visualizeBoundaryB = chrono_types::make_shared<ChVisualShapeFEA>();
     visualizeBoundaryB->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_CSYS);
     visualizeBoundaryB->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     visualizeBoundaryB->SetSymbolsThickness(0.4);
@@ -335,21 +357,6 @@ void MakeAndRunDemoCantilever(ChSystem& sys,
 
     // This is needed if you want to see things in Irrlicht
     vis.BindAll();
-
-    // Set the limitation of visualization on the mode orders.
-    vis.SetModalModesMax(num_modes - 1);
-
-    int current_example = ID_current_example;
-    while (ID_current_example == current_example && !SWITCH_EXAMPLE && vis.Run()) {
-        vis.BeginScene();
-        vis.Render();
-        tools::drawGrid(&vis, 1, 1, 12, 12, ChCoordsys<>(ChVector3d(0, 0, 0), CH_PI_2, VECT_Z),
-                        ChColor(0.5f, 0.5f, 0.5f), true);
-        vis.EndScene();
-
-        if (!modal_analysis)
-            sys.DoStepDynamics(step_size);
-    }
 }
 
 // Custom event manager
@@ -361,41 +368,36 @@ class MyEventReceiver : public irr::IEventReceiver {
         if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown) {
             switch (event.KeyInput.Key) {
                 case irr::KEY_KEY_1:
-                    SWITCH_EXAMPLE = true;
+                    UPDATE_EXAMPLE = true;
                     DO_MODAL_REDUCTION = !DO_MODAL_REDUCTION;
-                    if (DO_MODAL_REDUCTION) {
-                        modal_analysis = false;  // No modal analysis is available for the "reduced" modal assembly
-                        m_vis.EnableModalAnalysis(modal_analysis);
-                        m_vis.SetInfoTab(modal_analysis ? 1 : 0);
-                    }
                     return true;
                 case irr::KEY_KEY_2:
-                    SWITCH_EXAMPLE = true;
+                    UPDATE_EXAMPLE = true;
                     ADD_INTERNAL_BODY = !ADD_INTERNAL_BODY;
                     return true;
                 case irr::KEY_KEY_3:
-                    SWITCH_EXAMPLE = true;
-                    ADD_BOUNDARY_BODY = !ADD_BOUNDARY_BODY;
+                    UPDATE_EXAMPLE = true;
+                    ADD_INTERNAL_BUSHING = !ADD_INTERNAL_BUSHING;
                     return true;
                 case irr::KEY_KEY_4:
-                    SWITCH_EXAMPLE = true;
-                    ADD_FORCE = !ADD_FORCE;
+                    UPDATE_EXAMPLE = true;
+                    ADD_INTERNAL_LOAD = !ADD_INTERNAL_LOAD;
                     return true;
                 case irr::KEY_KEY_5:
-                    SWITCH_EXAMPLE = true;
-                    ADD_OTHER_ASSEMBLY = !ADD_OTHER_ASSEMBLY;
+                    UPDATE_EXAMPLE = true;
+                    ADD_BOUNDARY_BODY = !ADD_BOUNDARY_BODY;
                     return true;
                 case irr::KEY_KEY_6:
-                    SWITCH_EXAMPLE = true;
-                    FIX_SUBASSEMBLY = !FIX_SUBASSEMBLY;
+                    UPDATE_EXAMPLE = true;
+                    ADD_FORCE = !ADD_FORCE;
                     return true;
-
-                case irr::KEY_SPACE:
-                    if (DO_MODAL_REDUCTION)
-                        return true;
-                    modal_analysis = !modal_analysis;
-                    m_vis.EnableModalAnalysis(modal_analysis);
-                    m_vis.SetInfoTab(modal_analysis ? 1 : 0);
+                case irr::KEY_KEY_7:
+                    UPDATE_EXAMPLE = true;
+                    ADD_OTHER_ASSEMBLY = !ADD_OTHER_ASSEMBLY;
+                    return true;
+                case irr::KEY_KEY_8:
+                    UPDATE_EXAMPLE = true;
+                    FIX_SUBASSEMBLY = !FIX_SUBASSEMBLY;
                     return true;
                 default:
                     break;
@@ -412,14 +414,14 @@ int main(int argc, char* argv[]) {
     std::cout << "Copyright (c) 2021 projectchrono.org\nChrono version: " << CHRONO_VERSION << std::endl;
 
     // Directory for output data
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
 
     // CREATE THE MODEL
 
-    // Create a Chrono::Engine physical system
+    // Create a Chrono physical system
     ChSystemNSC sys;
 
     // no gravity used here
@@ -431,12 +433,11 @@ int main(int argc, char* argv[]) {
     ChVisualSystemIrrlicht vis;
     vis.AttachSystem(&sys);
     vis.SetWindowSize(1024, 768);
-    vis.SetWindowTitle("Modal reduction");
+    vis.SetWindowTitle("Modal Reduction");
     vis.Initialize();
     vis.AddLogo();
     vis.AddSkyBox();
     vis.AddCamera(ChVector3d(1, 1.3, 6), ChVector3d(3, 0, 0));
-    vis.AddLightWithShadow(ChVector3d(20, 20, 20), ChVector3d(0, 0, 0), 50, 5, 50, 55);
     vis.AddTypicalLights();
 
     // This is for GUI tweaking of system parameters..
@@ -448,7 +449,8 @@ int main(int argc, char* argv[]) {
     auto my_gui_info =
         vis.GetGUIEnvironment()->addStaticText(L" ", irr::core::rect<irr::s32>(400, 80, 850, 200), false, true, 0);
 
-    // Set linear solver
+    // Set linear solver for system simulation
+    // The linear solver for modal reduction shall be set directly on ChModalAssembly if neeeded
 #ifdef CHRONO_PARDISO_MKL
     auto mkl_solver = chrono_types::make_shared<ChSolverPardisoMKL>();
     sys.SetSolver(mkl_solver);
@@ -463,43 +465,38 @@ int main(int argc, char* argv[]) {
         hht_stepper->SetVerbose(false);
         hht_stepper->SetStepControl(false);
         hht_stepper->SetAlpha(-0.2);
-        hht_stepper->SetModifiedNewton(true);
+        hht_stepper->SetJacobianUpdateMethod(ChTimestepperImplicit::JacobianUpdate::EVERY_STEP);
     }
 
-    // Note, in order to have this modal visualization  working, a ChModalAssembly must have been added to the ChSystem,
-    // where some modes must have been already computed.
-    vis.EnableModalAnalysis(modal_analysis);
-    vis.SetModalSpeed(15);
-    vis.SetModalAmplitude(0.8);
-    vis.SetModalModeNumber(0);
-
-    // Optional: open the GUI and set the tab to either Dynamics or Modal Analysis
-    vis.ShowInfoPanel(true);
-    vis.SetInfoTab(modal_analysis ? 1 : 0);
+    UPDATE_EXAMPLE = true;
 
     // Run the sub-demos
-    while (true) {
-        vis.SetModalModeNumber(0);
+    while (vis.Run()) {
+        my_gui_info->setText(                                                                          //
+            (std::wstring(L"[Key 1] Reduced model: ") + (DO_MODAL_REDUCTION ? L"ON" : L"OFF") +        //
+             std::wstring(L"\n[Key 2] Internal body: ") + (ADD_INTERNAL_BODY ? L"ON" : L"OFF") +       //
+             std::wstring(L"\n[Key 3] Internal bushing: ") + (ADD_INTERNAL_BUSHING ? L"ON" : L"OFF") + //
+             std::wstring(L"\n[Key 4] Internal load: ") + (ADD_INTERNAL_LOAD ? L"ON" : L"OFF") +       //
+             std::wstring(L"\n[Key 5] Boundary body: ") + (ADD_BOUNDARY_BODY ? L"ON" : L"OFF") +       //
+             std::wstring(L"\n[Key 6] Tip forces: ") + (ADD_FORCE ? L"ON" : L"OFF") +                  //
+             std::wstring(L"\n[Key 7] Other subassembly: ") + (ADD_OTHER_ASSEMBLY ? L"ON" : L"OFF") +  //
+             std::wstring(L"\n[Key 8] Fixed assembly: ") + (FIX_SUBASSEMBLY ? L"ON" : L"OFF"))         //
+                .c_str());                                                                             //
 
-        my_gui_info->setText(
-            (std::wstring(L" Press 1: toggle modal reduction   -now: ") + (DO_MODAL_REDUCTION ? L"ON" : L"OFF") +
-             L"\n" + std::wstring(L" Press 2: toggle internal body     -now: ") + (ADD_INTERNAL_BODY ? L"ON" : L"OFF") +
-             L"\n" + std::wstring(L" Press 3: toggle boundary body     -now: ") + (ADD_BOUNDARY_BODY ? L"ON" : L"OFF") +
-             L"\n" + std::wstring(L" Press 4: toggle forces            -now: ") + (ADD_FORCE ? L"ON" : L"OFF") + L"\n" +
-             std::wstring(L" Press 5: toggle add other assembly -now: ") + (ADD_OTHER_ASSEMBLY ? L"ON" : L"OFF") +
-             L"\n" + std::wstring(L" Press 6: toggle modal assembly: ") +
-             (FIX_SUBASSEMBLY ? L"is linked to fixed body" : L"is free-free") + L"\n\n" +
-             (DO_MODAL_REDUCTION ? L"Do dynamic analysis in the reduced mode"
-                                 : L" Press SPACE: toggle between dynamic and modal analysis (only if not reduced)"))
-                .c_str());
+        if (UPDATE_EXAMPLE) {
+            CreateCantilever(sys, vis, DO_MODAL_REDUCTION, ADD_INTERNAL_BODY, ADD_INTERNAL_BUSHING, ADD_INTERNAL_LOAD, ADD_BOUNDARY_BODY, ADD_FORCE,
+                             ADD_OTHER_ASSEMBLY, FIX_SUBASSEMBLY);
+            UPDATE_EXAMPLE = false;
+        }
 
-        MakeAndRunDemoCantilever(sys, vis, DO_MODAL_REDUCTION, ADD_INTERNAL_BODY, ADD_BOUNDARY_BODY, ADD_FORCE,
-                                 ADD_OTHER_ASSEMBLY, FIX_SUBASSEMBLY);
+        vis.BeginScene();
+        vis.Render();
+        tools::DrawGrid(&vis, 1, 1, 12, 12, ChCoordsys<>(ChVector3d(0, 0, 0), CH_PI_2, VECT_Z),
+                        ChColor(0.5f, 0.5f, 0.5f), true);
 
-        SWITCH_EXAMPLE = false;
+        sys.DoStepDynamics(step_size);
 
-        if (!vis.Run())
-            break;
+        vis.EndScene();
     }
 
     return 0;

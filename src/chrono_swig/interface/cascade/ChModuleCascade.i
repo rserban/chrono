@@ -49,7 +49,7 @@
 //#include "chrono_cascade/ChApiCASCADE.h"
 //#include "chrono_cascade/ChVisualShapeCascade.h"
 #include "chrono/assets/ChVisualShapes.h"
-#include "chrono_cascade/ChCascadeBodyEasy.h"
+#include "chrono_cascade/ChBodyEasyCascade.h"
 #include "chrono_cascade/ChCascadeDoc.h"
 #include "chrono_cascade/ChCascadeTriangulate.h"
 #include "chrono/physics/ChContactMaterialNSC.h"
@@ -111,8 +111,8 @@ using namespace chrono::cascade;
 %shared_ptr(chrono::ChVisualShapeRotSpring)
 %shared_ptr(chrono::ChVisualShapeTriangleMesh)
 
-%shared_ptr(chrono::cascade::ChCascadeBodyEasy)
-%shared_ptr(chrono::cascade::ChCascadeBodyEasyProfile)
+%shared_ptr(chrono::cascade::ChBodyEasyCascade)
+%shared_ptr(chrono::cascade::ChBodyEasyCascadeProfile)
 %shared_ptr(chrono::cascade::ChVisualShapeCascade)
 %shared_ptr(chrono::cascade::ChCascadeTriangulate)
 
@@ -146,6 +146,7 @@ using namespace chrono::cascade;
 
 %import(module = "pychrono.core")  "chrono_swig/interface/core/ChClassFactory.i"
 %import(module = "pychrono.core")  "chrono_swig/interface/core/ChObject.i"
+%import(module = "pychrono.core")  "chrono_swig/interface/core/ChVector2.i"
 %import(module = "pychrono.core")  "chrono_swig/interface/core/ChVector3.i"
 %import(module = "pychrono.core")  "chrono_swig/interface/core/ChQuaternion.i"
 %import(module = "pychrono.core")  "chrono_swig/interface/core/ChCoordsys.i"
@@ -165,7 +166,7 @@ using namespace chrono::cascade;
 %include "../../../chrono/assets/ChVisualShapes.h"
 %include "../../../chrono_cascade/ChCascadeTriangulate.h"
 %include "../../../chrono_cascade/ChVisualShapeCascade.h"
-%include "../../../chrono_cascade/ChCascadeBodyEasy.h"
+%include "../../../chrono_cascade/ChBodyEasyCascade.h"
 %include "../../../chrono_cascade/ChCascadeDoc.h"
 %include "../../../chrono/physics/ChContactMaterialNSC.h"
 %include "../../../chrono/physics/ChContactMaterialSMC.h"
@@ -184,4 +185,4 @@ using namespace chrono::cascade;
 //  myvis = chrono.CastToChVisualizationShared(myasset)
 //  print ('Could be cast to visualization object?', !myvis.IsNull())
 
-%DefSharedPtrDynamicCast2NS(chrono,chrono::cascade,ChBodyAuxRef,ChCascadeBodyEasy) 
+%DefSharedPtrDynamicCast2NS(chrono,chrono::cascade,ChBodyAuxRef,ChBodyEasyCascade) 

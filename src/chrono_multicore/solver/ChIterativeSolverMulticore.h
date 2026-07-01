@@ -21,12 +21,11 @@
 
 #include "chrono/solver/ChIterativeSolverVI.h"
 
+#include "chrono/multicore_math/types.h"
+
 #include "chrono_multicore/ChMulticoreDefines.h"
 #include "chrono_multicore/ChDataManager.h"
-
 #include "chrono_multicore/physics/Ch3DOFContainer.h"
-
-#include "chrono/multicore_math/ChMulticoreMath.h"
 #include "chrono_multicore/solver/ChSolverMulticore.h"
 
 namespace chrono {
@@ -43,7 +42,7 @@ class CH_MULTICORE_API ChIterativeSolverMulticore : public ChIterativeSolverVI {
     virtual double Solve(ChSystemDescriptor& sysd) override { return 0; }
     /// Similarly, the run timestep function needs to be defined.
     virtual void RunTimeStep() = 0;
-    /// This function computes the new velocities based on the lagrange multipliers.
+    /// This function computes the new velocities based on the Lagrange multipliers.
     virtual void ComputeImpulses() = 0;
 
     /// Compute the inverse mass matrix and the term v+M_inv*hf.

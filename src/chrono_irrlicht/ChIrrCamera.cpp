@@ -34,6 +34,7 @@ RTSCamera::RTSCamera(IrrlichtDevice* devicepointer,
                        core::vector3df(1.0f, 1.0f, 1.0f)),
       InputReceiverEnabled(true) {
     device = devicepointer;
+    device->grab();
     BBox.reset(0, 0, 0);
 
     UpVector.set(0.0f, 1.0f, 0.0f);
@@ -78,6 +79,12 @@ RTSCamera::RTSCamera(IrrlichtDevice* devicepointer,
     recalculateViewArea();
 
     smgr->setActiveCamera(this);
+}
+
+RTSCamera::~RTSCamera() {
+    removeAll();
+    remove();
+    device->drop();
 }
 
 bool RTSCamera::OnEvent(const SEvent& event) {
@@ -259,10 +266,10 @@ void RTSCamera::setRotationSpeed(f32 value) {
     rotateSpeed = value;
 }
 
-void RTSCamera::pointCameraAtNode(ISceneNode* selectednode) {
+void RTSCamera::pointCameraAtNode(ISceneNode* selected_node) {
     core::vector3df totarget = getPosition() - getTarget();
-    setPosition(selectednode->getPosition() + (totarget.normalize() * 100));
-    setTarget(selectednode->getPosition());
+    setPosition(selected_node->getPosition() + (totarget.normalize() * 100));
+    setTarget(selected_node->getPosition());
     updateAnimationState();
 }
 
@@ -306,12 +313,12 @@ bool RTSCamera::isMouseKeyDown(s32 key) {
 }
 
 void RTSCamera::animate() {
-    // Rotation Vals
+    // Rotation values
     f32 nRotX = rotX;
     f32 nRotY = rotY;
     f32 nZoom = currentZoom;
 
-    // Translation Vals
+    // Translation values
     core::vector3df translate(oldTarget);
     core::vector3df tvectX = Target - Pos;
     tvectX = tvectX.crossProduct(UpVector);

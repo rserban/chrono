@@ -20,8 +20,6 @@
 
 #include "chrono/geometry/ChGeometry.h"
 #include "chrono/physics/ChObject.h"
-#include "chrono/assets/ChCamera.h"
-#include "chrono/assets/ChVisualModel.h"
 #include "chrono/solver/ChSystemDescriptor.h"
 #include "chrono/timestepper/ChState.h"
 
@@ -52,50 +50,6 @@ class ChApi ChPhysicsItem : public ChObj {
     /// Also add to new collision system / remove from old collision system.
     virtual void SetSystem(ChSystem* m_system);
 
-    /// Add an (optional) visualization model.
-    /// Not that an instance of the given visual model is associated with this physics ite, thus allowing sharing the
-    /// same model among multiple items.
-    void AddVisualModel(std::shared_ptr<ChVisualModel> model);
-
-    /// Access the visualization model (if any).
-    /// Note that this model may be shared with other physics items that may instance it.
-    /// Returns nullptr if no visual model is present.
-    std::shared_ptr<ChVisualModel> GetVisualModel() const;
-
-    /// Add the specified visual shape to the visualization model.
-    /// If this item does not have a visual model, one is created.
-    void AddVisualShape(std::shared_ptr<ChVisualShape> shape, const ChFrame<>& frame = ChFrame<>());
-
-    /// Access the specified visualization shape in the visualization model (if any).
-    /// Note that no range check is performed.
-    std::shared_ptr<ChVisualShape> GetVisualShape(unsigned int i) const;
-
-    /// Add the specified FEA visualization object to the visualization model.
-    /// If this item does not have a visual model, one is created.
-    void AddVisualShapeFEA(std::shared_ptr<ChVisualShapeFEA> shapeFEA);
-
-    /// Access the specified FEA visualization object in the visualization model (if any).
-    /// Note that no range check is performed.
-    std::shared_ptr<ChVisualShapeFEA> GetVisualShapeFEA(unsigned int i) const;
-
-    /// Get the reference frame (expressed in and relative to the absolute frame) of the visual model.
-    /// If the visual model is cloned (for example for a physics item modeling a particle system), this function returns
-    /// the coordinate system of the specified clone.
-    virtual ChFrame<> GetVisualModelFrame(unsigned int nclone = 0) const { return ChFrame<>(); }
-
-    /// Return the number of clones of the visual model associated with this physics item.
-    /// If the visual model is cloned (for example for a physics item modeling a particle system), this function should
-    /// return the total number of copies of the visual model, including the "original".  The current coordinate frame
-    /// of a given clone can be obtained by calling GetVisualModelFrame() with the corresponding clone identifier.
-    virtual unsigned int GetNumVisualModelClones() const { return 0; }
-
-    /// Attach a ChCamera to this physical item.
-    /// Multiple cameras can be attached to the same physics item.
-    void AddCamera(std::shared_ptr<ChCamera> camera);
-
-    /// Get the set of cameras attached to this physics item.
-    std::vector<std::shared_ptr<ChCamera>> GetCameras() const { return cameras; }
-
     // INTERFACES
     // inherited classes might/should implement some of the following functions
 
@@ -109,51 +63,38 @@ class ChApi ChPhysicsItem : public ChObj {
     virtual bool IsCollisionEnabled() const { return false; }
 
     /// Add to the provided collision system any collision models managed by this physics item.
-    /// A derived calss should invoke ChCollisionSystem::Add for each of its collision models.
+    /// A derived class should invoke ChCollisionSystem::Add for each of its collision models.
     virtual void AddCollisionModelsToSystem(ChCollisionSystem* coll_sys) const {}
 
     /// Remove from the provided collision system any collision models managed by this physics item.
     /// A derived class should invoke ChCollisionSystem::Remove for each of its collision models.
     virtual void RemoveCollisionModelsFromSystem(ChCollisionSystem* coll_sys) const {}
 
-    /// Synchronize the position and bounding box of any collsion models managed by this physics item.
+    /// Synchronize the position and bounding box of any collision models managed by this physics item.
     virtual void SyncCollisionModels() {}
 
-    // Functions used by domain decomposition
+    /// Get the axis-aligned bounding box (AABB) of this object.
+    /// The AABB must enclose all collision models, if any.
+    /// By default, returns an infinite AABB.
+    virtual ChAABB GetTotalAABB() const;
 
-    /// Get the entire AABB axis-aligned bounding box of the object.
-    /// The AABB must enclose the collision models, if any.
-    /// By default is infinite AABB.
-    /// Should be overridden by child classes.
-    virtual ChAABB GetTotalAABB();
+    /// Get a symbolic 'center' of the object.
+    /// By default this function returns the center of the AABB.
+    /// Derived classes may override this, but must always return a point inside the AABB.
+    virtual ChVector3d GetCenter() const;
 
-    /// Get a symbolic 'center' of the object. By default this
-    /// function returns the center of the AABB.
-    /// It could be overridden by child classes, anyway it must
-    /// always get a point that must be inside AABB.
-    virtual void GetCenter(ChVector3d& mcenter);
+    // UPDATE OPERATIONS
 
-    // UPDATING  - child classes may implement these functions
-
-    /// This might recompute the number of coordinates, DOFs, constraints,
-    /// in case this might change (ex in ChAssembly), as well as state offsets
-    /// of contained items (ex in ChMesh)
+    /// Perform setup operations.
+    /// This function is called at the beginning of a step, to recalculate quantities that may have changed (e.g.,
+    /// number of coordinates, DOFs, constraints), as well as offsets in system-wide state vectors.
     virtual void Setup() {}
 
-    /// This is an important function, which is called by the
-    /// owner ChSystem at least once per integration step.
-    /// It may update all auxiliary data of the item, such as
-    /// matrices if any, etc., depending on the current coordinates.
-    /// The inherited classes, for example the ChLinkMask, often
-    /// implement specialized versions of this Update(time) function,
-    /// because they might need to update inner states, forces, springs, etc.
-    /// This base version, by default, simply updates the item's time,
-    /// and update the asset tree, if any.
-    virtual void Update(double mytime, bool update_assets = true);
-
-    /// As above, but does not require updating of time-dependent
-    /// data. By default, calls Update(mytime) using item's current time.
-    virtual void Update(bool update_assets = true) { Update(ChTime, update_assets); }
+    /// Perform any updates necessary at the current phase during the solution process.
+    /// This function is called at least once per step to update auxiliary data, internal states, etc.
+    /// The default implementation updates the item's time stamp and its visualization assets (if any are defined anf
+    /// only if requested).
+    virtual void Update(double time, UpdateFlags update_flags) override;
 
     /// Set zero speed (and zero accelerations) in state, without changing the position.
     /// Child classes should implement this function if GetNumCoordsPosLevel() > 0.
@@ -181,7 +122,7 @@ class ChApi ChPhysicsItem : public ChObj {
     unsigned int GetOffset_x() { return offset_x; }
     /// Get offset in the state vector (speed part)
     unsigned int GetOffset_w() { return offset_w; }
-    /// Get offset in the lagrangian multipliers
+    /// Get offset in the Lagrange multipliers
     unsigned int GetOffset_L() { return offset_L; }
 
     /// Set offset in the state vector (position part)
@@ -190,7 +131,7 @@ class ChApi ChPhysicsItem : public ChObj {
     /// Set offset in the state vector (speed part)
     /// Note: only the ChSystem::Setup function should use this
     void SetOffset_w(const unsigned int moff) { offset_w = moff; }
-    /// Set offset in the lagrangian multipliers
+    /// Set offset in the Lagrange multipliers
     /// Note: only the ChSystem::Setup function should use this
     void SetOffset_L(const unsigned int moff) { offset_L = moff; }
 
@@ -208,10 +149,10 @@ class ChApi ChPhysicsItem : public ChObj {
                                  const unsigned int off_v,  ///< offset in v state vector
                                  const ChStateDelta& v,     ///< state vector, speed part
                                  const double T,            ///< time
-                                 bool full_update           ///< perform complete update
+                                 UpdateFlags update_flags   ///< flags controlling update operation
     ) {
         // Default behavior: even if no state is used, at least call Update()
-        Update(T, full_update);
+        Update(T, update_flags);
     }
 
     /// From item's state acceleration to global acceleration vector
@@ -221,7 +162,7 @@ class ChApi ChPhysicsItem : public ChObj {
 
     /// From global acceleration vector to item's state acceleration
     virtual void IntStateScatterAcceleration(const unsigned int off_a,  ///< offset in a accel. vector
-                                             const ChStateDelta& a  ///< acceleration part of state vector derivative
+                                             const ChStateDelta& a      ///< acceleration part of state vector derivative
     ) {}
 
     /// From item's reaction forces to global reaction vector
@@ -232,6 +173,12 @@ class ChApi ChPhysicsItem : public ChObj {
     /// From global reaction vector to item's reaction forces
     virtual void IntStateScatterReactions(const unsigned int off_L,   ///< offset in L vector
                                           const ChVectorDynamic<>& L  ///< L vector of reaction forces
+    ) {}
+
+    /// Called at the end of a step, after the state has been updated. This can be used to perform any clean up or
+    /// finalization after a step is completed, or to update state variables that are not part of the state vector but
+    /// need to be updated only at the end of a step, like in plasticity.
+    virtual void IntStateOnEndStep(double T  ///< time
     ) {}
 
     /// Computes x_new = x + Dt , using vectors at specified offsets.
@@ -281,9 +228,9 @@ class ChApi ChPhysicsItem : public ChObj {
     /// If mass lumping is impossible or approximate, adds scalar error to "error" parameter.
     ///    Md += c*diag(M)
     virtual void IntLoadLumpedMass_Md(const unsigned int off,  ///< offset in Md vector
-                                      ChVectorDynamic<>& Md,  ///< result: Md vector, diagonal of the lumped mass matrix
-                                      double& err,    ///< result: not touched if lumping does not introduce errors
-                                      const double c  ///< a scaling factor
+                                      ChVectorDynamic<>& Md,   ///< result: Md vector, diagonal of the lumped mass matrix
+                                      double& err,             ///< result: not touched if lumping does not introduce errors
+                                      const double c           ///< a scaling factor
     ) {}
 
     /// Takes the term Cq'*L, scale and adds to R at given offset:
@@ -298,7 +245,8 @@ class ChApi ChPhysicsItem : public ChObj {
     ///    Qc += c*C
     virtual void IntLoadConstraint_C(const unsigned int off,  ///< offset in Qc residual
                                      ChVectorDynamic<>& Qc,   ///< result: the Qc residual, Qc += c*C
-                                     const double c,          ///< a scaling factor
+                                     const double c,          ///< the scaling factor
+                                     const double c_vel,      ///< the scaling factor if the constraint is at speed level
                                      bool do_clamp,           ///< apply clamping to c*C?
                                      double recovery_clamp    ///< value for min/max clamping of c*C
     ) {}
@@ -307,25 +255,24 @@ class ChApi ChPhysicsItem : public ChObj {
     ///    Qc += c*Ct
     virtual void IntLoadConstraint_Ct(const unsigned int off,  ///< offset in Qc residual
                                       ChVectorDynamic<>& Qc,   ///< result: the Qc residual, Qc += c*Ct
-                                      const double c           ///< a scaling factor
+                                      const double c,          ///< the scaling factor
+                                      const double c_vel       ///< the scaling factor if the constraint is at speed level
     ) {}
 
     /// Prepare variables and constraints to accommodate a solution:
-    virtual void IntToDescriptor(
-        const unsigned int off_v,    ///< offset for \e v and \e R
-        const ChStateDelta& v,       ///< vector copied into the \e q 'unknowns' term of the variables
-        const ChVectorDynamic<>& R,  ///< vector copied into the \e F 'force' term of the variables
-        const unsigned int off_L,    ///< offset for \e L and \e Qc
-        const ChVectorDynamic<>& L,  ///< vector copied into the \e L 'lagrangian ' term of the constraints
-        const ChVectorDynamic<>& Qc  ///< vector copied into the \e Qb 'constraint' term of the constraints
+    virtual void IntToDescriptor(const unsigned int off_v,    ///< offset for \e v and \e R
+                                 const ChStateDelta& v,       ///< vector copied into the \e q 'unknowns' term of the variables
+                                 const ChVectorDynamic<>& R,  ///< vector copied into the \e F 'force' term of the variables
+                                 const unsigned int off_L,    ///< offset for \e L and \e Qc
+                                 const ChVectorDynamic<>& L,  ///< vector copied into the \e L 'lagrangian ' term of the constraints
+                                 const ChVectorDynamic<>& Qc  ///< vector copied into the \e Qb 'constraint' term of the constraints
     ) {}
 
     /// After a solver solution, fetch values from variables and constraints into vectors:
-    virtual void IntFromDescriptor(
-        const unsigned int off_v,  ///< offset for \e v
-        ChStateDelta& v,           ///< vector to where the \e q 'unknowns' term of the variables will be copied
-        const unsigned int off_L,  ///< offset for \e L
-        ChVectorDynamic<>& L       ///< vector to where \e L 'lagrangian ' term of the constraints will be copied
+    virtual void IntFromDescriptor(const unsigned int off_v,  ///< offset for \e v
+                                   ChStateDelta& v,           ///< vector to where the \e q 'unknowns' term of the variables will be copied
+                                   const unsigned int off_L,  ///< offset for \e L
+                                   ChVectorDynamic<>& L       ///< vector to where \e L 'lagrangian ' term of the constraints will be copied
     ) {}
 
     // SOLVER SYSTEM FUNCTIONS
@@ -423,12 +370,9 @@ class ChApi ChPhysicsItem : public ChObj {
   protected:
     ChSystem* system;  ///< parent system
 
-    std::shared_ptr<ChVisualModelInstance> vis_model_instance;  ///< instantiated visualization model
-    std::vector<std::shared_ptr<ChCamera>> cameras;             ///< set of cameras
-
     unsigned int offset_x;  ///< offset in vector of state (position part)
     unsigned int offset_w;  ///< offset in vector of state (speed part)
-    unsigned int offset_L;  ///< offset in vector of lagrangian multipliers
+    unsigned int offset_L;  ///< offset in vector of Lagrange multipliers
 
   private:
     virtual void SetupInitial() {}

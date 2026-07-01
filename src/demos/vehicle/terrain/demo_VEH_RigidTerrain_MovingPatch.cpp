@@ -20,30 +20,18 @@
 // =============================================================================
 
 #include "chrono_vehicle/ChConfigVehicle.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 #include "chrono_vehicle/utils/ChVehiclePath.h"
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
 
 #include "chrono_models/vehicle/hmmwv/HMMWV.h"
 
-#include "chrono/assets/ChVisualSystem.h"
-#ifdef CHRONO_IRRLICHT
-    #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
-using namespace chrono::irrlicht;
-#endif
-#ifdef CHRONO_VSG
-    #include "chrono_vsg/ChVisualSystemVSG.h"
-using namespace chrono::vsg3d;
-#endif
+#include "chrono_vsg/ChVisualSystemVSG.h"
 
 using namespace chrono;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::hmmwv;
-
-// Run-time visualization system (IRRLICHT or VSG)
-//// NOTE: currently not working properly with Chrono::VSG.
-ChVisualSystem::Type vis_type = ChVisualSystem::Type::IRRLICHT;
 
 // =============================================================================
 
@@ -87,8 +75,8 @@ int main(int argc, char* argv[]) {
     patch_mat->SetFriction(0.9f);
     patch_mat->SetRestitution(0.01f);
 
-    std::vector<std::string> textfiles = {vehicle::GetDataFile("terrain/textures/concrete.jpg"),
-                                          vehicle::GetDataFile("terrain/textures/dirt.jpg")};
+    std::vector<std::string> textfiles = {GetVehicleDataFile("terrain/textures/concrete.jpg"),
+                                          GetVehicleDataFile("terrain/textures/dirt.jpg")};
     std::vector<std::shared_ptr<RigidTerrain::Patch>> patches(2);
     double x_patch;
 
@@ -119,64 +107,24 @@ int main(int argc, char* argv[]) {
     driver.Initialize();
 
     // Create the vehicle run-time visualization interface
-    std::shared_ptr<ChVisualSystem> vis_sys;
-    ChVector3d cam_pos;
+    ChVector3d cam_pos = ChVector3d(0, -10, 1.5);
 
-#ifndef CHRONO_IRRLICHT
-    if (vis_type == ChVisualSystem::Type::IRRLICHT)
-        vis_type = ChVisualSystem::Type::VSG;
-#endif
-#ifndef CHRONO_VSG
-    if (vis_type == ChVisualSystem::Type::VSG)
-        vis_type = ChVisualSystem::Type::IRRLICHT;
-#endif
+    auto vis = chrono_types::make_shared<vsg3d::ChVisualSystemVSG>();
+    vis->AttachSystem(hmmwv.GetSystem());
+    vis->SetWindowTitle("Rigid Terrain Demo");
+    vis->SetWindowSize(1200, 800);
 
-    switch (vis_type) {
-        case ChVisualSystem::Type::IRRLICHT: {
-#ifdef CHRONO_IRRLICHT
-            cam_pos = ChVector3d(0, -10, 1.5);
+    vis->AddCamera(cam_pos, hmmwv.GetVehicle().GetPos());
 
-            // Create the vehicle Irrlicht interface
-            auto vis_irr = chrono_types::make_shared<ChVisualSystemIrrlicht>();
-            vis_irr->AttachSystem(hmmwv.GetSystem());
-            vis_irr->SetWindowTitle("Rigid Terrain Demo");
-            vis_irr->SetWindowSize(1200, 800);
-            vis_irr->Initialize();
-            vis_irr->AddLightDirectional();
-            vis_irr->AddSkyBox();
-            vis_irr->AddLogo();
-            vis_irr->AddCamera(cam_pos, hmmwv.GetVehicle().GetPos());
-
-            vis_sys = vis_irr;
-#endif
-            break;
-        }
-
-        default:
-        case ChVisualSystem::Type::VSG: {
-#ifdef CHRONO_VSG
-            cam_pos = ChVector3d(0, -20, 1.5);
-
-            // Create the vehicle VSG interface
-            auto vis_vsg = chrono_types::make_shared<ChVisualSystemVSG>();
-            vis_vsg->AttachSystem(hmmwv.GetSystem());
-            vis_vsg->SetWindowTitle("RigidTerrain Moving Patch Demo");
-            vis_vsg->SetWindowSize(ChVector2i(1200, 800));
-            vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
-            vis_vsg->SetShadows(true);
-            vis_vsg->AddCamera(cam_pos, hmmwv.GetVehicle().GetPos());
-            vis_vsg->Initialize();
-
-            vis_sys = vis_vsg;
-#endif
-            break;
-        }
-    }
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->EnableSkyTexture(SkyMode::DOME);
+    vis->Initialize();
 
     // Simulation loop
     hmmwv.GetVehicle().EnableRealtime(true);
 
-    while (vis_sys->Run()) {
+    while (vis->Run()) {
         double time = hmmwv.GetSystem()->GetChTime();
 
         // Dynamically remove and add patches when reaching current switch distance
@@ -206,13 +154,13 @@ int main(int argc, char* argv[]) {
 
         // Update camera position
         cam_pos.x() = veh_pos.x();
-        vis_sys->SetCameraPosition(cam_pos);
-        vis_sys->SetCameraTarget(veh_pos);
+        vis->SetCameraPosition(cam_pos);
+        vis->SetCameraTarget(veh_pos);
 
         // Render scene
-        vis_sys->BeginScene();
-        vis_sys->Render();
-        vis_sys->EndScene();
+        vis->BeginScene();
+        vis->Render();
+        vis->EndScene();
 
         // Get driver inputs
         DriverInputs driver_inputs = driver.GetInputs();

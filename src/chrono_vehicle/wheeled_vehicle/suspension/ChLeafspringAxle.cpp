@@ -14,14 +14,14 @@
 //
 // Base class for a leaf-spring solid axle suspension.
 //
-// This class is meant for modelling a very simple nonsteerable solid leafspring
-// axle. The guiding function of leafspring is modelled by a ChLinkLockRevolutePrismatic
+// This class is meant for modeling a very simple non-steerable solid leafspring
+// axle. The guiding function of leafspring is modeled by a ChLinkLockRevolutePrismatic
 // joint, it allows vertical movement and tilting of the axle tube but no elasticity.
-// The spring function of the leafspring is modelled by a vertical spring element.
+// The spring function of the leafspring is modeled by a vertical spring element.
 // Tie up of the leafspring is not possible with this approach, as well as the
 // characteristic kinematics along wheel travel. The roll center and roll stability
 // is met well, if spring track is defined correctly. The class has been designed
-// for maximum easyness and numerical efficiency.
+// for maximum easiness and numerical efficiency.
 //
 // The suspension subsystem is modeled with respect to a right-handed frame,
 // with X pointing towards the front, Y to the left, and Z up (ISO standard).
@@ -45,15 +45,14 @@ namespace vehicle {
 // -----------------------------------------------------------------------------
 // Static variables
 // -----------------------------------------------------------------------------
-const std::string ChLeafspringAxle::m_pointNames[] = {"SHOCK_A    ", "SHOCK_C    ", "SPRING_A   ", "SPRING_C   ",
-                                                      "SPINDLE    "};
+const std::string ChLeafspringAxle::m_pointNames[] = {"SHOCK_A    ", "SHOCK_C    ", "SPRING_A   ", "SPRING_C   ", "SPINDLE    "};
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 ChLeafspringAxle::ChLeafspringAxle(const std::string& name) : ChSuspension(name) {}
 
 ChLeafspringAxle::~ChLeafspringAxle() {
-    if (!m_initialized)
+    if (!IsInitialized())
         return;
 
     auto sys = m_axleTube->GetSystem();
@@ -69,18 +68,12 @@ ChLeafspringAxle::~ChLeafspringAxle() {
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-void ChLeafspringAxle::Initialize(std::shared_ptr<ChChassis> chassis,
-                                  std::shared_ptr<ChSubchassis> subchassis,
-                                  std::shared_ptr<ChSteering> steering,
-                                  const ChVector3d& location,
-                                  double left_ang_vel,
-                                  double right_ang_vel) {
-    ChSuspension::Initialize(chassis, subchassis, steering, location, left_ang_vel, right_ang_vel);
-
-    m_parent = chassis;
-    m_rel_loc = location;
-
+void ChLeafspringAxle::Construct(std::shared_ptr<ChChassis> chassis,
+                                 std::shared_ptr<ChSubchassis> subchassis,
+                                 std::shared_ptr<ChSteering> steering,
+                                 const ChVector3d& location,
+                                 double left_ang_vel,
+                                 double right_ang_vel) {
     // Unit vectors for orientation matrices.
     ChVector3d u;
     ChVector3d v;
@@ -107,6 +100,7 @@ void ChLeafspringAxle::Initialize(std::shared_ptr<ChChassis> chassis,
     // Create and initialize the axle body.
     m_axleTube = chrono_types::make_shared<ChBody>();
     m_axleTube->SetName(m_name + "_axleTube");
+    m_axleTube->SetTag(m_obj_tag);
     m_axleTube->SetPos(axleCOM);
     m_axleTube->SetRot(chassis->GetBody()->GetFrameRefToAbs().GetRot());
     m_axleTube->SetMass(getAxleTubeMass());
@@ -116,6 +110,7 @@ void ChLeafspringAxle::Initialize(std::shared_ptr<ChChassis> chassis,
     // Fix the axle body to the chassis
     m_axleTubeGuide = chrono_types::make_shared<ChLinkLockRevolutePrismatic>();
     m_axleTubeGuide->SetName(m_name + "_revolutePrismaticAxleTube");
+    m_axleTubeGuide->SetTag(m_obj_tag);
     const ChQuaternion<>& guideRot = chassis->GetBody()->GetFrameRefToAbs().GetRot();
     m_axleTubeGuide->Initialize(chassis->GetBody(), m_axleTube, ChFrame<>(axleCOM, guideRot * QuatFromAngleY(CH_PI_2)));
     chassis->GetBody()->GetSystem()->AddLink(m_axleTubeGuide);
@@ -158,26 +153,24 @@ void ChLeafspringAxle::InitializeSide(VehicleSide side,
     double sign = (side == LEFT) ? -1 : +1;
     auto spindleRot = chassisRot * QuatFromAngleZ(sign * getToeAngle()) * QuatFromAngleX(sign * getCamberAngle());
 
-    // Create and initialize spindle body (same orientation as the chassis)
-    m_spindle[side] = chrono_types::make_shared<ChBody>();
-    m_spindle[side]->SetName(m_name + "_spindle" + suffix);
+    // Initialize spindle body (same orientation as the chassis)
     m_spindle[side]->SetPos(points[SPINDLE]);
     m_spindle[side]->SetRot(spindleRot);
     m_spindle[side]->SetAngVelLocal(ChVector3d(0, ang_vel, 0));
     m_spindle[side]->SetMass(getSpindleMass());
     m_spindle[side]->SetInertiaXX(getSpindleInertia());
-    chassis->GetSystem()->AddBody(m_spindle[side]);
 
     // Create and initialize the revolute joint between axle tube and spindle.
     m_revolute[side] = chrono_types::make_shared<ChLinkLockRevolute>();
     m_revolute[side]->SetName(m_name + "_revolute" + suffix);
-    m_revolute[side]->Initialize(m_spindle[side], m_axleTube,
-                                 ChFrame<>(points[SPINDLE], spindleRot * QuatFromAngleX(CH_PI_2)));
+    m_revolute[side]->SetTag(m_obj_tag);
+    m_revolute[side]->Initialize(m_spindle[side], m_axleTube, ChFrame<>(points[SPINDLE], spindleRot * QuatFromAngleX(CH_PI_2)));
     chassis->GetSystem()->AddLink(m_revolute[side]);
 
     // Create and initialize the shock damper
     m_shock[side] = chrono_types::make_shared<ChLinkTSDA>();
     m_shock[side]->SetName(m_name + "_shock" + suffix);
+    m_shock[side]->SetTag(m_obj_tag);
     m_shock[side]->Initialize(chassis, m_axleTube, false, points[SHOCK_C], points[SHOCK_A]);
     m_shock[side]->SetRestLength(getShockRestLength());
     m_shock[side]->RegisterForceFunctor(getShockForceFunctor());
@@ -186,6 +179,7 @@ void ChLeafspringAxle::InitializeSide(VehicleSide side,
     // Create and initialize the spring
     m_spring[side] = chrono_types::make_shared<ChLinkTSDA>();
     m_spring[side]->SetName(m_name + "_spring" + suffix);
+    m_spring[side]->SetTag(m_obj_tag);
     m_spring[side]->Initialize(scbeam, m_axleTube, false, points[SPRING_C], points[SPRING_A]);
     m_spring[side]->SetRestLength(getSpringRestLength());
     m_spring[side]->RegisterForceFunctor(getSpringForceFunctor());
@@ -195,6 +189,7 @@ void ChLeafspringAxle::InitializeSide(VehicleSide side,
     // spindle rotates about the Y axis.
     m_axle[side] = chrono_types::make_shared<ChShaft>();
     m_axle[side]->SetName(m_name + "_axle" + suffix);
+    m_axle[side]->SetTag(m_obj_tag);
     m_axle[side]->SetInertia(getAxleInertia());
     m_axle[side]->SetPosDt(-ang_vel);
     chassis->GetSystem()->AddShaft(m_axle[side]);
@@ -215,7 +210,7 @@ void ChLeafspringAxle::UpdateInertiaProperties() {
     // Calculate COM and inertia expressed in global frame
     ChMatrix33<> inertiaSpindle(getSpindleInertia());
 
-    utils::CompositeInertia composite;
+    CompositeInertia composite;
     composite.AddComponent(m_spindle[LEFT]->GetFrameCOMToAbs(), getSpindleMass(), inertiaSpindle);
     composite.AddComponent(m_spindle[RIGHT]->GetFrameCOMToAbs(), getSpindleMass(), inertiaSpindle);
     composite.AddComponent(m_axleTube->GetFrameCOMToAbs(), getAxleTubeMass(), ChMatrix33<>(getAxleInertia()));
@@ -240,10 +235,8 @@ double ChLeafspringAxle::GetTrack() {
 std::vector<ChSuspension::ForceTSDA> ChLeafspringAxle::ReportSuspensionForce(VehicleSide side) const {
     std::vector<ChSuspension::ForceTSDA> forces(2);
 
-    forces[0] = ChSuspension::ForceTSDA("Spring", m_spring[side]->GetForce(), m_spring[side]->GetLength(),
-                                        m_spring[side]->GetVelocity());
-    forces[1] = ChSuspension::ForceTSDA("Shock", m_shock[side]->GetForce(), m_shock[side]->GetLength(),
-                                        m_shock[side]->GetVelocity());
+    forces[0] = ChSuspension::ForceTSDA("Spring", m_spring[side]->GetForce(), m_spring[side]->GetLength(), m_spring[side]->GetVelocity());
+    forces[1] = ChSuspension::ForceTSDA("Shock", m_shock[side]->GetForce(), m_shock[side]->GetLength(), m_shock[side]->GetVelocity());
 
     return forces;
 }
@@ -303,73 +296,34 @@ void ChLeafspringAxle::RemoveVisualizationAssets() {
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-void ChLeafspringAxle::AddVisualizationLink(std::shared_ptr<ChBody> body,
-                                            const ChVector3d pt_1,
-                                            const ChVector3d pt_2,
-                                            double radius,
-                                            const ChColor& color) {
+void ChLeafspringAxle::AddVisualizationLink(std::shared_ptr<ChBody> body, const ChVector3d pt_1, const ChVector3d pt_2, double radius, const ChColor& color) {
     // Express hardpoint locations in body frame.
     ChVector3d p_1 = body->TransformPointParentToLocal(pt_1);
     ChVector3d p_2 = body->TransformPointParentToLocal(pt_2);
 
-    ChVehicleGeometry::AddVisualizationCylinder(body, p_1, p_2, radius);
+    utils::ChBodyGeometry::AddVisualizationCylinder(body, p_1, p_2, radius);
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-void ChLeafspringAxle::ExportComponentList(rapidjson::Document& jsonDocument) const {
-    ChPart::ExportComponentList(jsonDocument);
 
-    std::vector<std::shared_ptr<ChBody>> bodies;
-    bodies.push_back(m_spindle[0]);
-    bodies.push_back(m_spindle[1]);
-    bodies.push_back(m_axleTube);
-    ExportBodyList(jsonDocument, bodies);
+void ChLeafspringAxle::PopulateComponentList() {
+    m_components.bodies.push_back(m_spindle[0]);
+    m_components.bodies.push_back(m_spindle[1]);
+    m_components.bodies.push_back(m_axleTube);
 
-    std::vector<std::shared_ptr<ChShaft>> shafts;
-    shafts.push_back(m_axle[0]);
-    shafts.push_back(m_axle[1]);
-    ExportShaftList(jsonDocument, shafts);
+    m_components.shafts.push_back(m_axle[0]);
+    m_components.shafts.push_back(m_axle[1]);
 
-    std::vector<std::shared_ptr<ChLink>> joints;
-    joints.push_back(m_revolute[0]);
-    joints.push_back(m_revolute[1]);
-    ExportJointList(jsonDocument, joints);
+    m_components.shaft_body_rot.push_back(m_axle_to_spindle[0]);
+    m_components.shaft_body_rot.push_back(m_axle_to_spindle[1]);
 
-    std::vector<std::shared_ptr<ChLinkTSDA>> springs;
-    springs.push_back(m_spring[0]);
-    springs.push_back(m_spring[1]);
-    springs.push_back(m_shock[0]);
-    springs.push_back(m_shock[1]);
-    ExportLinSpringList(jsonDocument, springs);
-}
+    m_components.joints.push_back(m_revolute[0]);
+    m_components.joints.push_back(m_revolute[1]);
 
-void ChLeafspringAxle::Output(ChVehicleOutput& database) const {
-    if (!m_output)
-        return;
-
-    std::vector<std::shared_ptr<ChBody>> bodies;
-    bodies.push_back(m_spindle[0]);
-    bodies.push_back(m_spindle[1]);
-    bodies.push_back(m_axleTube);
-    database.WriteBodies(bodies);
-
-    std::vector<std::shared_ptr<ChShaft>> shafts;
-    shafts.push_back(m_axle[0]);
-    shafts.push_back(m_axle[1]);
-    database.WriteShafts(shafts);
-
-    std::vector<std::shared_ptr<ChLink>> joints;
-    joints.push_back(m_revolute[0]);
-    joints.push_back(m_revolute[1]);
-    database.WriteJoints(joints);
-
-    std::vector<std::shared_ptr<ChLinkTSDA>> springs;
-    springs.push_back(m_spring[0]);
-    springs.push_back(m_spring[1]);
-    springs.push_back(m_shock[0]);
-    springs.push_back(m_shock[1]);
-    database.WriteLinSprings(springs);
+    m_components.tsdas.push_back(m_spring[0]);
+    m_components.tsdas.push_back(m_spring[1]);
+    m_components.tsdas.push_back(m_shock[0]);
+    m_components.tsdas.push_back(m_shock[1]);
 }
 
 }  // end namespace vehicle

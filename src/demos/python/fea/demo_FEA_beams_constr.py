@@ -33,13 +33,18 @@ class ChFunctionMyFun (chrono.ChFunction):
         else:
             return -chrono.CH_PI * (1.0 - m.cos(chrono.CH_PI * x / 0.4)) / 2.0
 
+
+# Set output root directory
+chrono.SetChronoOutputPath("../DEMO_OUTPUT/")
+
 # Output directory
-out_dir = chrono.GetChronoOutputPath() + "BEAM_BUCKLING"
+out_dir = chrono.GetChronoOutputPath() + "FEA_Beams_Buckling/"
 
 print( "Copyright (c) 2017 projectchrono.org \n")
 
-# Create a Chrono::Engine physical system
+# Create a Chrono physical system
 sys = chrono.ChSystemSMC()
+sys.SetGravityY()
 
 L = 1
 H = 0.25
@@ -200,14 +205,14 @@ sys.Add(mesh)
 # Such triangle mesh can be rendered by Irrlicht or POVray or whatever
 # postprocessor that can handle a colored ChVisualShapeTriangleMesh).
 
-mvisualizebeamA = chrono.ChVisualShapeFEA(mesh)
+mvisualizebeamA = chrono.ChVisualShapeFEA()
 mvisualizebeamA.SetFEMdataType(chrono.ChVisualShapeFEA.DataType_ELEM_BEAM_MX)
-mvisualizebeamA.SetColorscaleMinMax(-500, 500)
+mvisualizebeamA.SetColormapRange(-500, 500)
 mvisualizebeamA.SetSmoothFaces(True)
 mvisualizebeamA.SetWireframe(False)
 mesh.AddVisualShapeFEA(mvisualizebeamA)
 
-mvisualizebeamC = chrono.ChVisualShapeFEA(mesh)
+mvisualizebeamC = chrono.ChVisualShapeFEA()
 mvisualizebeamC.SetFEMglyphType(chrono.ChVisualShapeFEA.GlyphType_NODE_CSYS)
 mvisualizebeamC.SetFEMdataType(chrono.ChVisualShapeFEA.DataType_NONE)
 mvisualizebeamC.SetSymbolsThickness(0.006)
@@ -221,7 +226,7 @@ vis.AttachSystem(sys)
 vis.SetWindowSize(1024,768)
 vis.SetWindowTitle('Beams and constraints')
 vis.Initialize()
-vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
+vis.AddLogo(chrono.GetChronoDataFile('logo_chrono_alpha.png'))
 vis.AddSkyBox()
 vis.AddCamera(chrono.ChVector3d(0.0, 0.6, -1.0))
 vis.AddTypicalLights()
@@ -239,7 +244,7 @@ sys.SetTimestepper(ts)
 while vis.Run():
     vis.BeginScene()
     vis.Render()
-    chronoirr.drawGrid(vis,
+    chronoirr.DrawGrid(vis,
         0.05, 0.05, 20, 20, 
         chrono.ChCoordsysd(chrono.ChVector3d(0, 0, 0), chrono.QuatFromAngleZ(chrono.CH_PI_2)))
     vis.EndScene()

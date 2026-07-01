@@ -24,11 +24,14 @@
 namespace chrono {
 namespace modal {
 
+/// @addtogroup modal
+/// @{
+
 /// Generic A*x callback.
 /// Inherit from this class to define how to compute A*x
 class ChApiModal callback_Ax {
   public:
-    // Inherit this. It must compute A*x. How A is stored (full, sparse, factorised, etc. ) is up to you.
+    // Inherit this. It must compute A*x. How A is stored (full, sparse, factorized, etc. ) is up to you.
     virtual void compute(ChVectorDynamic<std::complex<double>>& A_x,  ///< output: result of A*x. Assume already sized.
                          const ChVectorDynamic<std::complex<double>>& x  ///< input:  x in A*x
     ){};
@@ -37,10 +40,10 @@ class ChApiModal callback_Ax {
 };
 
 //
-// Ready-to-use callbacks for the most relevant cases: sparse matrices, generalized, shift&invert:
+// Ready-to-use callbacks for the most relevant cases: sparse matrices, generalized, shift and invert:
 //
 
-/// The callback to be used for "A*x"  where for shift&invert is: A = (As - sigma Bs)/Bs ,
+/// The callback to be used for "A*x"  where for shift and invert is: A = (As - sigma Bs)/Bs ,
 /// so A*x = (As - sigma Bs)/(Bs*x), just like a linear system with coefficient matrix (As - sigma Bs) and known rhs
 /// Bs*x
 ///
@@ -76,28 +79,26 @@ class ChApiModal callback_Ax_sparse_complexshiftinvert : public callback_Ax {
         const chrono::ChSparseMatrix& As,  ///< unshifted matrix A
         const chrono::ChSparseMatrix& Bs,  ///< unshifted matrix B
         std::complex<double> shift,        ///< shift (sigma in the equation)
-        ChDirectSolverLScomplex* mlinear_solver =
-            0  ///< optional direct solver/factorization. Default is ChSolverSparseComplexQR
+        std::shared_ptr<ChDirectSolverLScomplex>
+            linear_solver  ///< optional direct solver/factorization. Default is ChSolverSparseComplexQR
     );
 
-    ~callback_Ax_sparse_complexshiftinvert();
+    ~callback_Ax_sparse_complexshiftinvert(){};
 
     void compute(chrono::ChVectorDynamic<std::complex<double>>& A_x,     ///< output: result of A*x
                  const chrono::ChVectorDynamic<std::complex<double>>& x  ///< input:  x in A*x
                  ) override;
 
-    ChDirectSolverLScomplex* linear_solver;
+    std::shared_ptr<ChDirectSolverLScomplex> m_linear_solver;
     Eigen::SparseMatrix<std::complex<double>, Eigen::ColMajor> Bd;
-    float default_solver;
-    std::complex<double> sigma;
+    std::complex<double> m_sigma;
 };
 
 /// Compute (complex) eigenvalues and eigenvectors
 /// using the Krylov-Schur algorithm.
-/// Adapted from Matlab code at  https://github.com/dingxiong/KrylovSchur
+/// Adapted from Matlab code at https://github.com/dingxiong/KrylovSchur
 /// Use one of the chrono::modal::callback_Ax provided above depending on the type
 /// of problem that you must solve.
-
 class ChApiModal ChKrylovSchurEig {
   public:
     // Construct and compute results, returned in v and eig.
@@ -119,8 +120,9 @@ class ChApiModal ChKrylovSchurEig {
     );
 };
 
-}  // end namespace modal
+/// @} modal
 
+}  // end namespace modal
 }  // end namespace chrono
 
 #endif

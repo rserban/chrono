@@ -10,6 +10,8 @@
 //
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono/assets/ChVisualShapePointPoint.h"
 #include "chrono/physics/ChLinkMarkers.h"
 #include "chrono/physics/ChLinkMate.h"
@@ -21,44 +23,56 @@
 
 namespace chrono {
 
-void ChVisualShapePointPoint::Update(ChPhysicsItem* updater, const ChFrame<>& frame) {
-    // Extract two positions from updater if it has any, and then update line geometry from these positions.
+// Extract two positions from updater if it has any, and then update line geometry from these positions.
+void ChVisualShapePointPoint::Update(ChObj* updater, const ChFrame<>& frame) {
     if (auto link_markers = dynamic_cast<ChLinkMarkers*>(updater)) {
-        UpdateLineGeometry(frame.TransformPointParentToLocal(link_markers->GetMarker1()->GetAbsCoordsys().pos),
-                           frame.TransformPointParentToLocal(link_markers->GetMarker2()->GetAbsCoordsys().pos));
+        point1 = link_markers->GetMarker1()->GetAbsCoordsys().pos;
+        point2 = link_markers->GetMarker2()->GetAbsCoordsys().pos;
     } else if (auto link_dist = dynamic_cast<ChLinkDistance*>(updater)) {
-        UpdateLineGeometry(frame.TransformPointParentToLocal(link_dist->GetEndPoint1Abs()),
-                           frame.TransformPointParentToLocal(link_dist->GetEndPoint2Abs()));
+        point1 = link_dist->GetEndPoint1Abs();
+        point2 = link_dist->GetEndPoint2Abs();
     } else if (auto link_rs = dynamic_cast<ChLinkRevoluteSpherical*>(updater)) {
-        UpdateLineGeometry(frame.TransformPointParentToLocal(link_rs->GetPoint1Abs()),
-                           frame.TransformPointParentToLocal(link_rs->GetPoint2Abs()));
+        point1 = link_rs->GetPoint1Abs();
+        point2 = link_rs->GetPoint2Abs();
     } else if (auto link_tsda = dynamic_cast<ChLinkTSDA*>(updater)) {
-        UpdateLineGeometry(frame.TransformPointParentToLocal(link_tsda->GetPoint1Abs()),
-                           frame.TransformPointParentToLocal(link_tsda->GetPoint2Abs()));
+        point1 = link_tsda->GetPoint1Abs();
+        point2 = link_tsda->GetPoint2Abs();
     } else if (auto link_mate = dynamic_cast<ChLinkMateGeneric*>(updater)) {
-        auto pt1 = link_mate->GetBody1()->TransformPointLocalToParent(link_mate->GetFrame1Rel().GetPos());
-        auto pt2 = link_mate->GetBody2()->TransformPointLocalToParent(link_mate->GetFrame2Rel().GetPos());
-        UpdateLineGeometry(frame.TransformPointParentToLocal(pt1), frame.TransformPointParentToLocal(pt2));
+        point1 = link_mate->GetBody1()->TransformPointLocalToParent(link_mate->GetFrame1Rel().GetPos());
+        point2 = link_mate->GetBody2()->TransformPointLocalToParent(link_mate->GetFrame2Rel().GetPos());
     } else if (auto link = dynamic_cast<ChLink*>(updater)) {
-        UpdateLineGeometry(frame.TransformPointParentToLocal(link->GetBody1()->GetPos()),
-                           frame.TransformPointParentToLocal(link->GetBody2()->GetPos()));
+        point1 = link->GetBody1()->GetPos();
+        point2 = link->GetBody2()->GetPos();
     } else if (auto actuator = dynamic_cast<ChHydraulicActuatorBase*>(updater)) {
-        UpdateLineGeometry(frame.TransformPointParentToLocal(actuator->GetPoint1Abs()),
-                           frame.TransformPointParentToLocal(actuator->GetPoint2Abs()));
+        point1 = actuator->GetPoint1Abs();
+        point2 = actuator->GetPoint2Abs();
+    } else {
+        return;
     }
+
+    UpdateLineGeometry(frame.TransformPointParentToLocal(point1), frame.TransformPointParentToLocal(point2));
 }
 
-// Set line geometry as a segment between two end point
+// Set line geometry as a segment between two end points.
 void ChVisualShapeSegment::UpdateLineGeometry(const ChVector3d& endpoint1, const ChVector3d& endpoint2) {
     this->SetLineGeometry(
         std::static_pointer_cast<ChLine>(chrono_types::make_shared<ChLineSegment>(endpoint1, endpoint2)));
 };
 
-// Set line geometry as a coil between two end point
+// Set line geometry as a coil between two end points.
 void ChVisualShapeSpring::UpdateLineGeometry(const ChVector3d& endpoint1, const ChVector3d& endpoint2) {
+    // If the visualization system doesn't need CPU-side geometry (for example - VSG generates
+    // springs procedurally on GPU, irrlicht does its own thing), then no-op return to skip expensive ChLinePath
+    // rebuilds of line vertices (which gets called every timestep on solvers that do full update!)
+    // Primiarly this impacts VSG because vsg is drawing the full 'mesh' of the lines every time, causing
+    // cpu to gpu overhead, when we could just keep a gpu side procedural between points
+    if (m_disable_geom_updates) {
+        return;
+    }
+    
     auto linepath = chrono_types::make_shared<ChLinePath>();
 
-    // Following part was copied from irrlicht::tools::drawSpring()
+    // Following part was copied from irrlicht::tools::DrawSpring()
     ChVector3d dist = endpoint2 - endpoint1;
     ChVector3d Vx, Vy, Vz;
     double length = dist.Length();
@@ -74,8 +88,8 @@ void ChVisualShapeSpring::UpdateLineGeometry(const ChVector3d& endpoint1, const 
     for (int iu = 1; iu <= resolution; iu++) {
         phaseB = turns * CH_2PI * (double)iu / (double)resolution;
         heightB = length * ((double)iu / (double)resolution);
-        ChVector3d V1(heightA, radius * cos(phaseA), radius * sin(phaseA));
-        ChVector3d V2(heightB, radius * cos(phaseB), radius * sin(phaseB));
+        ChVector3d V1(heightA, radius * std::cos(phaseA), radius * std::sin(phaseA));
+        ChVector3d V2(heightB, radius * std::cos(phaseB), radius * std::sin(phaseB));
 
         auto segment = ChLineSegment(mpos.TransformPointLocalToParent(V1), mpos.TransformPointLocalToParent(V2));
         linepath->AddSubLine(segment);
@@ -86,7 +100,7 @@ void ChVisualShapeSpring::UpdateLineGeometry(const ChVector3d& endpoint1, const 
     this->SetLineGeometry(std::static_pointer_cast<ChLine>(linepath));
 }
 
-void ChVisualShapeRotSpring::Update(ChPhysicsItem* updater, const ChFrame<>& frame) {
+void ChVisualShapeRotSpring::Update(ChObj* updater, const ChFrame<>& frame) {
     // Do nothing if not associated with an RSDA.
     auto rsda = dynamic_cast<ChLinkRSDA*>(updater);
     if (!rsda)

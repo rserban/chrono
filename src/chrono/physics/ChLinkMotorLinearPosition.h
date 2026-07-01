@@ -67,8 +67,8 @@ class ChApi ChLinkMotorLinearPosition : public ChLinkMotorLinear {
   private:
     double pos_offset;
 
-    virtual void Update(double mytime, bool update_assets) override;
-    virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
+    virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c, const double c_vel) override;
     virtual void ConstraintsBiLoad_Ct(double factor = 1) override;
 };
 

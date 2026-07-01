@@ -25,15 +25,16 @@
 
 #include "chrono_vehicle/tracked_vehicle/ChTrackAssembly.h"
 
+#include "chrono/input_output/ChOutputASCII.h"
+#ifdef CHRONO_HAS_HDF5
+    #include "chrono/input_output/ChOutputHDF5.h"
+#endif
+
 namespace chrono {
 namespace vehicle {
 
 ChTrackAssembly::ChTrackAssembly(const std::string& name, VehicleSide side)
-    : ChPart(name),
-      m_side(side),
-      m_idler_as_cylinder(true),
-      m_roller_as_cylinder(true),
-      m_roadwheel_as_cylinder(true) {}
+    : ChPart(name), m_side(side), m_idler_as_cylinder(true), m_roller_as_cylinder(true), m_roadwheel_as_cylinder(true) {}
 
 // -----------------------------------------------------------------------------
 // Get the complete state for the specified track shoe.
@@ -76,7 +77,7 @@ void ChTrackAssembly::Initialize(std::shared_ptr<ChChassis> chassis, const ChVec
         m_suspensions[i]->Initialize(chassis, location + GetRoadWhelAssemblyLocation(static_cast<int>(i)), this);
     }
 
-    // Initialize the idler subsystem (after supspension, for idler templates that attach to a suspension arm)
+    // Initialize the idler subsystem (after suspension, for idler templates that attach to a suspension arm)
     m_idler->Initialize(chassis, location + GetIdlerLocation(), this);
 
     // Initialize the roller subsystems (always attached to chassis body)
@@ -91,7 +92,7 @@ void ChTrackAssembly::Initialize(std::shared_ptr<ChChassis> chassis, const ChVec
 
     // Assemble the track. This positions all track shoes around the sprocket, road wheels, and idler
     // (implemented by derived classes)
-    bool ccw = Assemble(chassis->GetBody());
+    bool ccw = Assemble(chassis);
 
     // Loop over all track shoes
     // - allow them to connect themselves to their neighbor
@@ -112,7 +113,7 @@ void ChTrackAssembly::Initialize(std::shared_ptr<ChChassis> chassis, const ChVec
     }
 
     // Mark as initialized
-    m_initialized = true;
+    ChPart::Initialize();
 }
 
 // -----------------------------------------------------------------------------
@@ -157,10 +158,11 @@ void ChTrackAssembly::UpdateInertiaProperties() {
     m_com.SetRot(GetTransform().GetRot());
 
     const ChMatrix33<>& A = GetTransform().GetRotMat();
-    m_inertia = A.transpose() * (inertia - utils::CompositeInertia::InertiaShiftMatrix(com)) * A;
+    m_inertia = A.transpose() * (inertia - CompositeInertia::InertiaShiftMatrix(com)) * A;
 }
 
 // -----------------------------------------------------------------------------
+
 ChTrackSuspension::ForceTorque ChTrackAssembly::ReportSuspensionForce(size_t id) const {
     return m_suspensions[id]->ReportSuspensionForce();
 }
@@ -172,6 +174,7 @@ double ChTrackAssembly::ReportTrackLength() const {
 }
 
 // -----------------------------------------------------------------------------
+
 void ChTrackAssembly::SetSprocketVisualizationType(VisualizationType vis) {
     GetSprocket()->SetVisualizationType(vis);
 }
@@ -211,9 +214,7 @@ void ChTrackAssembly::SetTrackShoeVisualizationType(VisualizationType vis) {
 
 // -----------------------------------------------------------------------------
 
-void ChTrackAssembly::SetWheelCollisionType(bool roadwheel_as_cylinder,
-                                            bool idler_as_cylinder,
-                                            bool roller_as_cylinder) {
+void ChTrackAssembly::SetWheelCollisionType(bool roadwheel_as_cylinder, bool idler_as_cylinder, bool roller_as_cylinder) {
     m_roadwheel_as_cylinder = roadwheel_as_cylinder;
     m_idler_as_cylinder = idler_as_cylinder;
     m_roller_as_cylinder = roller_as_cylinder;
@@ -246,7 +247,7 @@ void ChTrackAssembly::Advance(double step) {
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+
 void ChTrackAssembly::SetOutput(bool state) {
     m_output = state;
     GetSprocket()->SetOutput(state);
@@ -261,7 +262,40 @@ void ChTrackAssembly::SetOutput(bool state) {
 }
 
 // -----------------------------------------------------------------------------
+
+std::vector<std::shared_ptr<ChBody>> ChTrackAssembly::GetBodyList() const {
+    std::vector<std::shared_ptr<ChBody>> bodies;
+
+    {
+        auto b = GetSprocket()->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
+    }
+
+    {
+        auto b = m_idler->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
+    }
+
+    for (auto& suspension : m_suspensions) {
+        auto b = suspension->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
+    }
+
+    for (auto& roller : m_rollers) {
+        auto b = roller->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
+    }
+
+    for (size_t i = 0; i < GetNumTrackShoes(); ++i) {
+        auto b = GetTrackShoe(i)->GetBodyList();
+        bodies.insert(bodies.end(), b.begin(), b.end());
+    }
+
+    return bodies;
+}
+
 // -----------------------------------------------------------------------------
+
 void ChTrackAssembly::ExportComponentList(rapidjson::Document& jsonDocument) const {
     ChPart::ExportComponentList(jsonDocument);
 
@@ -315,35 +349,117 @@ void ChTrackAssembly::ExportComponentList(rapidjson::Document& jsonDocument) con
 }
 
 // -----------------------------------------------------------------------------
+
+void ChTrackAssembly::InitializeOutput(ChOutput::Format output_format, ChOutput::Mode out_mode, const std::string& out_dir, const std::string& out_name) {
+    // Resize output structures
+    m_out_suspensions.resize(m_suspensions.size());
+    m_out_rollers.resize(m_rollers.size());
+
+    // For each vehicle subsystem, collect components from their parts
+    m_out_sprocket.comp.push_back(&GetSprocket()->GetComponents());
+    m_out_brake.comp.push_back(&m_brake->GetComponents());
+    m_out_idler.comp.push_back(&m_idler->GetComponents());
+    m_out_idler.comp.push_back(&m_idler->GetIdlerWheel()->GetComponents());
+    if (GetNumTrackShoes() > 0)
+        m_out_shoe.comp.push_back(&GetTrackShoe(0)->GetComponents());
+    for (size_t i = 0; i < m_suspensions.size(); i++) {
+        m_out_suspensions[i].comp.push_back(&m_suspensions[i]->GetComponents());
+        m_out_suspensions[i].comp.push_back(&m_suspensions[i]->GetRoadWheel()->GetComponents());
+    }
+    for (size_t i = 0; i < m_suspensions.size(); i++)
+        m_out_rollers[i].comp.push_back(&m_suspensions[i]->GetComponents());
+
+    // For each vehicle subsystem, create its output DB
+    switch (output_format) {
+        case ChOutput::Format::ASCII:
+            m_out_sprocket.db = chrono_types::make_unique<ChOutputASCII>(out_dir, out_name + "_sprocket", out_mode);
+            m_out_brake.db = chrono_types::make_unique<ChOutputASCII>(out_dir, out_name + "_brake", out_mode);
+            m_out_idler.db = chrono_types::make_unique<ChOutputASCII>(out_dir, out_name + "_idler", out_mode);
+            if (GetNumTrackShoes() > 0)
+                m_out_shoe.db = chrono_types::make_unique<ChOutputASCII>(out_dir, out_name + "_shoe_0", out_mode);
+            for (size_t i = 0; i < m_suspensions.size(); i++)
+                m_out_suspensions[i].db = chrono_types::make_unique<ChOutputASCII>(out_dir, out_name + "_suspension_" + std::to_string(i), out_mode);
+            for (size_t i = 0; i < m_suspensions.size(); i++)
+                m_out_rollers[i].db = chrono_types::make_unique<ChOutputASCII>(out_dir, out_name + "_roller_" + std::to_string(i), out_mode);
+            break;
+        case ChOutput::Format::HDF5:
+#ifdef CHRONO_HAS_HDF5
+            m_out_sprocket.db = chrono_types::make_unique<ChOutputHDF5>(out_dir, out_name + "_sprocket", out_mode);
+            m_out_brake.db = chrono_types::make_unique<ChOutputHDF5>(out_dir, out_name + "_brake", out_mode);
+            m_out_idler.db = chrono_types::make_unique<ChOutputHDF5>(out_dir, out_name + "_idler", out_mode);
+            if (GetNumTrackShoes() > 0)
+                m_out_shoe.db = chrono_types::make_unique<ChOutputHDF5>(out_dir, out_name + "_shoe_0", out_mode);
+            for (size_t i = 0; i < m_suspensions.size(); i++)
+                m_out_suspensions[i].db = chrono_types::make_unique<ChOutputHDF5>(out_dir, out_name + "_suspension_" + std::to_string(i), out_mode);
+            for (size_t i = 0; i < m_rollers.size(); i++)
+                m_out_rollers[i].db = chrono_types::make_unique<ChOutputHDF5>(out_dir, out_name + "_roller_" + std::to_string(i), out_mode);
+#endif
+            break;
+    }
+}
+
+void ChTrackAssembly::WriteOutput(int frame, double time) const {
+    m_out_sprocket.Write(frame, time);
+
+    m_out_brake.Write(frame, time);
+
+    m_out_idler.Write(frame, time);
+
+    for (size_t i = 0; i < m_suspensions.size(); i++)
+        m_out_suspensions[i].Write(frame, time);
+
+    for (size_t i = 0; i < m_rollers.size(); i++)
+        m_out_rollers[i].Write(frame, time);
+
+    if (GetNumTrackShoes() > 0)
+        m_out_shoe.Write(frame, time);
+}
+
 // -----------------------------------------------------------------------------
-void ChTrackAssembly::Output(ChVehicleOutput& database) const {
-    if (!m_output)
-        return;
 
-    database.WriteSection(GetSprocket()->GetName());
-    GetSprocket()->Output(database);
+void ChTrackAssembly::SaveCheckpoint(ChCheckpoint& database) const {
+    ChPart::SaveCheckpoint(database);
 
-    database.WriteSection(m_brake->GetName());
-    m_brake->Output(database);
+    GetSprocket()->SaveCheckpoint(database);
 
-    database.WriteSection(m_idler->GetName());
-    m_idler->Output(database);
+    m_brake->SaveCheckpoint(database);
 
-    for (auto suspension : m_suspensions) {
-        database.WriteSection(suspension->GetName());
-        suspension->Output(database);
-        database.WriteSection(suspension->GetRoadWheel()->GetName());
-        suspension->GetRoadWheel()->Output(database);
+    m_idler->SaveCheckpoint(database);
+
+    for (const auto& suspension : m_suspensions) {
+        suspension->SaveCheckpoint(database);
+        suspension->GetRoadWheel()->SaveCheckpoint(database);
     }
 
-    for (auto roller : m_rollers) {
-        database.WriteSection(roller->GetName());
-        roller->Output(database);
+    for (const auto roller : m_rollers) {
+        roller->SaveCheckpoint(database);
     }
 
-    if (GetNumTrackShoes() > 0) {
-        database.WriteSection(GetTrackShoe(0)->GetName());
-        GetTrackShoe(0)->Output(database);
+    for (int i = 0; i < GetNumTrackShoes(); i++) {
+        GetTrackShoe(0)->SaveCheckpoint(database);
+    }
+}
+
+void ChTrackAssembly::LoadCheckpoint(ChCheckpoint& database) {
+    ChPart::LoadCheckpoint(database);
+
+    GetSprocket()->LoadCheckpoint(database);
+
+    m_brake->LoadCheckpoint(database);
+
+    m_idler->LoadCheckpoint(database);
+
+    for (const auto& suspension : m_suspensions) {
+        suspension->LoadCheckpoint(database);
+        suspension->GetRoadWheel()->LoadCheckpoint(database);
+    }
+
+    for (const auto roller : m_rollers) {
+        roller->LoadCheckpoint(database);
+    }
+
+    for (int i = 0; i < GetNumTrackShoes(); i++) {
+        GetTrackShoe(0)->LoadCheckpoint(database);
     }
 }
 

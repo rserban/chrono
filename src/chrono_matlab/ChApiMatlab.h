@@ -33,8 +33,8 @@
     @defgroup matlab_module MATLAB module
     @brief Interoperation with Matlab(TM)
 
-    Using this module, you can provide interoperation between
-    Chrono::Engine and the Matlab(TM) software.
+    Using this module, you can provide interoperability between
+    Chrono and the Matlab(TM) software.
 
     For additional information, see:
     - the [installation guide](@ref module_matlab_installation)

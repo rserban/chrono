@@ -31,9 +31,9 @@
 #include "chrono/assets/ChVisualShapeCylinder.h"
 
 #include "chrono_vehicle/ChSubsysDefs.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/chassis/ChRigidChassis.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 
 #include "chrono_vehicle/tracked_vehicle/track_assembly/TrackAssemblyDoublePin.h"
 #include "chrono_vehicle/tracked_vehicle/track_assembly/TrackAssemblySinglePin.h"
@@ -64,10 +64,7 @@ class ChTrackTestRigChassis : public ChRigidChassis {
 
 // -----------------------------------------------------------------------------
 
-ChTrackTestRig::ChTrackTestRig(const std::string& filename,
-                               bool create_track,
-                               ChContactMethod contact_method,
-                               bool detracking_control)
+ChTrackTestRig::ChTrackTestRig(const std::string& filename, bool create_track, ChContactMethod contact_method, bool detracking_control)
     : ChVehicle("TrackTestRig", contact_method),
       m_ride_height(-1),
       m_max_torque(0),
@@ -111,10 +108,7 @@ ChTrackTestRig::ChTrackTestRig(const std::string& filename,
     m_contact_manager = chrono_types::make_shared<ChTrackContactManager>();
 }
 
-ChTrackTestRig::ChTrackTestRig(std::shared_ptr<ChTrackAssembly> assembly,
-                               bool create_track,
-                               ChContactMethod contact_method,
-                               bool detracking_control)
+ChTrackTestRig::ChTrackTestRig(std::shared_ptr<ChTrackAssembly> assembly, bool create_track, ChContactMethod contact_method, bool detracking_control)
     : ChVehicle("TrackTestRig", contact_method),
       m_track(assembly),
       m_ride_height(-1),
@@ -149,7 +143,7 @@ void ChTrackTestRig::Create(bool create_track, bool detracking_control) {
 
     // Create the chassis subsystem
     m_chassis = chrono_types::make_shared<ChTrackTestRigChassis>();
-    m_chassis->Initialize(m_system, ChCoordsys<>(), 0);
+    m_chassis->Initialize(this, ChCoordsys<>(), 0);
     m_chassis->SetFixed(true);
 
     // Disable detracking control if requested
@@ -224,11 +218,9 @@ void ChTrackTestRig::Initialize() {
     m_track->SetTrackShoeVisualizationType(m_vis_shoe);
 
     // Set collisions
-    m_track->GetIdlerWheel()->EnableCollision((m_collide_flags & static_cast<int>(TrackedCollisionFlag::IDLER_LEFT)) !=
-                                              0);
+    m_track->GetIdlerWheel()->EnableCollision((m_collide_flags & static_cast<int>(TrackedCollisionFlag::IDLER_LEFT)) != 0);
 
-    m_track->GetSprocket()->EnableCollision((m_collide_flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_LEFT)) !=
-                                            0);
+    m_track->GetSprocket()->EnableCollision((m_collide_flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_LEFT)) != 0);
 
     bool collide_wheels = (m_collide_flags & static_cast<int>(TrackedCollisionFlag::WHEELS_LEFT)) != 0;
     for (size_t i = 0; i < m_track->GetNumTrackSuspensions(); ++i)
@@ -290,7 +282,7 @@ double ChTrackTestRig::GetRideHeight() const {
 
 // -----------------------------------------------------------------------------
 
-void ChTrackTestRig::Advance(double step) {
+void ChTrackTestRig::Advance(double step, bool do_collision) {
     double time = GetChTime();
 
     // Driver inputs
@@ -330,7 +322,7 @@ void ChTrackTestRig::Advance(double step) {
     }
 
     // Advance state of entire system
-    ChVehicle::Advance(step);
+    ChVehicle::Advance(step, do_collision);
 
     // Process contacts.
     m_contact_manager->Process(this);
@@ -367,32 +359,30 @@ void ChTrackTestRig::LogConstraintViolations() {
 
 // -----------------------------------------------------------------------------
 
-void ChTrackTestRig::AddPostVisualization(std::shared_ptr<ChBody> post,
-                                          std::shared_ptr<ChBody> chassis,
-                                          const ChColor& color) {
+void ChTrackTestRig::AddPostVisualization(std::shared_ptr<ChBody> post, std::shared_ptr<ChBody> chassis, const ChColor& color) {
     auto mat = chrono_types::make_shared<ChVisualMaterial>();
     mat->SetDiffuseColor({color.R, color.G, color.B});
 
     // Platform (on post body)
-    ChVehicleGeometry::AddVisualizationCylinder(post,                              //
-                                                ChVector3d(0, 0, 0),               //
-                                                ChVector3d(0, 0, -m_post_height),  //
-                                                m_post_radius,                     //
-                                                mat);
+    utils::ChBodyGeometry::AddVisualizationCylinder(post,                              //
+                                                    ChVector3d(0, 0, 0),               //
+                                                    ChVector3d(0, 0, -m_post_height),  //
+                                                    m_post_radius,                     //
+                                                    mat);
 
     // Piston (on post body)
-    ChVehicleGeometry::AddVisualizationCylinder(post,                                   //
-                                                ChVector3d(0, 0, -m_post_height),       //
-                                                ChVector3d(0, 0, -15 * m_post_height),  //
-                                                m_post_radius / 6.0,                    //
-                                                mat);
+    utils::ChBodyGeometry::AddVisualizationCylinder(post,                                   //
+                                                    ChVector3d(0, 0, -m_post_height),       //
+                                                    ChVector3d(0, 0, -15 * m_post_height),  //
+                                                    m_post_radius / 6.0,                    //
+                                                    mat);
 
     // Post sleeve (on chassis/ground body)
-    ChVehicleGeometry::AddVisualizationCylinder(chassis,                                                //
-                                                post->GetPos() - ChVector3d(0, 0, 8 * m_post_height),   //
-                                                post->GetPos() - ChVector3d(0, 0, 16 * m_post_height),  //
-                                                m_post_radius / 4.0,                                    //
-                                                mat);
+    utils::ChBodyGeometry::AddVisualizationCylinder(chassis,                                                //
+                                                    post->GetPos() - ChVector3d(0, 0, 8 * m_post_height),   //
+                                                    post->GetPos() - ChVector3d(0, 0, 16 * m_post_height),  //
+                                                    m_post_radius / 4.0,                                    //
+                                                    mat);
 }
 
 // -----------------------------------------------------------------------------
@@ -401,18 +391,20 @@ void ChTrackTestRig::SetTrackAssemblyOutput(bool state) {
     m_track->SetOutput(state);
 }
 
-void ChTrackTestRig::Output(int frame, ChVehicleOutput& database) const {
-    database.WriteTime(frame, m_system->GetChTime());
+void ChTrackTestRig::InitializeOutput() {
+    if (m_track->OutputEnabled())
+        m_track->InitializeOutput(m_out_format, m_out_mode, m_out_dir, m_out_name);
+}
 
-    if (m_track->OutputEnabled()) {
-        m_track->Output(database);
-    }
+void ChTrackTestRig::WriteOutput(int frame, double time) const {
+    if (m_track->OutputEnabled())
+        m_track->WriteOutput(frame, time);
 }
 
 void ChTrackTestRig::SetPlotOutput(double output_step) {
     m_plot_output = true;
     m_plot_output_step = output_step;
-    m_csv = new utils::ChWriterCSV(" ");
+    m_csv = new ChWriterCSV(" ");
 }
 
 void ChTrackTestRig::CollectPlotData(double time) {
@@ -443,21 +435,18 @@ void ChTrackTestRig::PlotOutput(const std::string& out_dir, const std::string& o
     m_csv->WriteToFile(out_file);
 
 #ifdef CHRONO_POSTPROCESS
-    std::string gplfile = out_dir + "/tmp.gpl";
-    postprocess::ChGnuPlot mplot(gplfile);
-
-    std::string title = "Suspension test rig - Wheel positions";
-    mplot.OutputWindow(0);
-    mplot.SetTitle(title);
-    mplot.SetLabelX("time [s]");
-    mplot.SetLabelY("wheel z [m]");
-    mplot.SetCommand("set format y '%4.1e'");
-    mplot.SetCommand("set terminal wxt size 800, 600");
-    mplot.Plot(out_file, 1, 4, "sprocket", " with lines lw 2");
-    mplot.Plot(out_file, 1, 7, "idler", " with lines lw 2");
+    postprocess::ChGnuPlot gplot(out_dir + "/tmp.gpl");
+    gplot.OutputWindow(0);
+    gplot.SetTitle("Suspension test rig - Wheel positions");
+    gplot.SetLabelX("time [s]");
+    gplot.SetLabelY("wheel z [m]");
+    gplot.SetCommand("set format y '%4.1e'");
+    gplot.SetCanvasSize(800, 600);
+    gplot.Plot(out_file, 1, 4, "sprocket", " with lines lw 2");
+    gplot.Plot(out_file, 1, 7, "idler", " with lines lw 2");
     for (int i = 0; i < m_track->GetNumTrackSuspensions(); i++) {
         std::string label = "wheel #" + std::to_string(i);
-        mplot.Plot(out_file, 1, 7 + 3 * i + 3, label, " with lines lw 2");
+        gplot.Plot(out_file, 1, 7 + 3 * i + 3, label, " with lines lw 2");
     }
 
     //// TODO: spring and shock forces

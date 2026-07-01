@@ -33,12 +33,18 @@ void ChLoadContainer::Add(std::shared_ptr<ChLoadBase> newload) {
     loadlist.push_back(newload);
 }
 
-void ChLoadContainer::Update(double mytime, bool update_assets) {
+void ChLoadContainer::Add(std::shared_ptr<ChLoader> loader) {
+    auto wrapping_load = chrono_types::make_shared<ChLoad>(loader);
+
+    this->Add(wrapping_load);
+}
+
+void ChLoadContainer::Update(double time, UpdateFlags update_flags) {
     for (size_t i = 0; i < loadlist.size(); ++i) {
-        loadlist[i]->Update(mytime);
+        loadlist[i]->Update(time, update_flags);
     }
     // Overloading of base class:
-    ChPhysicsItem::Update(mytime, update_assets);
+    ChObj::Update(time, update_flags);
 }
 
 void ChLoadContainer::IntLoadResidual_F(const unsigned int off,  // offset in R residual

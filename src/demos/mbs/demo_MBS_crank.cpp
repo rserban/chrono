@@ -16,10 +16,10 @@
 //
 //  - constraints and 'motor' objects
 //  - using IRRLICHT as a realtime 3D viewer of a slider-crank mechanism
-//    simulated with Chrono::Engine.
+//    simulated with Chrono.
 //  - using the real-time step.
 //
-// This is just a possible method of integration of Chrono::Engine + Irrlicht;
+// This is just a possible method of integration of Chrono + Irrlicht;
 // many others are possible.
 //
 // =============================================================================
@@ -45,6 +45,7 @@ int main(int argc, char* argv[]) {
     //    will be handled by this ChSystemNSC object.
 
     ChSystemNSC sys;
+    sys.SetGravityY();
 
     // 2- Create the rigid bodies of the slider-crank mechanical system
     //   (a crank, a rod, a truss), maybe setting position/mass/inertias of
@@ -99,8 +100,7 @@ int main(int argc, char* argv[]) {
     vis->SetWindowTitle("Simple slider-crank example");
     vis->Initialize();
     vis->AddLogo();
-    vis->AddSkyBox();
-    vis->AddCamera(ChVector3d(0, 0, -6));
+    vis->AddCamera(ChVector3d(0, 0, -7));
     vis->AddTypicalLights();
 
     // Simulation loop
@@ -121,18 +121,21 @@ int main(int argc, char* argv[]) {
         // .. draw items belonging to Irrlicht scene, if any
         vis->Render();
         // .. draw a grid
-        tools::drawGrid(vis.get(), 0.5, 0.5);
+        tools::DrawGrid(vis.get(), 0.5, 0.5);
         // .. draw GUI items belonging to Irrlicht screen, if any
         vis->GetGUIEnvironment()->drawAll();
 
         // .. draw the rod (from joint BC to joint CA)
-        tools::drawSegment(vis.get(), my_link_BC->GetMarker1()->GetAbsCoordsys().pos,
+        tools::DrawSegment(vis.get(), my_link_BC->GetMarker1()->GetAbsCoordsys().pos,
                            my_link_CA->GetMarker1()->GetAbsCoordsys().pos, ChColor(0, 1, 0));
         // .. draw the crank (from joint AB to joint BC)
-        tools::drawSegment(vis.get(), my_link_AB->GetFrame2Abs().GetCoordsys().pos,
+        tools::DrawSegment(vis.get(), my_link_AB->GetFrame2Abs().GetCoordsys().pos,
                            my_link_BC->GetMarker1()->GetAbsCoordsys().pos, ChColor(1, 0, 0));
         // .. draw a small circle at crank origin
-        tools::drawCircle(vis.get(), 0.1, ChCoordsys<>(ChVector3d(0, 0, 0), QUNIT));
+        tools::DrawCircle(vis.get(), 0.1, ChCoordsys<>(ChVector3d(0, 0, 0), QUNIT));
+        // .. draw a small circle at rod end
+        tools::DrawCircle(vis.get(), 0.1, ChCoordsys<>(my_link_CA->GetMarker1()->GetAbsCoordsys().pos, QUNIT),
+                          ChColor(1, 1, 0));
 
         /* test: delete a link after 10 seconds
         if (sys.GetChTime() >10 && (!removed))

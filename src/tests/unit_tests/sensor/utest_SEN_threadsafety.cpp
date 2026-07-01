@@ -20,8 +20,9 @@
 
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChSystemNSC.h"
-#include "chrono_sensor/sensors/ChCameraSensor.h"
+
 #include "chrono_sensor/ChSensorManager.h"
+#include "chrono_sensor/sensors/ChCameraSensor.h"
 #include "chrono_sensor/filters/ChFilterAccess.h"
 #include "chrono_sensor/filters/ChFilterGrayscale.h"
 #include "chrono_sensor/filters/ChFilterSave.h"
@@ -51,6 +52,7 @@ TEST(ChFilterAccess, data_access_safety) {
     sys.Add(box);
 
     auto manager = chrono_types::make_shared<ChSensorManager>(&sys);
+    ////manager->SetVerbose(true);
     manager->scene->AddPointLight({100, 100, 100}, {1, 1, 1}, 500);
 
     auto cam = chrono_types::make_shared<ChCameraSensor>(

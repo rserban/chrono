@@ -16,14 +16,14 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChVisualShapeTriangleMesh.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include <filesystem>
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
+#include "chrono/input_output/ChWriterCSV.h"
+
+#include "chrono_vehicle/ChVehicleDataPath.h"
 
 #include "chrono_models/vehicle/m113/M113_IdlerWheel.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
 
 namespace chrono {
 namespace vehicle {
@@ -58,8 +58,7 @@ void M113_IdlerWheel::AddVisualizationAssets(VisualizationType vis) {
         auto trimesh = ChTriangleMeshConnected::CreateFromWavefrontFile(GetMeshFile(), false, false);
         auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh);
-        trimesh_shape->SetName(filesystem::path(GetMeshFile()).stem());
-        trimesh_shape->SetMutable(false);
+        trimesh_shape->SetName(std::filesystem::path(GetMeshFile()).stem().string());
         m_wheel->AddVisualShape(trimesh_shape);
     } else {
         ChDoubleTrackWheel::AddVisualizationAssets(vis);

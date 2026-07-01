@@ -39,18 +39,18 @@ ChSimpleTrackDriveline::ChSimpleTrackDriveline(const std::string& name)
 void ChSimpleTrackDriveline::Initialize(std::shared_ptr<ChChassis> chassis,
                                         std::shared_ptr<ChTrackAssembly> track_left,
                                         std::shared_ptr<ChTrackAssembly> track_right) {
-    // Create the driveshaft
-    ChDriveline::Initialize(chassis);
-
     // Grab handles to the sprocket shafts.
     m_shaft_left = track_left->GetSprocket()->GetAxle();
     m_shaft_right = track_right->GetSprocket()->GetAxle();
+
+    // Mark initialized
+    ChPart::Initialize();
 }
 
 // -----------------------------------------------------------------------------
 // This utility function implements a simple model of Torsen limited-slip
 // differential with a max_bias:1 torque bias ratio.
-// We hardcode the speed difference range over which the torque bias grows from
+// We hard-code the speed difference range over which the torque bias grows from
 // a value of 1 to a value of max_bias to the interval [0.25, 0.5].
 // -----------------------------------------------------------------------------
 static void differentialSplit(double torque,

@@ -306,7 +306,7 @@ void SprocketDoublePinContactCB::CheckCircleProfile(std::shared_ptr<ChBody> conn
 // centered at 'cc' (on the connector body) and an arc on the circle of radius 'ar' centered
 // at 'ac', with the arc endpoints 'p1' and 'p2' (on the gear body).
 void SprocketDoublePinContactCB::CheckCircleArc(std::shared_ptr<ChBody> connector,                 // connector body
-                                                std::shared_ptr<ChContactMaterial> mat_connector,  // conector material
+                                                std::shared_ptr<ChContactMaterial> mat_connector,  // connector material
                                                 const ChVector3d& cc,                              // circle center
                                                 double cr,                                         // circle radius
                                                 const ChVector3d ac,                               // arc center
@@ -361,7 +361,7 @@ void SprocketDoublePinContactCB::CheckCircleArc(std::shared_ptr<ChBody> connecto
 // (on the gear body).
 void SprocketDoublePinContactCB::CheckCircleSegment(
     std::shared_ptr<ChBody> connector,                 // connector body
-    std::shared_ptr<ChContactMaterial> mat_connector,  // conector material
+    std::shared_ptr<ChContactMaterial> mat_connector,  // connector material
     const ChVector3d& cc,                              // circle center
     double cr,                                         // circle radius
     const ChVector3d& p1,                              // segment end point 1
@@ -454,7 +454,7 @@ std::shared_ptr<ChSystem::CustomCollisionCallback> ChSprocketDoublePin::GetColli
     auto shoe = std::dynamic_pointer_cast<ChTrackShoeDoublePin>(track->GetTrackShoe(0));
     assert(shoe);
 
-    // Extract parameterization of gear profile
+    // Extract parametrization of gear profile
     int gear_nteeth = GetNumTeeth();
     double gear_RT = GetOuterRadius();
     double gear_R = GetArcRadius();
@@ -462,7 +462,7 @@ std::shared_ptr<ChSystem::CustomCollisionCallback> ChSprocketDoublePin::GetColli
     double gear_W = GetArcCenterOffset();
     double lateral_backlash = GetLateralBacklash();
 
-    // Extract parameterization of the shoe connector contact geometry.
+    // Extract parametrization of the shoe connector contact geometry.
     double shoe_len = shoe->GetConnectorLength();
     double shoe_R = shoe->GetConnectorRadius();
     ChVector3d shoe_locPin = shoe->GetLateralContactPoint();

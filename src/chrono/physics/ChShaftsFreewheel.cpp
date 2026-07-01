@@ -82,9 +82,9 @@ double ChShaftsFreewheel::GetCurrentTeethVane() const {
     return jamming_mode ? 0 : (free_forward ? floor((alpha_max - phase) / step) : -floor((-alpha_max + phase) / step));
 }
 
-void ChShaftsFreewheel::Update(double mytime, bool update_assets) {
+void ChShaftsFreewheel::Update(double time, UpdateFlags update_flags) {
     // Inherit time changes of parent class
-    ChShaftsCouple::Update(mytime, update_assets);
+    ChShaftsCouple::Update(time, update_flags);
 
     // update class data
     violation = 0;
@@ -115,6 +115,7 @@ void ChShaftsFreewheel::IntLoadResidual_CqL(const unsigned int off_L,    // offs
 void ChShaftsFreewheel::IntLoadConstraint_C(const unsigned int off_L,  // offset in Qc residual
                                             ChVectorDynamic<>& Qc,     // result: the Qc residual, Qc += c*C
                                             const double c,            // a scaling factor
+                                            const double c_vel,        // the scaling factor if the constraint is at speed level
                                             bool do_clamp,             // apply clamping to c*C?
                                             double recovery_clamp      // value for min/max clamping of c*C
 ) {

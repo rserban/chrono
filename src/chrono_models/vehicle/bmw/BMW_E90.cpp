@@ -20,7 +20,7 @@
 
 #include "chrono/ChConfig.h"
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 
 #include "chrono_models/vehicle/bmw/BMW_E90.h"
 
@@ -38,7 +38,8 @@ BMW_E90::BMW_E90()
       m_fixed(false),
       m_brake_locking(false),
       m_brake_type(BrakeType::SIMPLE),
-      m_tireType(TireModelType::RIGID),
+      m_tireType(TireModelType::TMEASY),
+      m_tire_collision_type(ChTire::CollisionType::SINGLE_POINT),
       m_tire_step_size(-1),
       m_initPos(ChCoordsys<>(ChVector3d(0, 0, 1), QUNIT)),
       m_initFwdVel(0),
@@ -54,7 +55,8 @@ BMW_E90::BMW_E90(ChSystem* system)
       m_fixed(false),
       m_brake_locking(false),
       m_brake_type(BrakeType::SIMPLE),
-      m_tireType(TireModelType::RIGID),
+      m_tire_collision_type(ChTire::CollisionType::SINGLE_POINT),
+      m_tireType(TireModelType::TMEASY),
       m_tire_step_size(-1),
       m_initPos(ChCoordsys<>(ChVector3d(0, 0, 1), QUNIT)),
       m_initFwdVel(0),
@@ -133,11 +135,12 @@ void BMW_E90::Initialize() {
 
                         break;
                     }
-                    case TireModelType::TMEASY: {
-                        auto tire_FL = chrono_types::make_shared<BMW_E90_TMeasyTire>("FL");
-                        auto tire_FR = chrono_types::make_shared<BMW_E90_TMeasyTire>("FR");
-                        auto tire_RL = chrono_types::make_shared<BMW_E90_TMeasyTire>("RL");
-                        auto tire_RR = chrono_types::make_shared<BMW_E90_TMeasyTire>("RR");
+     */
+        case TireModelType::TMEASY: {
+                        auto tire_FL = chrono_types::make_shared<BMW_E90_TMeasyTireFront>("FL");
+                        auto tire_FR = chrono_types::make_shared<BMW_E90_TMeasyTireFront>("FR");
+                        auto tire_RL = chrono_types::make_shared<BMW_E90_TMeasyTireRear>("RL");
+                        auto tire_RR = chrono_types::make_shared<BMW_E90_TMeasyTireRear>("RR");
 
                         m_vehicle->InitializeTire(tire_FL, m_vehicle->GetAxle(0)->m_wheels[LEFT],
                VisualizationType::NONE); m_vehicle->InitializeTire(tire_FR, m_vehicle->GetAxle(0)->m_wheels[RIGHT],
@@ -149,7 +152,6 @@ void BMW_E90::Initialize() {
 
                         break;
                     }
-            */
         default:
             std::cout << "Unsupported Tire Model Type! Switching to TMeasy.\n";
         case TireModelType::TMSIMPLE: {
@@ -171,6 +173,7 @@ void BMW_E90::Initialize() {
 
     for (auto& axle : m_vehicle->GetAxles()) {
         for (auto& wheel : axle->GetWheels()) {
+            wheel->GetTire()->SetCollisionType(m_tire_collision_type);
             if (m_tire_step_size > 0)
                 wheel->GetTire()->SetStepsize(m_tire_step_size);
         }

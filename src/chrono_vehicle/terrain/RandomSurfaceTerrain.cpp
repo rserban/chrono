@@ -110,6 +110,12 @@ void RandomSurfaceTerrain::ApplyAmplitudes() {
             std::exp(-0.356 * (m_waviness - 2.0) + 0.13 * std::pow(m_waviness - 2.0, 2));
 }
 
+ChVector3d RandomSurfaceTerrain::GetPoint(const ChVector3d& loc) const {
+    ChVector3d loc_ISO = ChWorldFrame::ToISO(loc);
+    ChVector3d vec_ISO(loc_ISO.x(), loc_ISO.y(), GetHeight(loc));
+    return ChWorldFrame::FromISO(vec_ISO);
+}
+
 double RandomSurfaceTerrain::GetHeight(const ChVector3d& loc) const {
     ChVector3d loc_ISO = ChWorldFrame::ToISO(loc);
     if (loc_ISO.x() < m_xmin || loc_ISO.x() > m_xmax)
@@ -404,7 +410,7 @@ void RandomSurfaceTerrain::CalculateSpectralCoefficientsCorr(double Phi_h0,
 double RandomSurfaceTerrain::CalculateAmplitudeLeft(double x) {
     double A = 0.0;
     for (int i = 0; i < m_ck.size(); i++) {
-        A += m_ck[i] * cos(m_wfft[i] * x + m_phase_left[i]);
+        A += m_ck[i] * std::cos(m_wfft[i] * x + m_phase_left[i]);
     }
     double fade =
         ChFunctionSineStep::Eval(x, 0, 0, 10.0, 1.0) * ChFunctionSineStep::Eval(x, m_xmax - 10.0, 1.0, m_xmax, 0.0);
@@ -414,7 +420,7 @@ double RandomSurfaceTerrain::CalculateAmplitudeLeft(double x) {
 double RandomSurfaceTerrain::CalculateAmplitudeRight(double x) {
     double A = 0.0;
     for (int i = 0; i < m_ck.size(); i++) {
-        A += m_ck[i] * cos(m_wfft[i] * x + m_phase_right[i]);
+        A += m_ck[i] * std::cos(m_wfft[i] * x + m_phase_right[i]);
     }
     double fade =
         ChFunctionSineStep::Eval(x, 0, 0, 10.0, 1.0) * ChFunctionSineStep::Eval(x, m_xmax - 10.0, 1.0, m_xmax, 0.0);
@@ -457,7 +463,7 @@ void RandomSurfaceTerrain::GenerateMesh() {
 
     m_mesh = chrono_types::make_shared<ChTriangleMeshConnected>();
     auto& coords = m_mesh->GetCoordsVertices();
-    auto& indices = m_mesh->GetIndicesVertexes();
+    auto& indices = m_mesh->GetIndicesVertices();
     auto& normals = m_mesh->GetCoordsNormals();
     auto& normidx = m_mesh->GetIndicesNormals();
 
@@ -514,7 +520,6 @@ void RandomSurfaceTerrain::SetupVisualization(RandomSurfaceTerrain::Visualisatio
 
             auto vmesh = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
             vmesh->SetMesh(m_mesh);
-            vmesh->SetMutable(false);
             vmesh->SetName("ISO_track");
             m_ground->AddVisualShape(vmesh);
 

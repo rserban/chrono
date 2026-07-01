@@ -32,7 +32,7 @@ class ChApi ChVisualShapeLine : public ChVisualShape {
     virtual ~ChVisualShapeLine() {}
 
     /// Access the line geometry.
-    std::shared_ptr<ChLine> GetLineGeometry() { return gline; }
+    std::shared_ptr<ChLine> GetLineGeometry() const { return gline; }
 
     /// Set the line geometry.
     void SetLineGeometry(std::shared_ptr<ChLine> mline) { gline = mline; }
@@ -45,6 +45,9 @@ class ChApi ChVisualShapeLine : public ChVisualShape {
 
     double GetThickness() const { return thickness; }
     void SetThickness(double mt) { thickness = mt; }
+
+    /// Get the shape bounding box.
+    virtual ChAABB GetBoundingBox() const override { return gline->GetBoundingBox(); }
 
     /// Method to allow serialization of transient data to archives.
     virtual void ArchiveOut(ChArchiveOut& archive_out) override;

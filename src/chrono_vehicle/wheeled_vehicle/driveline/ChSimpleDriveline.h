@@ -69,6 +69,8 @@ class CH_VEHICLE_API ChSimpleDriveline : public ChDrivelineWV {
     /// This represents the output from the driveline subsystem that is passed to the transmission subsystem.
     virtual double GetOutputDriveshaftSpeed() const override { return m_driveshaft_speed; }
 
+    void SetZeroTorqueBand(double zero) { m_zero_torque = zero; }
+
   protected:
     /// Return the front torque fraction [0,1].
     virtual double GetFrontTorqueFraction() const = 0;
@@ -81,9 +83,16 @@ class CH_VEHICLE_API ChSimpleDriveline : public ChDrivelineWV {
     /// This is a simple model of a Torsen limited-slip differential.
     virtual double GetRearDifferentialMaxBias() const = 0;
 
+    /// Return the gear ratio for the rear conical gear.
+    virtual double GetRearConicalGearRatio() const = 0;
+
+    /// Return the gear ratio for the front conical gear.
+    virtual double GetFrontConicalGearRatio() const = 0;
+
   private:
     bool m_connected;
-    double m_driveshaft_speed;               ///< output to transmisson
+    double m_zero_torque;                    ///< zero band for motor torque
+    double m_driveshaft_speed;               ///< output to transmission
     std::shared_ptr<ChShaft> m_front_left;   ///< associated front left wheel axle
     std::shared_ptr<ChShaft> m_front_right;  ///< associated front right wheel axle
     std::shared_ptr<ChShaft> m_rear_left;    ///< associated rear left wheel axle

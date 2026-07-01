@@ -47,7 +47,7 @@ class ChApi ChRoundedCylinder : public ChVolume {
     /// Return the radius of a bounding sphere for this geometry.
     virtual double GetBoundingSphereRadius() const override;
 
-    virtual ChVector3d Baricenter() const override { return ChVector3d(0); }
+    virtual ChVector3d Barycenter() const override { return ChVector3d(0); }
 
     /// Evaluate position in box volume.
     virtual ChVector3d Evaluate(double parU, double parV, double parW) const override {
@@ -71,16 +71,16 @@ class ChApi ChRoundedCylinder : public ChVolume {
     virtual void ArchiveIn(ChArchiveIn& archive_in) override;
 
     /// Return the volume of this type of solid with given dimensions.
-    static double GetVolume(double radius, double height, double srad);
+    static double CalcVolume(double radius, double height, double srad);
 
     /// Return the gyration matrix of this type of solid with given dimensions.
-    static ChMatrix33<> GetGyration(double radius, double height, double srad);
+    static ChMatrix33<> CalcGyration(double radius, double height, double srad);
 
     /// Return the bounding box of this type of solid with given dimensions.
-    static ChAABB GetBoundingBox(double radius, double height, double srad);
+    static ChAABB CalcBoundingBox(double radius, double height, double srad);
 
     /// Return the radius of a bounding sphere.
-    static double GetBoundingSphereRadius(double radius, double height, double srad);
+    static double CalcBoundingSphereRadius(double radius, double height, double srad);
 
     double r;   ///< cylinder radius
     double h;   ///< cylinder height

@@ -16,7 +16,7 @@
 
 namespace chrono {
 
-ChStaticAnalysis::ChStaticAnalysis() : m_integrable(nullptr){};
+ChStaticAnalysis::ChStaticAnalysis() : m_integrable(nullptr) {}
 
 void ChStaticAnalysis::SetIntegrable(ChIntegrableIIorder* integrable) {
     m_integrable = integrable;
@@ -39,7 +39,7 @@ void ChStaticLinearAnalysis::StaticAnalysis() {
 
     // Set V speed to zero
     V.setZero(integrable->GetNumCoordsVelLevel(), integrable);
-    integrable->StateScatter(X, V, T, true);  // state -> system
+    integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
 
     // Set up auxiliary vectors
     ChStateDelta Dx;
@@ -56,23 +56,25 @@ void ChStaticLinearAnalysis::StaticAnalysis() {
     //     [ Cq        0   ] [  l  ] = [-C]
 
     integrable->LoadResidual_F(R, 1.0);
-    integrable->LoadConstraint_C(Qc, 1.0);  //  C  (sign flipped later in StateSolveCorrection)
+    integrable->LoadConstraint_C(Qc, 1.0, 0.0);  //  C  (sign flipped later in StateSolveCorrection)
 
-    integrable->StateSolveCorrection(  //
-        Dx, L, R, Qc,                  //
-        0,                             // factor for  M
-        0,                             // factor for  dF/dv
-        -1.0,                          // factor for  dF/dx (the stiffness matrix)
-        X, V, T,                       // not needed here
-        false,                         // do not scatter Xnew Vnew T+dt before computing correction
-        false,                         // full update? (not used, since no scatter)
-        true                           // force a call to the solver's Setup() function
+    integrable->StateSolveCorrection(       //
+        Dx, L, R, Qc,                       //
+        0,                                  // factor for  M
+        0,                                  // factor for  dF/dv
+        -1.0,                               // factor for  dF/dx (the stiffness matrix)
+        X, V, T,                            // not needed here
+        false,                              // do not scatter Xnew Vnew T+dt before computing correction
+        UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+        true,                               // call the solver's Setup function
+        true                                // call the solver's Setup analyze phase
     );
 
     X += Dx;
 
-    integrable->StateScatter(X, V, T, true);  // state -> system
-    integrable->StateScatterReactions(L);     // -> system auxiliary data
+    integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
+    integrable->StateScatterReactions(L);                        // -> system auxiliary data
+    integrable->StateOnEndStep(T);                               // finalize step, ex. for plasticity etc.
 }
 
 // -----------------------------------------------------------------------------
@@ -80,7 +82,6 @@ void ChStaticLinearAnalysis::StaticAnalysis() {
 ChStaticNonLinearAnalysis::ChStaticNonLinearAnalysis()
     : ChStaticAnalysis(),
       m_maxiters(20),
-      m_incremental_steps(6),
       m_use_correction_test(true),
       m_reltol(1e-4),
       m_abstol(1e-8),
@@ -92,7 +93,6 @@ void ChStaticNonLinearAnalysis::StaticAnalysis() {
     if (m_verbose) {
         std::cout << "\nNonlinear statics" << std::endl;
         std::cout << "   max iterations:     " << m_maxiters << std::endl;
-        std::cout << "   incremental steps:  " << m_incremental_steps << std::endl;
         if (m_use_correction_test) {
             std::cout << "   stopping test:      correction" << std::endl;
             std::cout << "      relative tol:    " << m_reltol << std::endl;
@@ -113,33 +113,35 @@ void ChStaticNonLinearAnalysis::StaticAnalysis() {
 
     // Set speed to zero
     V.setZero(integrable->GetNumCoordsVelLevel(), integrable);
-    integrable->StateScatter(X, V, T, true);  // state -> system
+    integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
 
     // Set up auxiliary vectors
     ChState Xnew;
     ChStateDelta Dx;
+    ChVectorDynamic<> Dl;
     ChVectorDynamic<> R;
     ChVectorDynamic<> Qc;
     Xnew.setZero(integrable->GetNumCoordsPosLevel(), integrable);
     Dx.setZero(integrable->GetNumCoordsVelLevel(), integrable);
+    Dl.setZero(integrable->GetNumConstraints());
     R.setZero(integrable->GetNumCoordsVelLevel());
     Qc.setZero(integrable->GetNumConstraints());
     L.setZero(integrable->GetNumConstraints());
 
     // Use Newton Raphson iteration, solving for the increments
-    //      [ - dF/dx    Cq' ] [ Dx  ] = [ f ]
-    //      [ Cq         0   ] [ L   ] = [-C ]
+    //      [ - dF/dx    Cq' ] [ Dx  ] = [ f + Cq*L ]
+    //      [ Cq         0   ] [-Dl  ] = [-C ]
 
     for (int i = 0; i < m_maxiters; ++i) {
-        integrable->StateScatter(X, V, T, true);  // state -> system
+        integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL_NO_VISUAL);  // state -> system
         R.setZero();
         Qc.setZero();
         integrable->LoadResidual_F(R, 1.0);
-        integrable->LoadConstraint_C(Qc, 1.0);
-
-        double cfactor = std::min(1.0, (i + 2.0) / (m_incremental_steps + 1.0));
-        R *= cfactor;
-        Qc *= cfactor;
+        // integrable->LoadResidual_Mv(R, V, 1.0); // V is zero
+        integrable->LoadResidual_CqL(R, L, 1.0);  // update the reaction forces
+        integrable->LoadConstraint_C(Qc, 1.0, 0.0);    // Qc=C (sign flipped later in StateSolveCorrection)
+        // integrable->LoadConstraint_Ct(Qc, 1.0, 0.0); // do not consider the rheonomic excitation because it constrains the
+        // DOFs
 
         if (!m_use_correction_test) {
             // Evaluate residual norms
@@ -154,25 +156,27 @@ void ChStaticNonLinearAnalysis::StaticAnalysis() {
             // Stopping test
             if ((R_norm < m_abstol) && (Qc_norm < m_abstol)) {
                 if (m_verbose) {
-                    std::cout << "+++ Newton procedure converged in " << i + 1 << " iterations.\n" << std::endl;
+                    std::cout << "+++ Newton procedure converged in " << i + 1 << " iterations\n" << std::endl;
                 }
                 break;
             }
         }
 
         // Solve linear system for correction
-        integrable->StateSolveCorrection(  //
-            Dx, L, R, Qc,                  //
-            0,                             // factor for  M
-            0,                             // factor for  dF/dv
-            -1.0,                          // factor for  dF/dx (the stiffness matrix)
-            X, V, T,                       // not needed here
-            false,                         // do not scatter Xnew Vnew T+dt before computing correction
-            false,                         // full update? (not used, since no scatter)
-            true                           // force a call to the solver's Setup() function
+        integrable->StateSolveCorrection(       //
+            Dx, Dl, R, Qc,                      //
+            0,                                  // factor for  M
+            0,                                  // factor for  dF/dv
+            -1.0,                               // factor for  dF/dx (the stiffness matrix)
+            X, V, T,                            // not needed here
+            false,                              // do not scatter Xnew Vnew T+dt before computing correction
+            UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+            true,                               // call the solver's Setup function
+            true                                // call the solver's Setup analyze phase
         );
 
         Xnew = X + Dx;
+        L += Dl;
 
         if (m_use_correction_test) {
             // Calculate actual correction in X
@@ -200,10 +204,15 @@ void ChStaticNonLinearAnalysis::StaticAnalysis() {
         }
 
         X = Xnew;
+
+        integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL_NO_VISUAL);  // state -> system
+        integrable->StateScatterReactions(L);                        // -> system auxiliary data
+        integrable->StateOnEndStep(T);                               // finalize step, ex. for plasticity etc.
     }
 
-    integrable->StateScatter(X, V, T, true);  // state -> system
-    integrable->StateScatterReactions(L);     // -> system auxiliary data
+    integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
+    integrable->StateScatterReactions(L);                        // -> system auxiliary data
+    integrable->StateOnEndStep(T);                               // finalize step, ex. for plasticity etc.
 }
 
 void ChStaticNonLinearAnalysis::SetCorrectionTolerance(double reltol, double abstol) {
@@ -217,24 +226,11 @@ void ChStaticNonLinearAnalysis::SetResidualTolerance(double tol) {
     m_abstol = tol;
 }
 
-void ChStaticNonLinearAnalysis::SetMaxIterations(int max_iters) {
-    m_maxiters = max_iters;
-    if (m_incremental_steps > m_maxiters)
-        m_incremental_steps = m_maxiters;
-}
-
-void ChStaticNonLinearAnalysis::SetIncrementalSteps(int incr_steps) {
-    m_incremental_steps = incr_steps;
-    if (m_maxiters < m_incremental_steps)
-        m_maxiters = m_incremental_steps;
-}
-
 // -----------------------------------------------------------------------------
 
 ChStaticNonLinearRheonomicAnalysis::ChStaticNonLinearRheonomicAnalysis()
     : ChStaticAnalysis(),
       m_maxiters(20),
-      m_incremental_steps(6),
       m_use_correction_test(true),
       m_reltol(1e-4),
       m_abstol(1e-8),
@@ -247,7 +243,6 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
     if (m_verbose) {
         std::cout << "\nNonlinear static rheonomic" << std::endl;
         std::cout << "   max iterations:     " << m_maxiters << std::endl;
-        std::cout << "   incremental steps:  " << m_incremental_steps << std::endl;
         if (m_use_correction_test) {
             std::cout << "   stopping test:      correction" << std::endl;
             std::cout << "      relative tol:    " << m_reltol << std::endl;
@@ -275,7 +270,7 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
 
     // Set speed to zero
     V.setZero(integrable->GetNumCoordsVelLevel(), integrable);
-    integrable->StateScatter(X, V, T, true);  // state -> system
+    integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
 
     // Set up auxiliary vectors
     ChState Xnew;
@@ -296,16 +291,13 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
     // Use Newton Raphson iteration
 
     for (int i = 0; i < m_maxiters; ++i) {
-        integrable->StateScatter(X, V, T, true);  // state -> system
-
-        // total load scaling factor
-        double cfactor = std::min(1.0, (i + 2.0) / (m_incremental_steps + 1.0));
+        integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL_NO_VISUAL);  // state -> system
 
         // Update nonzero speeds and accelerations, if any, calling
         // the iteration callback, if any:
         if (m_callback) {
-            m_callback->OnIterationBegin(cfactor, i, this);  // this may modify V and A
-            integrable->StateGather(X, V, T);                // state <- system
+            m_callback->OnIterationBegin(i, this);  // this may modify V and A
+            integrable->StateGather(X, V, T);       // state <- system
             integrable->StateGatherAcceleration(A);
         }
 
@@ -319,19 +311,20 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
 
             R.setZero(integrable->GetNumCoordsVelLevel());
             Qc.setZero(integrable->GetNumConstraints());
-            integrable->LoadConstraint_Ct(Qc, 1.0);  // Ct  (sign flipped later in StateSolveCorrection)
+            integrable->LoadConstraint_Ct(Qc, 1.0, 0.0);  // Ct  (sign flipped later in StateSolveCorrection)
 
             // Solve linear system for correction
-            integrable->StateSolveCorrection(  //
-                V, L_v,                        // unknowns
-                R, Qc,                         // RHS
-                0,                             // factor for  M
-                0,                             // factor for  dF/dv
-                -1.0,                          // factor for  dF/dx (the stiffness matrix)
-                X, V, T,                       // not needed here
-                false,                         // do not scatter Xnew Vnew T+dt before computing correction
-                false,                         // full update? (not used, since no scatter)
-                true                           // force a call to the solver's Setup() function
+            integrable->StateSolveCorrection(       //
+                V, L_v,                             // unknowns
+                R, Qc,                              // RHS
+                0,                                  // factor for  M
+                0,                                  // factor for  dF/dv
+                -1.0,                               // factor for  dF/dx (the stiffness matrix)
+                X, V, T,                            // not needed here
+                false,                              // do not scatter Xnew Vnew T+dt before computing correction
+                UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+                true,                               // call the solver's Setup function
+                true                                // call the solver's Setup analyze phase
             );
             /*
             std::cout << "V=\n"<< V << std::endl;
@@ -342,19 +335,20 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
                 (V *
                  dt_perturbation);  // small increment in position to recompute V and get acceleration by backward diff.
 
-            integrable->StateScatter(Xnew, V, T, true);  // state -> system
+            integrable->StateScatter(Xnew, V, T, UpdateFlags::UPDATE_ALL_NO_VISUAL);  // state -> system
 
             // Solve linear system for correction
-            integrable->StateSolveCorrection(  //
-                Vp, L_v,                       // unknowns
-                R, Qc,                         // RHS
-                0,                             // factor for  M
-                0,                             // factor for  dF/dv
-                -1.0,                          // factor for  dF/dx (the stiffness matrix)
-                X, V, T,                       // not needed here
-                false,                         // do not scatter Xnew Vnew T+dt before computing correction
-                false,                         // full update? (not used, since no scatter)
-                true                           // force a call to the solver's Setup() function
+            integrable->StateSolveCorrection(       //
+                Vp, L_v,                            // unknowns
+                R, Qc,                              // RHS
+                0,                                  // factor for  M
+                0,                                  // factor for  dF/dv
+                -1.0,                               // factor for  dF/dx (the stiffness matrix)
+                X, V, T,                            // not needed here
+                false,                              // do not scatter Xnew Vnew T+dt before computing correction
+                UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+                true,                               // call the solver's Setup function
+                true                                // call the solver's Setup analyze phase
             );
 
             Xnew =
@@ -362,24 +356,25 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
                 (V *
                  dt_perturbation);  // small increment in position to recompute V and get acceleration by backward diff.
 
-            integrable->StateScatter(Xnew, V, T, true);  // state -> system
+            integrable->StateScatter(Xnew, V, T, UpdateFlags::UPDATE_ALL_NO_VISUAL);  // state -> system
 
             // Solve linear system for correction
-            integrable->StateSolveCorrection(  //
-                Vm, L_v,                       // unknowns
-                R, Qc,                         // RHS
-                0,                             // factor for  M
-                0,                             // factor for  dF/dv
-                -1.0,                          // factor for  dF/dx (the stiffness matrix)
-                X, V, T,                       // not needed here
-                false,                         // do not scatter Xnew Vnew T+dt before computing correction
-                false,                         // full update? (not used, since no scatter)
-                true                           // force a call to the solver's Setup() function
+            integrable->StateSolveCorrection(       //
+                Vm, L_v,                            // unknowns
+                R, Qc,                              // RHS
+                0,                                  // factor for  M
+                0,                                  // factor for  dF/dv
+                -1.0,                               // factor for  dF/dx (the stiffness matrix)
+                X, V, T,                            // not needed here
+                false,                              // do not scatter Xnew Vnew T+dt before computing correction
+                UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+                true,                               // call the solver's Setup function
+                true                                // call the solver's Setup analyze phase
             );
 
             A = (Vp - Vm) / (2 * dt_perturbation);
 
-            integrable->StateScatter(X, V, T, true);  // state -> system
+            integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
             integrable->StateScatterAcceleration(A);
         }
 
@@ -395,10 +390,7 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
         integrable->LoadResidual_F(R, 1.0);
         integrable->LoadResidual_CqL(R, L, 1.0);
         integrable->LoadResidual_Mv(R, A, -1.0);
-        integrable->LoadConstraint_C(Qc, 1.0);  // C   (sign flipped later in StateSolveCorrection)
-
-        R *= cfactor;
-        Qc *= cfactor;
+        integrable->LoadConstraint_C(Qc, 1.0, 0.0);  // C   (sign flipped later in StateSolveCorrection)
 
         if (!m_use_correction_test) {
             // Evaluate residual norms
@@ -420,15 +412,16 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
         }
 
         // Solve linear system for correction
-        integrable->StateSolveCorrection(  //
-            Dx, Dl, R, Qc,                 //
-            0,                             // factor for  M
-            0,                             // factor for  dF/dv
-            -1.0,                          // factor for  dF/dx (the stiffness matrix)
-            X, V, T,                       // not needed here
-            false,                         // do not scatter Xnew Vnew T+dt before computing correction
-            false,                         // full update? (not used, since no scatter)
-            true                           // force a call to the solver's Setup() function
+        integrable->StateSolveCorrection(       //
+            Dx, Dl, R, Qc,                      //
+            0,                                  // factor for  M
+            0,                                  // factor for  dF/dv
+            -1.0,                               // factor for  dF/dx (the stiffness matrix)
+            X, V, T,                            // not needed here
+            false,                              // do not scatter Xnew Vnew T+dt before computing correction
+            UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+            true,                               // call the solver's Setup function
+            true                                // call the solver's Setup analyze phase
         );
 
         Xnew = X + Dx;
@@ -469,11 +462,11 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
         X = Xnew;
     }
 
-    // Compute speed at the end. ***WARNING*** this is ok only for sligtly stretched elements at the moment!
+    // Compute speed at the end. ***WARNING*** this is ok only for slightly stretched elements at the moment!
 
     if (m_automatic_deriv_computation) {
         for (int i = 0; i < m_maxiters; ++i) {
-            integrable->StateScatter(X, V, T, true);  // state -> system
+            integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
 
             // B) solve for position increments, where in RHS includes all inertial forces:
             //    f automatically includes -centrifugal/gyroscopic terms at given acceleration/speed, and -M*a is added
@@ -487,23 +480,20 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
             integrable->LoadResidual_F(R, 1.0);
             integrable->LoadResidual_CqL(R, L, 1.0);
             integrable->LoadResidual_Mv(R, A, -1.0);
-            // integrable->LoadConstraint_C(Qc, 1.0);  // C  (sign flipped later in StateSolveCorrection)
-            integrable->LoadConstraint_Ct(Qc, 1.0);  // Ct  (sign flipped later in StateSolveCorrection)
-
-            double cfactor = std::min(1.0, (i + 2.0) / (m_incremental_steps + 1.0));
-            R *= cfactor;
-            Qc *= cfactor;
+            // integrable->LoadConstraint_C(Qc, 1.0, 0.0);  // C  (sign flipped later in StateSolveCorrection)
+            integrable->LoadConstraint_Ct(Qc, 1.0, 0.0);  // Ct  (sign flipped later in StateSolveCorrection)
 
             // Solve linear system for correction
-            integrable->StateSolveCorrection(  //
-                V, Dl, R, Qc,                  //
-                0,                             // factor for  M
-                0,                             // factor for  dF/dv
-                -1.0,                          // factor for  dF/dx (the stiffness matrix)
-                X, V, T,                       // not needed here
-                false,                         // do not scatter Xnew Vnew T+dt before computing correction
-                false,                         // full update? (not used, since no scatter)
-                true                           // force a call to the solver's Setup() function
+            integrable->StateSolveCorrection(       //
+                V, Dl, R, Qc,                       //
+                0,                                  // factor for  M
+                0,                                  // factor for  dF/dv
+                -1.0,                               // factor for  dF/dx (the stiffness matrix)
+                X, V, T,                            // not needed here
+                false,                              // do not scatter Xnew Vnew T+dt before computing correction
+                UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+                true,                               // call the solver's Setup function
+                true                                // call the solver's Setup analyze phase
             );
 
             // Xnew = X + Dx;
@@ -516,19 +506,20 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
         R.setZero(integrable->GetNumCoordsVelLevel());
         Qc.setZero(integrable->GetNumConstraints());
         L_v.setZero(integrable->GetNumConstraints());
-        integrable->LoadConstraint_Ct(Qc, 1.0);  // Ct   (sign flipped later in StateSolveCorrection)
+        integrable->LoadConstraint_Ct(Qc, 1.0, 0.0);  // Ct   (sign flipped later in StateSolveCorrection)
 
         // Solve linear system for correction
-        integrable->StateSolveCorrection(  //
-            V, L_v,                        // unknowns
-            R, Qc,                         // RHS
-            0,                             // factor for  M
-            0,                             // factor for  dF/dv
-            -1.0,                          // factor for  dF/dx (the stiffness matrix)
-            X, V, T,                       // not needed here
-            false,                         // do not scatter Xnew Vnew T+dt before computing correction
-            false,                         // full update? (not used, since no scatter)
-            true                           // force a call to the solver's Setup() function
+        integrable->StateSolveCorrection(       //
+            V, L_v,                             // unknowns
+            R, Qc,                              // RHS
+            0,                                  // factor for  M
+            0,                                  // factor for  dF/dv
+            -1.0,                               // factor for  dF/dx (the stiffness matrix)
+            X, V, T,                            // not needed here
+            false,                              // do not scatter Xnew Vnew T+dt before computing correction
+            UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+            true,                               // call the solver's Setup function
+            true                                // call the solver's Setup analyze phase
         );
 
         /*
@@ -538,12 +529,13 @@ void ChStaticNonLinearRheonomicAnalysis::StaticAnalysis() {
         std::cout << "V_last=\n"<< V << std::endl;
         */
 
-        integrable->StateScatter(X, V, T, true);  // state -> system
+        integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL_NO_VISUAL);  // state -> system
         integrable->StateScatterAcceleration(A);
     }
 
-    integrable->StateScatter(X, V, T, true);  // state -> system
-    integrable->StateScatterReactions(L);     // -> system auxiliary data
+    integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
+    integrable->StateScatterReactions(L);                        // -> system auxiliary data
+    integrable->StateOnEndStep(T);                               // finalize step, ex. for plasticity etc.
 }
 
 void ChStaticNonLinearRheonomicAnalysis::SetCorrectionTolerance(double reltol, double abstol) {
@@ -557,21 +549,9 @@ void ChStaticNonLinearRheonomicAnalysis::SetResidualTolerance(double tol) {
     m_abstol = tol;
 }
 
-void ChStaticNonLinearRheonomicAnalysis::SetMaxIterations(int max_iters) {
-    m_maxiters = max_iters;
-    if (m_incremental_steps > m_maxiters)
-        m_incremental_steps = m_maxiters;
-}
-
-void ChStaticNonLinearRheonomicAnalysis::SetIncrementalSteps(int incr_steps) {
-    m_incremental_steps = incr_steps;
-    if (m_maxiters < m_incremental_steps)
-        m_maxiters = m_incremental_steps;
-}
-
 // -----------------------------------------------------------------------------
 
-ChStaticNonLinearIncremental::ChStaticNonLinearIncremental()
+ChStaticNonLinearAnalysisIncremental::ChStaticNonLinearAnalysisIncremental()
     : ChStaticAnalysis(),
       max_newton_iters(5),
       m_incremental_steps(6),
@@ -584,7 +564,7 @@ ChStaticNonLinearIncremental::ChStaticNonLinearIncremental()
       m_adaptive_newton_delay(1),
       m_newton_damping_factor(1.0) {}
 
-void ChStaticNonLinearIncremental::StaticAnalysis() {
+void ChStaticNonLinearAnalysisIncremental::StaticAnalysis() {
     ChIntegrableIIorder* integrable = static_cast<ChIntegrableIIorder*>(m_integrable);
 
     if (m_verbose) {
@@ -616,7 +596,7 @@ void ChStaticNonLinearIncremental::StaticAnalysis() {
 
     // Set speed to zero
     V.setZero(integrable->GetNumCoordsVelLevel(), integrable);
-    integrable->StateScatter(X, V, T, true);  // state -> system
+    integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
 
     // Set up auxiliary vectors
     ChState Xnew;
@@ -640,7 +620,7 @@ void ChStaticNonLinearIncremental::StaticAnalysis() {
         double cfactor = ((double)j + 1.0) / m_incremental_steps;
 
         // SCALE THE EXTERNAL LOADS!
-        // This MUST be implemented by the user via a callback, becauses it is the only way we have to
+        // This MUST be implemented by the user via a callback, because it is the only way we have to
         // scale the external forces F_ext. The user must know the final F_ext, then updating data such as scale*F_ext
         // is set in objects. Then, after the callback is executed, as soon as we call
         // integrable->LoadResidual_F(R, 1.0); we'll get that    R = F_in + scaled_F_ext.
@@ -664,12 +644,12 @@ void ChStaticNonLinearIncremental::StaticAnalysis() {
         double R_norm_old = 0;
 
         for (int i = 0; i < max_newton_iters; ++i) {
-            integrable->StateScatter(X, V, T, true);  // state -> system
+            integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL_NO_VISUAL);  // state -> system
             R.setZero();
             Qc.setZero();
             integrable->LoadResidual_F(R, 1.0);       // put the F term in RHS  (where F = F_in + scaled_F_ext )
             integrable->LoadResidual_CqL(R, L, 1.0);  // put the Cq*L term in RHS
-            integrable->LoadConstraint_C(Qc, 1.0);    // put the C term in RHS
+            integrable->LoadConstraint_C(Qc, 1.0, 0.0); // put the C term in RHS
 
             // Evaluate residual norms
             double R_norm = R.lpNorm<Eigen::Infinity>();
@@ -720,15 +700,16 @@ void ChStaticNonLinearIncremental::StaticAnalysis() {
             }
 
             // Solve linear system for correction
-            integrable->StateSolveCorrection(  //
-                Dx, Dl, R, Qc,                 //
-                0,                             // factor for  M
-                0,                             // factor for  dF/dv
-                -1.0,                          // factor for  dF/dx (the stiffness matrix)
-                X, V, T,                       // not needed here
-                false,                         // do not scatter Xnew Vnew T+dt before computing correction
-                false,                         // full update? (not used, since no scatter)
-                true                           // force a call to the solver's Setup() function
+            integrable->StateSolveCorrection(       //
+                Dx, Dl, R, Qc,                      //
+                0,                                  // factor for  M
+                0,                                  // factor for  dF/dv
+                -1.0,                               // factor for  dF/dx (the stiffness matrix)
+                X, V, T,                            // not needed here
+                false,                              // do not scatter Xnew Vnew T+dt before computing correction
+                UpdateFlags::UPDATE_ALL_NO_VISUAL,  // no need for full update, since no scatter
+                true,                               // call the solver's Setup function
+                true                                // call the solver's Setup analyze phase
             );
 
             // Increment state (and constraint reactions)
@@ -764,206 +745,46 @@ void ChStaticNonLinearIncremental::StaticAnalysis() {
 
         }  // end inner loop for Newton iteration
 
+        integrable->StateScatter(X, V, T, UpdateFlags::UPDATE_ALL);  // state -> system
+        integrable->StateScatterReactions(L);                        // -> system auxiliary data
+        integrable->StateOnEndStep(T);  // finalize step, ex. for plasticity etc.
+
     }  // end outer loop incrementing external loads
 
-    integrable->StateScatter(X, V, T, true);  // state -> system
-    integrable->StateScatterReactions(L);     // -> system auxiliary data
 }
 
-void ChStaticNonLinearIncremental::SetCorrectionTolerance(double reltol, double abstol) {
+void ChStaticNonLinearAnalysisIncremental::SetCorrectionTolerance(double reltol, double abstol) {
     m_use_correction_test = true;
     m_reltol = reltol;
     m_abstol = abstol;
 }
 
-void ChStaticNonLinearIncremental::SetResidualTolerance(double tol) {
+void ChStaticNonLinearAnalysisIncremental::SetResidualTolerance(double tol) {
     m_use_correction_test = false;
     m_abstol = tol;
 }
 
-void ChStaticNonLinearIncremental::SetMaxIterationsNewton(int max_iters) {
+void ChStaticNonLinearAnalysisIncremental::SetMaxIterationsNewton(int max_iters) {
     max_newton_iters = max_iters;
 }
 
-void ChStaticNonLinearIncremental::SetIncrementalSteps(int incr_steps) {
+void ChStaticNonLinearAnalysisIncremental::SetIncrementalSteps(int incr_steps) {
     m_incremental_steps = incr_steps;
 }
 
-void ChStaticNonLinearIncremental::SetAdaptiveNewtonON(int initial_delay, double growth_tolerance) {
+void ChStaticNonLinearAnalysisIncremental::SetAdaptiveNewtonON(int initial_delay, double growth_tolerance) {
     m_adaptive_newton = true;
     m_adaptive_newton_delay = initial_delay;
     m_adaptive_newton_tolerance = growth_tolerance;
 }
-void ChStaticNonLinearIncremental::SetAdaptiveNewtonOFF() {
+void ChStaticNonLinearAnalysisIncremental::SetAdaptiveNewtonOFF() {
     m_adaptive_newton = false;
 }
 
-void ChStaticNonLinearIncremental::SetNewtonDamping(double damping_factor) {
+void ChStaticNonLinearAnalysisIncremental::SetNewtonDamping(double damping_factor) {
     m_newton_damping_factor = damping_factor;
 }
 
 // -----------------------------------------------------------------------------
-
-ChStaticNonLinearRigidMotion::ChStaticNonLinearRigidMotion()
-    : ChStaticAnalysis(),
-      m_maxiters(20),
-      m_incremental_steps(6),
-      m_use_correction_test(true),
-      m_reltol(1e-4),
-      m_abstol(1e-8),
-      m_verbose(false) {}
-
-void ChStaticNonLinearRigidMotion::StaticAnalysis() {
-    ChIntegrableIIorder* integrable = static_cast<ChIntegrableIIorder*>(m_integrable);
-
-    if (m_verbose) {
-        std::cout << "\nNonlinear statics" << std::endl;
-        std::cout << "   max iterations:     " << m_maxiters << std::endl;
-        std::cout << "   incremental steps:  " << m_incremental_steps << std::endl;
-        if (m_use_correction_test) {
-            std::cout << "   stopping test:      correction" << std::endl;
-            std::cout << "      relative tol:    " << m_reltol << std::endl;
-            std::cout << "      absolute tol:    " << m_abstol << std::endl;
-        } else {
-            std::cout << "   stopping test:      residual" << std::endl;
-            std::cout << "      tolerance:       " << m_abstol << std::endl;
-        }
-        std::cout << std::endl;
-    }
-
-    // Set up main vectors
-    double T;
-    ChStateDelta V(integrable);
-    X.resize(integrable->GetNumCoordsPosLevel());
-    V.resize(integrable->GetNumCoordsVelLevel());
-    integrable->StateGather(X, V, T);  // state <- system
-
-    // Set speed to zero
-    V.setZero(integrable->GetNumCoordsVelLevel(), integrable);
-    integrable->StateScatter(X, V, T, true);  // state -> system
-
-    // Set up auxiliary vectors
-    ChState Xnew;
-    ChStateDelta Dx;
-    ChVectorDynamic<> Dl;
-    ChVectorDynamic<> R;
-    ChVectorDynamic<> Qc;
-    Xnew.setZero(integrable->GetNumCoordsPosLevel(), integrable);
-    Dx.setZero(integrable->GetNumCoordsVelLevel(), integrable);
-    Dl.setZero(integrable->GetNumConstraints());
-    R.setZero(integrable->GetNumCoordsVelLevel());
-    Qc.setZero(integrable->GetNumConstraints());
-    L.setZero(integrable->GetNumConstraints());
-
-    // Use Newton Raphson iteration, solving for the increments
-    //      [ - dF/dx    Cq' ] [ Dx  ] = [ f + Cq*L ]
-    //      [ Cq         0   ] [-Dl  ] = [-C ]
-
-    for (int i = 0; i < m_maxiters; ++i) {
-        integrable->StateScatter(X, V, T, true);  // state -> system
-        R.setZero();
-        Qc.setZero();
-        integrable->LoadResidual_F(R, 1.0);
-        // integrable->LoadResidual_Mv(R, V, 1.0); // V is zero
-        integrable->LoadResidual_CqL(R, L, 1.0);  // Update the reaction forces
-        integrable->LoadConstraint_C(Qc, 1.0);    // Qc= C (sign flipped later in StateSolveCorrection)
-        // Do not consider the rheonomic excitation because it constrains the DOFs in fact.
-        // integrable->LoadConstraint_Ct(Qc, 1.0);
-
-        double cfactor = std::min(1.0, (i + 2.0) / (m_incremental_steps + 1.0));
-        R *= cfactor;
-        Qc *= cfactor;
-
-        if (!m_use_correction_test) {
-            // Evaluate residual norms
-            double R_norm = R.lpNorm<Eigen::Infinity>();
-            double Qc_norm = Qc.lpNorm<Eigen::Infinity>();
-
-            if (m_verbose) {
-                std::cout << "--- Nonlinear statics iteration " << i << "  |R|_inf = " << R_norm
-                          << "  |Qc|_inf = " << Qc_norm << std::endl;
-            }
-
-            // Stopping test
-            if ((R_norm < m_abstol) && (Qc_norm < m_abstol)) {
-                if (m_verbose) {
-                    std::cout << "+++ Newton procedure converged in " << i + 1 << " iterations\n" << std::endl;
-                }
-                break;
-            }
-        }
-
-        // Solve linear system for correction
-        integrable->StateSolveCorrection(  //
-            Dx, Dl, R, Qc,                 //
-            0,                             // factor for  M
-            0,                             // factor for  dF/dv
-            -1.0,                          // factor for  dF/dx (the stiffness matrix)
-            X, V, T,                       // not needed here
-            false,                         // do not scatter Xnew Vnew T+dt before computing correction
-            false,                         // full update? (not used, since no scatter)
-            true                           // force a call to the solver's Setup() function
-        );
-
-        Xnew = X + Dx;
-        L += Dl;
-
-        if (m_use_correction_test) {
-            // Calculate actual correction in X
-            ChState correction = Xnew - X;
-
-            // Evaluate weights and correction WRMS norm
-            ChVectorDynamic<> ewt = (m_reltol * Xnew.cwiseAbs() + m_abstol).cwiseInverse();
-            double Dx_norm = correction.wrmsNorm(ewt);
-
-            if (m_verbose) {
-                std::cout << "--- Nonlinear statics iteration " << i << "  |Dx|_wrms = " << Dx_norm << std::endl;
-            }
-
-            // Stopping test
-            if (Dx_norm < 1) {
-                if (m_verbose) {
-                    double R_norm = R.lpNorm<Eigen::Infinity>();
-                    double Qc_norm = Qc.lpNorm<Eigen::Infinity>();
-                    std::cout << "+++ Newton procedure converged in " << i + 1 << " iterations." << std::endl;
-                    std::cout << "    |R|_inf = " << R_norm << "  |Qc|_inf = " << Qc_norm << std::endl << std::endl;
-                }
-                X = Xnew;
-                break;
-            }
-        }
-
-        X = Xnew;
-
-        integrable->StateScatter(X, V, T, true);  // state -> system
-        integrable->StateScatterReactions(L);     // -> system auxiliary data
-    }
-
-    integrable->StateScatter(X, V, T, true);  // state -> system
-    integrable->StateScatterReactions(L);     // -> system auxiliary data
-}
-
-void ChStaticNonLinearRigidMotion::SetCorrectionTolerance(double reltol, double abstol) {
-    m_use_correction_test = true;
-    m_reltol = reltol;
-    m_abstol = abstol;
-}
-
-void ChStaticNonLinearRigidMotion::SetResidualTolerance(double tol) {
-    m_use_correction_test = false;
-    m_abstol = tol;
-}
-
-void ChStaticNonLinearRigidMotion::SetMaxIterations(int max_iters) {
-    m_maxiters = max_iters;
-    if (m_incremental_steps > m_maxiters)
-        m_incremental_steps = m_maxiters;
-}
-
-void ChStaticNonLinearRigidMotion::SetIncrementalSteps(int incr_steps) {
-    m_incremental_steps = incr_steps;
-    if (m_maxiters < m_incremental_steps)
-        m_maxiters = m_incremental_steps;
-}
 
 }  // end namespace chrono

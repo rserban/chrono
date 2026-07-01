@@ -67,6 +67,8 @@ class ChApi ChShaftsMotorSpeed : public ChShaftsMotor {
     /// Get the current motor torque between shaft2 and shaft1, expressed as applied to shaft1
     virtual double GetMotorLoad() const override { return motor_load; }
 
+    ChVariablesGeneric& Variables() { return variable; }
+
     /// Method to allow serialization of transient data to archives.
     virtual void ArchiveOut(ChArchiveOut& archive_out) override;
 
@@ -90,7 +92,7 @@ class ChApi ChShaftsMotorSpeed : public ChShaftsMotor {
     virtual unsigned int GetNumCoordsPosLevel() override { return 1; }
     virtual unsigned int GetNumConstraintsBilateral() override { return 1; }
 
-    virtual void Update(double mytime, bool update_assets = true) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
 
     virtual void IntStateGather(const unsigned int off_x,
                                 ChState& x,
@@ -102,7 +104,7 @@ class ChApi ChShaftsMotorSpeed : public ChShaftsMotor {
                                  const unsigned int off_v,
                                  const ChStateDelta& v,
                                  const double T,
-                                 bool full_update) override;
+                                 UpdateFlags update_flags) override;
     virtual void IntStateGatherReactions(const unsigned int off_L, ChVectorDynamic<>& L) override;
     virtual void IntStateScatterReactions(const unsigned int off_L, const ChVectorDynamic<>& L) override;
     virtual void IntStateGatherAcceleration(const unsigned int off_a, ChStateDelta& a) override;
@@ -123,9 +125,10 @@ class ChApi ChShaftsMotorSpeed : public ChShaftsMotor {
     virtual void IntLoadConstraint_C(const unsigned int off,
                                      ChVectorDynamic<>& Qc,
                                      const double c,
+                                     const double c_vel,   
                                      bool do_clamp,
                                      double recovery_clamp) override;
-    virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c) override;
+    virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c, const double c_vel) override;
     virtual void IntToDescriptor(const unsigned int off_v,
                                  const ChStateDelta& v,
                                  const ChVectorDynamic<>& R,

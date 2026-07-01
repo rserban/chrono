@@ -13,7 +13,7 @@
 // =============================================================================
 //
 // Base class for continuous band track assembly using rigid tread.
-// Derived classes specify the actual template defintions, using different track
+// Derived classes specify the actual template definitions, using different track
 // shoes.
 //
 // The reference frame for a vehicle follows the ISO standard: Z-axis up, X-axis
@@ -41,7 +41,7 @@ namespace vehicle {
 /// A track assembly consists of a sprocket, an idler (with tensioner mechanism),
 /// a set of suspensions (road-wheel assemblies), and a collection of track shoes.
 /// This is the base class for continuous band track assembly using rigid tread.
-/// Derived classes specify the actual template defintions, using different track shoes.
+/// Derived classes specify the actual template definitions, using different track shoes.
 class CH_VEHICLE_API ChTrackAssemblyBand : public ChTrackAssembly {
   public:
     ChTrackAssemblyBand(const std::string& name,  ///< [in] name of the subsystem
@@ -77,7 +77,7 @@ class CH_VEHICLE_API ChTrackAssemblyBand : public ChTrackAssembly {
                       ///< the current circle belt feature
         ChVector2d& Point,  ///< Intersection Point, if it exists between the circle formed by StartingPoint and Radius
                             ///< with the current circle belt feature
-        ChMatrixDynamic<>& Features,  ///< Table with the tagent or arc information for the entire belt wrap
+        ChMatrixDynamic<>& Features,  ///< Table with the tangent or arc information for the entire belt wrap
         int FeatureIdx,               ///< Current belt feature to check the intersection of
         ChVector2d& StartingPoint,    ///< Current Point on the belt wrap
         double Radius                 ///< Length of the current belt segment that needs to be placed on the belt wrap
@@ -87,7 +87,7 @@ class CH_VEHICLE_API ChTrackAssemblyBand : public ChTrackAssembly {
                       ///< the current circle belt feature
         ChVector2d& Point,  ///< Intersection Point, if it exists between the circle formed by StartingPoint and Radius
                             ///< with the current circle belt feature
-        ChMatrixDynamic<>& Features,  ///< Table with the tagent or arc information for the entire belt wrap
+        ChMatrixDynamic<>& Features,  ///< Table with the tangent or arc information for the entire belt wrap
         int FeatureIdx,               ///< Current belt feature to check the intersection of
         ChVector2d& StartingPoint,    ///< Current Point on the belt wrap
         double Radius                 ///< Length of the current belt segment that needs to be placed on the belt wrap

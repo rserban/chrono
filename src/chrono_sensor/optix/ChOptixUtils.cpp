@@ -16,8 +16,6 @@
 //
 // =============================================================================
 
-#include "chrono_sensor/optix/ChOptixUtils.h"
-#include "chrono_sensor/ChConfigSensor.h"
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -27,6 +25,9 @@
 #include <optix_stubs.h>
 // #include <optix_function_table_definition.h>
 
+#include "chrono_sensor/ChConfigSensor.h"
+#include "chrono_sensor/optix/ChOptixUtils.h"
+
 #ifdef USE_CUDA_NVRTC
     #include <nvrtc.h>
 #endif
@@ -34,19 +35,14 @@
 namespace chrono {
 namespace sensor {
 
-class SensorConfig {
-  public:
-    static std::string ptx_pre;            //= "ChronoEngine_sensor_generated_";
-    static std::string ptx_suff;           // = ".cu.ptx";
-    static std::string SENSOR_SHADER_DIR;  // = std::string(CMAKE_SHADER_OUTPUT_PATH);
-};
-
-std::string SensorConfig::ptx_pre = "ChronoEngine_sensor_generated_";
-std::string SensorConfig::ptx_suff = ".cu.ptx";
-std::string SensorConfig::SENSOR_SHADER_DIR = std::string(CMAKE_SHADER_OUTPUT_PATH);
+static std::string shader_dir = CHRONO_SENSOR_SHADER_DIR;
 
 void SetSensorShaderDir(const std::string& path) {
-    SensorConfig::SENSOR_SHADER_DIR = path;
+    shader_dir = path;
+}
+
+const std::string& GetSensorShaderDir() {
+    return shader_dir;
 }
 
 void GetShaderFromFile(OptixDeviceContext context,
@@ -54,10 +50,11 @@ void GetShaderFromFile(OptixDeviceContext context,
                        const std::string& file_name,
                        OptixModuleCompileOptions& module_compile_options,
                        OptixPipelineCompileOptions& pipeline_compile_options) {
+    
 #ifdef USE_CUDA_NVRTC
     // std::chrono::high_resolution_clock::time_point start_compile = std::chrono::high_resolution_clock::now();
-
-    std::string cuda_file = SensorConfig::SENSOR_SHADER_DIR + file_name + ".cu";
+    
+    std::string cuda_file = shader_dir + "/" + file_name + ".cu";
     std::string str;
     std::ifstream f(cuda_file);
     if (f.good()) {
@@ -70,7 +67,7 @@ void GetShaderFromFile(OptixDeviceContext context,
 
     // compile CUDA code with NVRTC
     nvrtcProgram nvrtc_program;
-    NVRTC_ERROR_CHECK(nvrtcCreateProgram(&nvrtc_program, str.c_str(), str.c_str(), 0, NULL, NULL));
+    NVRTC_ERROR_CHECK(nvrtcCreateProgram(&nvrtc_program, str.c_str(), cuda_file.c_str(), 0, NULL, NULL));
 
     // complete list of flags to be used for NVRTC
     std::vector<const char*> nvrtc_compiler_flag_list;
@@ -121,7 +118,7 @@ void GetShaderFromFile(OptixDeviceContext context,
     // wall_time = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
 
 #else
-    std::string ptx_file = SensorConfig::SENSOR_SHADER_DIR + SensorConfig::ptx_pre + file_name + SensorConfig::ptx_suff;
+    std::string ptx_file = shader_dir + "/" + file_name + ".ptx";
     std::string ptx;
     std::ifstream f(ptx_file);
     if (f.good()) {
@@ -132,12 +129,13 @@ void GetShaderFromFile(OptixDeviceContext context,
         throw std::runtime_error("PTX file not found: " + ptx_file);
     }
 
-#endif
-
+#endif // USE_CUDA_NVRTC
+    
     char log[2048];
     size_t sizeof_log = sizeof(log);
     OPTIX_ERROR_CHECK(optixModuleCreate(context, &module_compile_options, &pipeline_compile_options, ptx.c_str(),
                                         ptx.size(), log, &sizeof_log, &module));
+    
 }
 
 void optix_log_callback(unsigned int level, const char* tag, const char* message, void*) {

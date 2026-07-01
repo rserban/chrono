@@ -41,8 +41,7 @@ namespace chrono {
 
 using namespace fea;
 
-ChVisualShapeFEA::ChVisualShapeFEA(std::shared_ptr<fea::ChMesh> fea_mesh) {
-    FEMmesh = fea_mesh;
+ChVisualShapeFEA::ChVisualShapeFEA() : obj(nullptr), m_colormap_type(ChColormap::Type::JET) {
     fem_data_type = DataType::SURFACE;
     fem_glyph = GlyphType::NONE;
 
@@ -71,64 +70,96 @@ ChVisualShapeFEA::ChVisualShapeFEA(std::shared_ptr<fea::ChMesh> fea_mesh) {
 
     undeformed_reference = false;
 
-    m_trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     m_glyphs_shape = chrono_types::make_shared<ChGlyphs>();
+    m_trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
+    m_trimesh_shape->SetMutable(true);
+
+    m_colormap = chrono_types::make_unique<ChColormap>(m_colormap_type);
 }
 
-ChColor ChVisualShapeFEA::ComputeFalseColor(double mv) {
+void ChVisualShapeFEA::SetColormapRange(double min, double max) {
+    colorscale_min = min;
+    colorscale_max = max;
+}
+
+void ChVisualShapeFEA::SetColormapRange(const ChVector2d& range) {
+    colorscale_min = range[0];
+    colorscale_max = range[1];
+}
+
+void ChVisualShapeFEA::SetShrinkElements(bool shrink, double factor) {
+    shrink_elements = shrink;
+    shrink_factor = factor;
+}
+
+void ChVisualShapeFEA::SetColormap(ChColormap::Type type) {
+    m_colormap_type = type;
+    if (m_colormap) {
+        m_colormap->Load(type);
+    }
+}
+
+const ChColormap& ChVisualShapeFEA::GetColormap() const {
+    return *m_colormap;
+}
+
+ChColormap::Type ChVisualShapeFEA::GetColormapType() const {
+    return m_colormap_type;
+}
+
+ChColor ChVisualShapeFEA::ComputeFalseColor(double value) const {
     if (fem_data_type == DataType::SURFACE)
         return meshcolor;
 
-    return ChColor::ComputeFalseColor(mv, colorscale_min, colorscale_max, true);
+    return m_colormap->Get(value, colorscale_min, colorscale_max);
 }
 
-double ChVisualShapeFEA::ComputeScalarOutput(std::shared_ptr<ChNodeFEAxyz> mnode,
-                                             int nodeID,
-                                             std::shared_ptr<ChElementBase> melement) {
+double ChVisualShapeFEA::ComputeScalarOutput(std::shared_ptr<ChNodeFEAxyz> node,
+                                             std::shared_ptr<ChElementBase> element) const {
     switch (fem_data_type) {
         case DataType::SURFACE:
             return 1e30;  // to force 'white' in false color scale. Hack, to be improved.
         case DataType::NODE_DISP_NORM:
-            return (mnode->GetPos() - mnode->GetX0()).Length();
+            return (node->GetPos() - node->GetX0()).Length();
         case DataType::NODE_DISP_X:
-            return (mnode->GetPos() - mnode->GetX0()).x();
+            return (node->GetPos() - node->GetX0()).x();
         case DataType::NODE_DISP_Y:
-            return (mnode->GetPos() - mnode->GetX0()).y();
+            return (node->GetPos() - node->GetX0()).y();
         case DataType::NODE_DISP_Z:
-            return (mnode->GetPos() - mnode->GetX0()).z();
+            return (node->GetPos() - node->GetX0()).z();
         case DataType::NODE_SPEED_NORM:
-            return mnode->GetPosDt().Length();
+            return node->GetPosDt().Length();
         case DataType::NODE_SPEED_X:
-            return mnode->GetPosDt().x();
+            return node->GetPosDt().x();
         case DataType::NODE_SPEED_Y:
-            return mnode->GetPosDt().y();
+            return node->GetPosDt().y();
         case DataType::NODE_SPEED_Z:
-            return mnode->GetPosDt().z();
+            return node->GetPosDt().z();
         case DataType::NODE_ACCEL_NORM:
-            return mnode->GetPosDt2().Length();
+            return node->GetPosDt2().Length();
         case DataType::NODE_ACCEL_X:
-            return mnode->GetPosDt2().x();
+            return node->GetPosDt2().x();
         case DataType::NODE_ACCEL_Y:
-            return mnode->GetPosDt2().y();
+            return node->GetPosDt2().y();
         case DataType::NODE_ACCEL_Z:
-            return mnode->GetPosDt2().z();
+            return node->GetPosDt2().z();
         case DataType::ELEM_STRAIN_VONMISES:
-            if (auto mytetra = std::dynamic_pointer_cast<ChElementTetraCorot_4>(melement)) {
+            if (auto mytetra = std::dynamic_pointer_cast<ChElementTetraCorot_4>(element)) {
                 return mytetra->GetStrain().GetEquivalentVonMises();
             }
             break;
         case DataType::ELEM_STRESS_VONMISES:
-            if (auto mytetra = std::dynamic_pointer_cast<ChElementTetraCorot_4>(melement)) {
+            if (auto mytetra = std::dynamic_pointer_cast<ChElementTetraCorot_4>(element)) {
                 return mytetra->GetStress().GetEquivalentVonMises();
             }
             break;
         case DataType::ELEM_STRAIN_HYDROSTATIC:
-            if (auto mytetra = std::dynamic_pointer_cast<ChElementTetraCorot_4>(melement)) {
+            if (auto mytetra = std::dynamic_pointer_cast<ChElementTetraCorot_4>(element)) {
                 return mytetra->GetStrain().GetEquivalentMeanHydrostatic();
             }
             break;
         case DataType::ELEM_STRESS_HYDROSTATIC:
-            if (auto mytetra = std::dynamic_pointer_cast<ChElementTetraCorot_4>(melement)) {
+            if (auto mytetra = std::dynamic_pointer_cast<ChElementTetraCorot_4>(element)) {
                 return mytetra->GetStress().GetEquivalentMeanHydrostatic();
             }
             break;
@@ -139,14 +170,13 @@ double ChVisualShapeFEA::ComputeScalarOutput(std::shared_ptr<ChNodeFEAxyz> mnode
     return 0;
 }
 
-double ChVisualShapeFEA::ComputeScalarOutput(std::shared_ptr<ChNodeFEAxyzP> mnode,
-                                             int nodeID,
-                                             std::shared_ptr<ChElementBase> melement) {
+double ChVisualShapeFEA::ComputeScalarOutput(std::shared_ptr<ChNodeFEAxyzP> node,
+                                             std::shared_ptr<ChElementBase> element) const {
     switch (fem_data_type) {
         case DataType::SURFACE:
             return 1e30;  // to force 'white' in false color scale. Hack, to be improved.
         case DataType::NODE_FIELD_VALUE:
-            return (mnode->GetFieldVal());
+            return (node->GetFieldVal());
         default:
             return 1e30;
     }
@@ -166,32 +196,32 @@ ChVector3f& FetchOrAllocate(std::vector<ChVector3f>& mvector, unsigned int& id) 
     return mvector[id - 1];
 }
 
-void TriangleNormalsReset(std::vector<ChVector3d>& normals, std::vector<int>& accumul) {
+void TriangleNormalsReset(std::vector<ChVector3d>& normals, std::vector<int>& accumulators) {
     for (unsigned int nn = 0; nn < normals.size(); ++nn) {
         normals[nn] = ChVector3d(0, 0, 0);
-        accumul[nn] = 0;
+        accumulators[nn] = 0;
     }
 }
 
 void TriangleNormalsCompute(ChVector3i norm_indexes,
                             ChVector3i vert_indexes,
-                            std::vector<ChVector3d>& vertexes,
+                            std::vector<ChVector3d>& vertices,
                             std::vector<ChVector3d>& normals,
-                            std::vector<int>& accumul) {
-    ChVector3d tnorm = Vcross(vertexes[vert_indexes.y()] - vertexes[vert_indexes.x()],
-                              vertexes[vert_indexes.z()] - vertexes[vert_indexes.x()])
+                            std::vector<int>& accumulators) {
+    ChVector3d tnorm = Vcross(vertices[vert_indexes.y()] - vertices[vert_indexes.x()],
+                              vertices[vert_indexes.z()] - vertices[vert_indexes.x()])
                            .GetNormalized();
     normals[norm_indexes.x()] += tnorm;
     normals[norm_indexes.y()] += tnorm;
     normals[norm_indexes.z()] += tnorm;
-    accumul[norm_indexes.x()] += 1;
-    accumul[norm_indexes.y()] += 1;
-    accumul[norm_indexes.z()] += 1;
+    accumulators[norm_indexes.x()] += 1;
+    accumulators[norm_indexes.y()] += 1;
+    accumulators[norm_indexes.z()] += 1;
 }
 
-void TriangleNormalsSmooth(std::vector<ChVector3d>& normals, std::vector<int>& accumul) {
+void TriangleNormalsSmooth(std::vector<ChVector3d>& normals, std::vector<int>& accumulators) {
     for (unsigned int nn = 0; nn < normals.size(); ++nn) {
-        normals[nn] = normals[nn] * (1.0 / (double)accumul[nn]);
+        normals[nn] = normals[nn] * (1.0 / (double)accumulators[nn]);
     }
 }
 
@@ -210,7 +240,7 @@ void ChVisualShapeFEA::UpdateBuffers_Tetrahedron(std::shared_ptr<fea::ChElementB
     unsigned int ivert_el = i_verts;
     unsigned int inorm_el = i_vnorms;
 
-    // vertexes
+    // vertices
     ChVector3d p0 = node0->GetPos();
     ChVector3d p1 = node1->GetPos();
     ChVector3d p2 = node2->GetPos();
@@ -239,24 +269,24 @@ void ChVisualShapeFEA::UpdateBuffers_Tetrahedron(std::shared_ptr<fea::ChElementB
     ++i_verts;
 
     // color
-    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node0, 0, element));
+    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node0, element));
     ++i_vcols;
-    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node1, 1, element));
+    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node1, element));
     ++i_vcols;
-    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node2, 2, element));
+    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node2, element));
     ++i_vcols;
-    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node3, 3, element));
+    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node3, element));
     ++i_vcols;
 
     // faces indexes
     ChVector3i ivert_offset(ivert_el, ivert_el, ivert_el);
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 1, 2) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 1, 2) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(1, 3, 2) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(1, 3, 2) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(2, 3, 0) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(2, 3, 0) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(3, 1, 0) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(3, 1, 0) + ivert_offset;
     ++i_triindex;
 
     // normals indices (if not defaulting to flat triangles)
@@ -285,7 +315,7 @@ void ChVisualShapeFEA::UpdateBuffers_Tetra_4_P(std::shared_ptr<fea::ChElementBas
     unsigned int ivert_el = i_verts;
     unsigned int inorm_el = i_vnorms;
 
-    // vertexes
+    // vertices
     ChVector3d p0 = node0->GetPos();
     ChVector3d p1 = node1->GetPos();
     ChVector3d p2 = node2->GetPos();
@@ -308,24 +338,24 @@ void ChVisualShapeFEA::UpdateBuffers_Tetra_4_P(std::shared_ptr<fea::ChElementBas
     ++i_verts;
 
     // color
-    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node0, 0, element));
+    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node0, element));
     ++i_vcols;
-    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node1, 1, element));
+    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node1, element));
     ++i_vcols;
-    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node2, 2, element));
+    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node2, element));
     ++i_vcols;
-    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node3, 3, element));
+    trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(node3, element));
     ++i_vcols;
 
     // faces indexes
     ChVector3i ivert_offset(ivert_el, ivert_el, ivert_el);
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 1, 2) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 1, 2) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(1, 3, 2) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(1, 3, 2) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(2, 3, 0) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(2, 3, 0) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(3, 1, 0) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(3, 1, 0) + ivert_offset;
     ++i_triindex;
 
     // normals indices (if not defaulting to flat triangles)
@@ -361,7 +391,7 @@ void ChVisualShapeFEA::UpdateBuffers_Hex(std::shared_ptr<ChElementBase> element,
             pt[in] = nodes[in]->GetX0();
     }
 
-    // vertexes
+    // vertices
 
     if (shrink_elements) {
         ChVector3d vc(0, 0, 0);
@@ -377,37 +407,37 @@ void ChVisualShapeFEA::UpdateBuffers_Hex(std::shared_ptr<ChElementBase> element,
         ++i_verts;
     }
 
-    // colours and colours indexes
+    // colors and colors indexes
     for (int in = 0; in < 8; ++in) {
-        trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(nodes[in], in, element));
+        trianglemesh.GetCoordsColors()[i_vcols] = ComputeFalseColor(ComputeScalarOutput(nodes[in], element));
         ++i_vcols;
     }
 
     // faces indexes
     ChVector3i ivert_offset(ivert_el, ivert_el, ivert_el);
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 2, 1) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 2, 1) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 3, 2) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 3, 2) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(4, 5, 6) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(4, 5, 6) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(4, 6, 7) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(4, 6, 7) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 7, 3) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 7, 3) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 4, 7) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 4, 7) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 5, 4) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 5, 4) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 1, 5) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 1, 5) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(3, 7, 6) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(3, 7, 6) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(3, 6, 2) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(3, 6, 2) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(2, 5, 1) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(2, 5, 1) + ivert_offset;
     ++i_triindex;
-    trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(2, 6, 5) + ivert_offset;
+    trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(2, 6, 5) + ivert_offset;
     ++i_triindex;
 
     // normals indices (if not defaulting to flat triangles)
@@ -524,7 +554,7 @@ void ChVisualShapeFEA::UpdateBuffers_Beam(std::shared_ptr<fea::ChElementBase> el
                 sectionshape->GetPoints(il, msubline_pts);
                 sectionshape->GetNormals(il, msubline_normals);
 
-                // store rotated vertexes, colors, normals
+                // store rotated vertices, colors, normals
                 for (int is = 0; is < msubline_pts.size(); ++is) {
                     ChVector3d Rw = msectionrot.Rotate(msubline_pts[is]);
                     ChVector3d Rn = msectionrot.Rotate(msubline_normals[is]);
@@ -548,7 +578,7 @@ void ChVisualShapeFEA::UpdateBuffers_Beam(std::shared_ptr<fea::ChElementBase> el
                         int ipaa = ipa + n_section_pts;
                         int ipbb = ipb + n_section_pts;
 
-                        trianglemesh.GetIndicesVertexes()[i_triindex] =
+                        trianglemesh.GetIndicesVertices()[i_triindex] =
                             ChVector3i(ipa, ipbb, ipaa) + islice_offset + ivert_offset;
                         if (smooth_faces) {
                             trianglemesh.GetIndicesNormals()[i_triindex] =
@@ -556,7 +586,7 @@ void ChVisualShapeFEA::UpdateBuffers_Beam(std::shared_ptr<fea::ChElementBase> el
                         }
                         ++i_triindex;
 
-                        trianglemesh.GetIndicesVertexes()[i_triindex] =
+                        trianglemesh.GetIndicesVertices()[i_triindex] =
                             ChVector3i(ipa, ipb, ipbb) + islice_offset + ivert_offset;
                         if (smooth_faces) {
                             trianglemesh.GetIndicesNormals()[i_triindex] =
@@ -621,10 +651,10 @@ void ChVisualShapeFEA::UpdateBuffers_Shell(std::shared_ptr<fea::ChElementBase> e
 
                 if (iu < shell_resolution - 1) {
                     if (iv > 0) {
-                        trianglemesh.GetIndicesVertexes()[i_triindex] =
+                        trianglemesh.GetIndicesVertices()[i_triindex] =
                             ChVector3i(triangle_pt, triangle_pt - 1, triangle_pt + shell_resolution - iu - 1) +
                             ivert_offset;
-                        trianglemesh.GetIndicesVertexes()[i_triindex + 1] =
+                        trianglemesh.GetIndicesVertices()[i_triindex + 1] =
                             ChVector3i(triangle_pt - 1, triangle_pt, triangle_pt + shell_resolution - iu - 1) +
                             ivert_offset;
 
@@ -641,10 +671,10 @@ void ChVisualShapeFEA::UpdateBuffers_Shell(std::shared_ptr<fea::ChElementBase> e
                     }
 
                     if (iv > 1) {
-                        trianglemesh.GetIndicesVertexes()[i_triindex] =
+                        trianglemesh.GetIndicesVertices()[i_triindex] =
                             ivert_offset + ChVector3i(triangle_pt - 1, triangle_pt + shell_resolution - iu - 2,
                                                       triangle_pt + shell_resolution - iu - 1);
-                        trianglemesh.GetIndicesVertexes()[i_triindex + 1] =
+                        trianglemesh.GetIndicesVertices()[i_triindex + 1] =
                             ivert_offset + ChVector3i(triangle_pt - 1, triangle_pt + shell_resolution - iu - 1,
                                                       triangle_pt + shell_resolution - iu - 2);
 
@@ -663,7 +693,7 @@ void ChVisualShapeFEA::UpdateBuffers_Shell(std::shared_ptr<fea::ChElementBase> e
                 ++triangle_pt;
 
             }  // end for(iv)
-        }      // end for(iu)
+        }  // end for(iu)
 
     } else {
         // Non-triangular shell
@@ -693,10 +723,10 @@ void ChVisualShapeFEA::UpdateBuffers_Shell(std::shared_ptr<fea::ChElementBase> e
                     ++i_vnorms;
 
                 if (iu > 0 && iv > 0) {
-                    trianglemesh.GetIndicesVertexes()[i_triindex] =
+                    trianglemesh.GetIndicesVertices()[i_triindex] =
                         ivert_offset + ChVector3i(iu * shell_resolution + iv, (iu - 1) * shell_resolution + iv,
                                                   iu * shell_resolution + iv - 1);
-                    trianglemesh.GetIndicesVertexes()[i_triindex + 1] =
+                    trianglemesh.GetIndicesVertices()[i_triindex + 1] =
                         ivert_offset + ChVector3i(iu * shell_resolution + iv - 1, (iu - 1) * shell_resolution + iv,
                                                   (iu - 1) * shell_resolution + iv - 1);
 
@@ -713,8 +743,8 @@ void ChVisualShapeFEA::UpdateBuffers_Shell(std::shared_ptr<fea::ChElementBase> e
                 }
 
             }  // end for(iv)
-        }      // end for(iu)
-    }          // end triangular shell
+        }  // end for(iu)
+    }  // end triangular shell
 }
 
 void ChVisualShapeFEA::UpdateBuffers_LoadSurface(std::shared_ptr<ChMeshSurface> surface,
@@ -733,7 +763,7 @@ void ChVisualShapeFEA::UpdateBuffers_LoadSurface(std::shared_ptr<ChMeshSurface> 
             unsigned int ivert_el = i_verts;
             unsigned int inorm_el = i_vnorms;
 
-            // vertexes
+            // vertices
             ChVector3d p0 = node0->GetPos();
             ChVector3d p1 = node1->GetPos();
             ChVector3d p2 = node2->GetPos();
@@ -760,7 +790,7 @@ void ChVisualShapeFEA::UpdateBuffers_LoadSurface(std::shared_ptr<ChMeshSurface> 
 
             // faces indexes
             ChVector3i ivert_offset(ivert_el, ivert_el, ivert_el);
-            trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 1, 2) + ivert_offset;
+            trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 1, 2) + ivert_offset;
             ++i_triindex;
 
             // normals indices (if not defaulting to flat triangles)
@@ -787,7 +817,7 @@ void ChVisualShapeFEA::UpdateBuffers_ContactSurfaceMesh(std::shared_ptr<ChContac
         unsigned int ivert_el = i_verts;
         unsigned int inorm_el = i_vnorms;
 
-        // vertexes
+        // vertices
         ChVector3d p0 = face->GetNode(0)->pos;
         ChVector3d p1 = face->GetNode(1)->pos;
         ChVector3d p2 = face->GetNode(2)->pos;
@@ -809,7 +839,7 @@ void ChVisualShapeFEA::UpdateBuffers_ContactSurfaceMesh(std::shared_ptr<ChContac
 
         // faces indexes
         ChVector3i ivert_offset(ivert_el, ivert_el, ivert_el);
-        trianglemesh.GetIndicesVertexes()[i_triindex] = ChVector3i(0, 1, 2) + ivert_offset;
+        trianglemesh.GetIndicesVertices()[i_triindex] = ChVector3i(0, 1, 2) + ivert_offset;
         ++i_triindex;
 
         // normals indices (if not defaulting to flat triangles)
@@ -821,9 +851,12 @@ void ChVisualShapeFEA::UpdateBuffers_ContactSurfaceMesh(std::shared_ptr<ChContac
     }
 }
 
-void ChVisualShapeFEA::Update(ChPhysicsItem* updater, const ChFrame<>& frame) {
-    if (!FEMmesh)
+void ChVisualShapeFEA::Update(ChObj* updater, const ChFrame<>& frame) {
+    if (!obj)
         return;
+
+    assert(dynamic_cast<ChMesh*>(obj));
+    auto FEMmesh = static_cast<ChMesh*>(obj);
 
     auto trianglemesh = m_trimesh_shape->GetMesh();
 
@@ -832,7 +865,7 @@ void ChVisualShapeFEA::Update(ChPhysicsItem* updater, const ChFrame<>& frame) {
     size_t n_vnorms = 0;
     size_t n_triangles = 0;
 
-    // A - Count the needed vertexes and faces
+    // A - Count the needed vertices and faces
 
     switch (fem_data_type) {
         case DataType::NONE:
@@ -935,8 +968,8 @@ void ChVisualShapeFEA::Update(ChPhysicsItem* updater, const ChFrame<>& frame) {
         trianglemesh->GetCoordsVertices().resize(n_verts);
     if (trianglemesh->GetCoordsColors().size() != n_vcols)
         trianglemesh->GetCoordsColors().resize(n_vcols);
-    if (trianglemesh->GetIndicesVertexes().size() != n_triangles)
-        trianglemesh->GetIndicesVertexes().resize(n_triangles);
+    if (trianglemesh->GetIndicesVertices().size() != n_triangles)
+        trianglemesh->GetIndicesVertices().resize(n_triangles);
 
     if (smooth_faces) {
         if (trianglemesh->GetCoordsNormals().size() != n_vnorms)
@@ -998,8 +1031,8 @@ void ChVisualShapeFEA::Update(ChPhysicsItem* updater, const ChFrame<>& frame) {
     }
 
     if (need_automatic_smoothing) {
-        for (unsigned int itri = 0; itri < trianglemesh->GetIndicesVertexes().size(); ++itri)
-            TriangleNormalsCompute(trianglemesh->GetIndicesNormals()[itri], trianglemesh->GetIndicesVertexes()[itri],
+        for (unsigned int itri = 0; itri < trianglemesh->GetIndicesVertices().size(); ++itri)
+            TriangleNormalsCompute(trianglemesh->GetIndicesNormals()[itri], trianglemesh->GetIndicesVertices()[itri],
                                    trianglemesh->GetCoordsVertices(), trianglemesh->GetCoordsNormals(),
                                    normal_accumulators);
 

@@ -29,6 +29,12 @@ namespace chrono {
 /// @addtogroup collision_bullet
 /// @{
 
+/// Utility class to convert a Chrono ChVector3d into a Bullet vector3.
+class ChApi cbtVector3CH : public cbtVector3 {
+  public:
+    cbtVector3CH(const chrono::ChVector3d& p) { setValue((cbtScalar)p.x(), (cbtScalar)p.y(), (cbtScalar)p.z()); }
+};
+
 /// Utilities for Bullet-based collision detection
 namespace bt_utils {
 
@@ -119,8 +125,10 @@ ChApi bool IntersectSegmentCylinder(const cbtVector3& sC,  ///< segment center p
 /// Wrapper for using and exporting the Bullet implementation of the convex hull library.
 class ChApi ChConvexHullLibraryWrapper {
   public:
-    ChConvexHullLibraryWrapper();
-    void ComputeHull(const std::vector<ChVector3d>& points, ChTriangleMeshConnected& vshape);
+    /// Compute 3D convex hull of given list of points and populate triangle mesh with result.
+    /// Return true if operation is successful.
+    /// Note: provided mesh is cleared of existing data.
+    static bool ComputeHull(const std::vector<ChVector3d>& points, ChTriangleMeshConnected& trimesh);
 };
 
 }  // namespace bt_utils

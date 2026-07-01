@@ -21,7 +21,7 @@
 namespace chrono {
 
 /// Motor to apply a load between two shafts.
-/// Similar to the simplier ChShaftsAppliedTorque, this class specifies the load through a function of time.
+/// Similar to the simpler ChShaftsAppliedTorque, this class specifies the load through a function of time.
 /// Differently from the ChShaftsMotorPosition and ChShaftsMotorSpeed, this does not enforce precise motion via
 /// constraint. Application examples:
 /// - mimic a PID controlled system with some feedback
@@ -55,7 +55,7 @@ class ChApi ChShaftsMotorLoad : public ChShaftsMotor {
   private:
     std::shared_ptr<ChFunction> motor_function;
 
-    virtual void Update(double mytime, bool update_assets = true) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
     virtual void IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, const double c) override;
     virtual void VariablesFbLoadForces(double factor) override;
 };

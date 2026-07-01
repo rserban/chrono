@@ -28,6 +28,10 @@
 #include "chrono_vehicle/tracked_vehicle/ChTrackedVehicle.h"
 #include "chrono_vehicle/ChVehicleVisualSystem.h"
 
+#ifdef CHRONO_VSG
+    #include "chrono_vehicle/tracked_vehicle/ChTrackedVehicleVisualSystemVSG.h"
+#endif
+
 #include "chrono_vehicle/cosim/ChVehicleCosimTrackedMBSNode.h"
 
 namespace chrono {
@@ -78,7 +82,7 @@ class CH_VEHICLE_API ChVehicleCosimTrackedVehicleNode : public ChVehicleCosimTra
                                ) override;
 
     /// Return terrain contact geometry and material information for one track shoe.
-    virtual ChVehicleGeometry GetTrackShoeContactGeometry() const override;
+    virtual utils::ChBodyGeometry GetTrackShoeContactGeometry() const override;
 
     /// Return mass of one track shoe.
     virtual double GetTrackShoeMass() const override;
@@ -119,7 +123,7 @@ class CH_VEHICLE_API ChVehicleCosimTrackedVehicleNode : public ChVehicleCosimTra
     /// Impose spindle angular speed as dictated by an attached DBP rig.
     virtual void OnInitializeDBPRig(std::shared_ptr<ChFunction> func) override;
 
-    void WriteBodyInformation(utils::ChWriterCSV& csv);
+    void WriteBodyInformation(ChWriterCSV& csv);
 
     virtual void OnRender() override;
 
@@ -127,7 +131,9 @@ class CH_VEHICLE_API ChVehicleCosimTrackedVehicleNode : public ChVehicleCosimTra
     std::shared_ptr<ChTrackedVehicle> m_vehicle;         ///< vehicle MBS
     std::shared_ptr<ChPowertrainAssembly> m_powertrain;  ///< vehicle powertrain
     std::shared_ptr<ChDriver> m_driver;                  ///< vehicle driver
-    std::shared_ptr<ChVehicleVisualSystem> m_vsys;       ///< run-time visualization system
+#ifdef CHRONO_VSG
+    std::shared_ptr<ChTrackedVehicleVisualSystemVSG> m_vsys;  ///< run-time visualization system
+#endif
 
     ChVector3d m_init_loc;  ///< initial vehicle location (relative to center of terrain top surface)
     double m_init_yaw;      ///< initial vehicle yaw

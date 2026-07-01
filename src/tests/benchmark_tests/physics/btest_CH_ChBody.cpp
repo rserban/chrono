@@ -26,6 +26,7 @@ class SystemFixture : public ::benchmark::Fixture {
         current_time = 1;
         time_step = 0.1;
         sys = new ChSystemNSC();
+        sys->SetGravityY();
         for (int i = 0; i < num_bodies; i++) {
             auto body = chrono_types::make_shared<ChBody>();
             body->SetPos(ChVector3d(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0));
@@ -41,15 +42,15 @@ class SystemFixture : public ::benchmark::Fixture {
 };
 
 // Utility macros for benchmarking body operations with different signatures
-#define BM_BODY_OP_TIME(OP)                                              \
-    BENCHMARK_DEFINE_F(SystemFixture, OP)(benchmark::State & st) {       \
-        for (auto _ : st) {                                              \
-            for (auto body : sys->GetBodies()) {                         \
-                body->OP(current_time);                                  \
-            }                                                            \
-        }                                                                \
-        st.SetItemsProcessed(st.iterations() * sys->GetBodies().size()); \
-    }                                                                    \
+#define BM_BODY_OP_TIME(OP)                                               \
+    BENCHMARK_DEFINE_F(SystemFixture, OP)(benchmark::State & st) {        \
+        for (auto _ : st) {                                               \
+            for (auto body : sys->GetBodies()) {                          \
+                body->OP(current_time, UpdateFlags::UPDATE_ALL_NO_VISUAL); \
+            }                                                             \
+        }                                                                 \
+        st.SetItemsProcessed(st.iterations() * sys->GetBodies().size());  \
+    }                                                                     \
     BENCHMARK_REGISTER_F(SystemFixture, OP)->Unit(benchmark::kMicrosecond);
 
 #define BM_BODY_OP_VOID(OP)                                              \
@@ -75,7 +76,7 @@ class SystemFixture : public ::benchmark::Fixture {
     BENCHMARK_REGISTER_F(SystemFixture, OP)->Unit(benchmark::kMicrosecond);
 
 // Benchmark individual operations
-BM_BODY_OP_TIME(UpdateTime)
+BM_BODY_OP_TIME(Update)
 BM_BODY_OP_TIME(UpdateForces)
 BM_BODY_OP_TIME(UpdateMarkers)
 BM_BODY_OP_VOID(ClampSpeed)
@@ -85,9 +86,9 @@ BM_BODY_OP_VOID(ComputeGyro)
 BENCHMARK_DEFINE_F(SystemFixture, SingleLoop)(benchmark::State& st) {
     for (auto _ : st) {
         for (auto body : sys->GetBodies()) {
-            body->UpdateTime(current_time);
-            body->UpdateForces(current_time);
-            body->UpdateMarkers(current_time);
+            body->Update(current_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
+            body->UpdateForces(current_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
+            body->UpdateMarkers(current_time, UpdateFlags::UPDATE_ALL_NO_VISUAL);
             body->ClampSpeed();
             body->ComputeGyro();
         }

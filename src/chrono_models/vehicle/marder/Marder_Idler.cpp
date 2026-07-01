@@ -17,14 +17,12 @@
 // =============================================================================
 
 #include "chrono/assets/ChVisualShapeTriangleMesh.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 
 #include "chrono_models/vehicle/marder/Marder_IdlerWheel.h"
 #include "chrono_models/vehicle/marder/Marder_Idler.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
 
 namespace chrono {
 namespace vehicle {

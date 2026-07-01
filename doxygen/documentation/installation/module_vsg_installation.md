@@ -3,10 +3,7 @@ Install the VSG module {#module_vsg_installation}
 
 [TOC]
 
-This is a run-time visualization system for interactive 3D viewing of Chrono simulations.
-
-Read [the introduction to modules](modularity.html) for a technical background on the modularity of the Chrono project.
-
+Chrono::VSG is a run-time visualization system for interactive 3D viewing of Chrono simulations.
 
 ## Features
 
@@ -20,12 +17,6 @@ Here are the main features:
 	- mouse wheel rotation for camera forward/backward
 	- press arrows to have x z camera motion, press page up & down for y vertical motion
 
-
-## Dependencies
-
-- This module you requires the Vulkan SDK and the VSG libraries.
-
-
 ## Building and installing prerequisistes
 
 There are two prerequisites for building the Chrono VSG module:
@@ -38,42 +29,19 @@ There are two prerequisites for building the Chrono VSG module:
 
   To address this issue, we provide a set of scripts (for both Windows and Linux) in the `contrib/build-scripts/vsg` directory of the Chrono source tree.  These scripts allow us to target specific releases of the VSG dependencies (i.e., tags in their respective GitHub repositories) and ensure compatibility with the current Chrono::VSG code.
 
-  The current Chrono::VSG module requires the following versions of the VSG libraries:
-  - vsg 1.1.0
-  - vsgXchange 1.1.0
-  - vsgExamples 1.1.0
-  - vsgImGui - latest
-  - assimp 5.3.1
+  The current Chrono::VSG module requires the following versions of the VSG and dependent libraries:
+  - [vsg](github.com/vsg-dev/VulkanSceneGraph.git) 1.1.15
+  - [vsgXchange](github.com/vsg-dev/vsgXchange.git) 1.1.12
+  - [vsgExamples](github.com/vsg-dev/vsgExamples.git) 1.1.13
+  - [vsgImGui](github.com/vsg-dev/vsgImGui.git) 0.7.0
+  - [assimp](github.com/assimp/assimp) 6.0.5
+  - [draco](github.com/google/draco) 1.5.7
+  - [glslang](github.com/KhronosGroup/glslang.git) 16.1.0
+  - [kts](github.com/KhronosGroup/KTX-Software.git) 4.4.2
 
-The two approaches for building and installing the VSG dependencies are described in the next two sections.
-For the reasons detailed above, We **strongly recommend** using the provided VSG [build scripts](#vsg_scripts).
+  Because of this, we **strongly recommend** using the provided VSG build scripts, instead of `vsgFramework`. 
 
-### 1. VSG Framework
-
-The official way of obtaining all VSG prerequisites for the Chrono::VSG module is to build the [vsgFramework](https://github.com/vsg-dev/vsgFramework) which collects several VSG-related projects and facilitates their build and installation in one single step.  
-
-The VSG libraries are themselves under active development, and so is vsgFramework. While functional, things do occasionally break down and some fixes may be needed to get the necessary dependency libraries. The instructions below reflect the current state of the vsgFramework code.
-
-  1. Clone the vsgFramework [GitHub repository](https://github.com/vsg-dev/vsgFramework).
-     Assume the sources are in a local directory **[vsgFramework_source]**.
-  2. Create a **buid** directory and an **install** directory for vsgFramework. 
-     Assume these are **[vsgFramework_build]** and **[vsgFramework_install]**, respectively.
-  3. Use CMake to configure vsgFramework.  Note that the only components that are necessary for Chrono::VSG are *assimp*, *vsgImGui*, and *vsgXchange*. Enable the corresponding `BUILD_***` CMake options and unselect all other.
-  4. Set the installation directory (`CMAKE_INSTALL_PREFIX`) to be the **[vsgFramework_install]** directory created above.
-  5. Note that vsgFramework can create either *static* or *dynamic* VSG libraries.  Either type will work on Linux or on MacOS. However, only *dynamic* libraries (*DLLs*) work on Windows. Set the CMake variable `BUILD_SHARED_LIBS` accordingly.
-  6. Complete CMake configuration and generate the build scripts.
-  7. Build and install the vsgFramework libraries (using whatever is appropriate for the generator you selected in CMake; make, ninja, VS, etc.)
-  8. The VSG headers, libraries, and DLLs (if appropriate) installed in **[vsgFramework_install]** must be made available and accessible to CMake during configuration of Chrono below.  If needed (e.g., on Windows), add to the system `PATH` environment variable the directory **[vsgFramework_install]/bin**.
-
-  <div class="ce-warning">
-  The `assimp` component requires `zlib`. 
-  On some Linux systems, installing the default zlib package may not provide a library that is suitable for dynamic linking. 
-  You may need to rebuild zlib yourself, making sure you generate position-independent code. 
-  In particular, if using GCC, make sure to add the flag `-fPIC`.
-  </div>
-
-
-### 2. VSG build scripts {#vsg_scripts}
+## VSG build scripts
 
 With the VSG libraries themselves under active development, their latest versions may be incompatible with the current Chrono::VSG code. To ensure compatibility between the Chrono::VSG and its VSG dependencies, we provide (with the Chrono source code) a set of scripts which download specific code versions of the VSG dependencies, build all necessary libraries, and install them in a user-specified location.
 
@@ -94,7 +62,7 @@ Once the necessary dependencies are installed, perform the following steps to co
 
 1. Repeat the instructions for the [full Chrono installation](@ref tutorial_install_chrono)
    
-2. During CMake configuration, set `ENABLE_MODULE_VSG` to 'on', then press 'Configure'
+2. Set `CH_ENABLE_MODULE_VSG` to 'on'.
 
 3. When prompted, provide the paths to the various VSG project configuration scripts (`vsg_DIR`, `vsgImGui_DIR`, and `vsgXchange_DIR`). For example, assuming you used the provided [build scripts](#vsg_scripts), these should be `<VSG_INSTALL_DIR>/lib/cmake/vsg`, `<VSG_INSTALL_DIR>/lib/cmake/vsgImGui`, and `<VSG_INSTALL_DIR>/lib/cmake/vsgXchange`, respectively.
 

@@ -15,6 +15,7 @@
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 #include "chrono/utils/ChSocket.h"
+#include <cstdint>
 
 namespace chrono {
 namespace utils {
@@ -594,7 +595,7 @@ void ChSocketTCP::detectErrorBind(int* errCode, std::string& errMsg) {
     else if (*errCode == WSAEADDRINUSE) {
         errMsg.append("A process on the machine is already bound to the same\n");
         errMsg.append("fully-qualified address and the socket has not been marked\n");
-        errMsg.append("to allow address re-use with SO_REUSEADDR. For example,\n");
+        errMsg.append("to allow address reuse with SO_REUSEADDR. For example,\n");
         errMsg.append("IP address and port are bound in the af_inet case");
     } else if (*errCode == WSAEADDRNOTAVAIL)
         errMsg.append("The specified address is not a valid address for this machine.");
@@ -899,7 +900,7 @@ void ChSocketTCP::connectToServer(std::string& serverNameOrAddr, hostType hType)
 }
 
 ChSocketTCP* ChSocketTCP::acceptClient(std::string& clientHost) {
-    int newSocket;  // the new socket file descriptor returned by the accept systme call
+    int newSocket;  // the new socket file descriptor returned by the accept system call
 
     // the length of the client's address
 #if defined(TARGET_OS_MAC) || defined(UNIX)

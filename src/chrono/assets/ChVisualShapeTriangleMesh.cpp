@@ -12,9 +12,10 @@
 // Authors: Alesandro Tasora, Radu Serban
 // =============================================================================
 
+#include <filesystem>
+
 #include "chrono/assets/ChVisualShapeTriangleMesh.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
 #include "chrono_thirdparty/tinyobjloader/tiny_obj_loader.h"
 
 namespace chrono {
@@ -25,14 +26,19 @@ CH_FACTORY_REGISTER(ChVisualShapeTriangleMesh)
 ChVisualShapeTriangleMesh::ChVisualShapeTriangleMesh()
     : name(""), scale(ChVector3d(1)), wireframe(false), backface_cull(false), fixed_connectivity(false) {
     trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
-};
+}
+
+ChVisualShapeTriangleMesh::ChVisualShapeTriangleMesh(std::shared_ptr<ChTriangleMeshConnected> mesh, bool load_materials)
+    : ChVisualShapeTriangleMesh() {
+    SetMesh(mesh, load_materials);
+}
 
 void ChVisualShapeTriangleMesh::SetMesh(std::shared_ptr<ChTriangleMeshConnected> mesh, bool load_materials) {
     trimesh = mesh;
 
     // Try to read material information form an MTL file
     const auto& filename = mesh->GetFileName();
-    auto mtl_base = filesystem::path(filesystem::path(filename).parent_path()).str();
+    auto mtl_base = std::filesystem::path(std::filesystem::path(filename).parent_path()).string();
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
     bool have_mtl_materials = false;
@@ -143,6 +149,8 @@ void ChVisualShapeTriangleMesh::ArchiveOut(ChArchiveOut& archive_out) {
     archive_out << CHNVP(backface_cull);
     archive_out << CHNVP(name);
     archive_out << CHNVP(scale);
+    archive_out << CHNVP(fixed_connectivity);
+    archive_out << CHNVP(modified_vertices);
 }
 
 void ChVisualShapeTriangleMesh::ArchiveIn(ChArchiveIn& archive_in) {
@@ -156,6 +164,8 @@ void ChVisualShapeTriangleMesh::ArchiveIn(ChArchiveIn& archive_in) {
     archive_in >> CHNVP(backface_cull);
     archive_in >> CHNVP(name);
     archive_in >> CHNVP(scale);
+    archive_in >> CHNVP(fixed_connectivity);
+    archive_in >> CHNVP(modified_vertices);
 }
 
 }  // end namespace chrono

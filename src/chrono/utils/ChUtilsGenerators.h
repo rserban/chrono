@@ -40,7 +40,7 @@
 
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsGeometry.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 #include "chrono/utils/ChUtilsSamplers.h"
 
 namespace chrono {
@@ -142,7 +142,7 @@ class ChApi ChMixtureIngredient {
 
 /// Provides functionality for generating sets of bodies with positions drawn from a specified sampler and various
 /// mixture properties. Bodies can be generated in different bounding volumes (boxes or cylinders) which can be
-/// degenerate (to a rectangle or circle, repsectively).
+/// degenerate (to a rectangle or circle, respectively).
 class ChApi ChGenerator {
   public:
     typedef Types<double>::PointVector PointVector;

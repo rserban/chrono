@@ -16,7 +16,7 @@
 //  The obstacle is defined by three parameters
 //  - aa:        approach angle 180 deg = flat, aa < 180 deg = mound, aa > 180 deg = trench
 //  - length:    obstacle length for mound, base length for trench
-//  - obsheight: allways >= 0, obstacle height for mound, obstacle depth for trench
+//  - obsheight: always >= 0, obstacle height for mound, obstacle depth for trench
 //
 // =============================================================================
 
@@ -69,7 +69,7 @@ ObsModTerrain::ObsModTerrain(ChSystem* system,
     } else if (aa <= 175.0) {
         // mound obstacle
         ramp_angle = CH_DEG_TO_RAD * abs(m_aa - 180.0);
-        ramp_length = m_obsheight / tan(ramp_angle);
+        ramp_length = m_obsheight / std::tan(ramp_angle);
         m_x[0] = m_xmin;
         m_x[1] = m_x[0] + ramp_length;
         m_x[2] = m_xmin + m_obslength - ramp_length;
@@ -89,7 +89,7 @@ ObsModTerrain::ObsModTerrain(ChSystem* system,
     } else {
         // trench obstacle
         ramp_angle = CH_DEG_TO_RAD * abs(m_aa - 180.0);
-        ramp_length = m_obsheight / tan(ramp_angle);
+        ramp_length = m_obsheight / std::tan(ramp_angle);
         if (m_obslength <= 0.0) {
             m_obslength = 0.1;
         }
@@ -121,6 +121,12 @@ double ObsModTerrain::GetEffLength() {
            std::hypot(m_x[3] - m_x[2], m_Q(3, 1) - m_Q(2, 1));
 }
 
+ChVector3d ObsModTerrain::GetPoint(const ChVector3d& loc) const {
+    ChVector3d loc_ISO = ChWorldFrame::ToISO(loc);
+    ChVector3d vec_ISO(loc_ISO.x(), loc_ISO.y(), GetHeight(loc));
+    return ChWorldFrame::FromISO(vec_ISO);
+}
+
 double ObsModTerrain::GetHeight(const ChVector3d& loc) const {
     ChVector3d loc_ISO = ChWorldFrame::ToISO(loc);
     if ((loc_ISO.x() > m_xmin && loc_ISO.x() < m_xmax) && (loc_ISO.y() > m_ymin && loc_ISO.y() < m_ymax)) {
@@ -135,7 +141,7 @@ double ObsModTerrain::GetHeight(const ChVector3d& loc) const {
             }
         }
         if (ix1 == -1) {
-            std::cerr << "x intervall?\n";
+            std::cerr << "x interval?\n";
         }
         int jy1 = -1;
         int jy2 = -1;
@@ -147,7 +153,7 @@ double ObsModTerrain::GetHeight(const ChVector3d& loc) const {
             }
         }
         if (jy1 == -1) {
-            std::cerr << "y intervall?\n";
+            std::cerr << "y interval?\n";
         }
         double x = loc_ISO.x();
         double y = loc_ISO.y();
@@ -203,7 +209,7 @@ void ObsModTerrain::Initialize(ObsModTerrain::VisualisationType vType) {
 void ObsModTerrain::GenerateMesh() {
     m_mesh = chrono_types::make_shared<ChTriangleMeshConnected>();
     auto& coords = m_mesh->GetCoordsVertices();
-    auto& indices = m_mesh->GetIndicesVertexes();
+    auto& indices = m_mesh->GetIndicesVertices();
     auto& normals = m_mesh->GetCoordsNormals();
     auto& normidx = m_mesh->GetIndicesNormals();
 
@@ -228,7 +234,6 @@ void ObsModTerrain::GenerateMesh() {
     }
     auto vmesh = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
     vmesh->SetMesh(m_mesh);
-    vmesh->SetMutable(false);
     vmesh->SetName("ISO_track");
     vmesh->SetColor(ChColor(0.6f, 0.6f, 0.8f));
     m_ground->AddVisualShape(vmesh);

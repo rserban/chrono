@@ -64,19 +64,19 @@ class CH_VEHICLE_API ChHendricksonPRIMAXX : public ChSuspension {
     /// Specify whether or not this is an independent suspension.
     virtual bool IsIndependent() const final override { return false; }
 
-    /// Initialize this suspension subsystem.
+    /// Construct this suspension subsystem.
     /// The suspension subsystem is initialized by attaching it to the specified chassis and (if provided) to the
     /// specified subchassis, at the specified location (with respect to and expressed in the reference frame of the
     /// chassis). It is assumed that the suspension reference frame is always aligned with the chassis reference frame.
     /// If a steering subsystem is provided, the suspension tierods are to be attached to the steering's central link
     /// body (steered suspension); otherwise they are to be attached to the chassis (non-steered suspension).
-    virtual void Initialize(
+    virtual void Construct(
         std::shared_ptr<ChChassis> chassis,        ///< [in] associated chassis subsystem
         std::shared_ptr<ChSubchassis> subchassis,  ///< [in] associated subchassis subsystem (may be null)
         std::shared_ptr<ChSteering> steering,      ///< [in] associated steering subsystem (may be null)
         const ChVector3d& location,                ///< [in] location relative to the chassis frame
-        double left_ang_vel = 0,                   ///< [in] initial angular velocity of left wheel
-        double right_ang_vel = 0                   ///< [in] initial angular velocity of right wheel
+        double left_ang_vel,                       ///< [in] initial angular velocity of left wheel
+        double right_ang_vel                       ///< [in] initial angular velocity of right wheel
         ) override;
 
     /// Add visualization assets for the suspension subsystem.
@@ -141,9 +141,9 @@ class CH_VEHICLE_API ChHendricksonPRIMAXX : public ChSuspension {
         LOWERBEAM_C,   ///< lowerbeam, chassis
         LOWERBEAM_AH,  ///< lowerbeam, axle housing (AH)
         LOWERBEAM_TB,  ///< lowerbeam, transverse beam
-        SHOCKAH_C,     ///< shock at axle housing (AH), chasis
+        SHOCKAH_C,     ///< shock at axle housing (AH), chassis
         SHOCKAH_AH,    ///< shock at axle housing (AH), axle housing
-        SHOCKLB_C,     ///< shock at lower beam (LB), chasis
+        SHOCKLB_C,     ///< shock at lower beam (LB), chassis
         SHOCKLB_LB,    ///< shock at lower beam (LB), lower beam
         KNUCKLE_CM,    ///< knuckle, center of mass
         TORQUEROD_CM,  ///< torquerod, center of mass
@@ -156,7 +156,7 @@ class CH_VEHICLE_API ChHendricksonPRIMAXX : public ChSuspension {
         UNIV_AXIS_LOWERBEAM_BEAM,     ///< universal joint (lowerbeam, beam side)
         UNIV_AXIS_LOWERBEAM_CHASSIS,  ///< universal joint (lowerbeam, chassis side)
         UNIV_AXIS_TORQUEROD_ROD,      ///< universal joint (torquerod, rod side)
-        UNIV_AXIS_TORQUEROD_CHASSIS,  ///< universal joint (torquerod, chasis side)
+        UNIV_AXIS_TORQUEROD_CHASSIS,  ///< universal joint (torquerod, chassis side)
         NUM_DIRS
     };
 
@@ -166,8 +166,8 @@ class CH_VEHICLE_API ChHendricksonPRIMAXX : public ChSuspension {
     virtual void InitializeInertiaProperties() override;
     virtual void UpdateInertiaProperties() override;
 
-    /// Indicate whether or not tirod bodies are modelled (default: false).
-    /// If false, tierods are modelled using distance constraints.
+    /// Indicate whether or not tirod bodies are modeled (default: false).
+    /// If false, tierods are modeled using distance constraints.
     /// If true, rigid tierod bodies are created (in which case a derived class must provide the mass and inertia) and
     /// connected either with kinematic joints or bushings (depending on whether or not bushing data is defined).
     virtual bool UseTierodBodies() const { return false; }
@@ -248,7 +248,7 @@ class CH_VEHICLE_API ChHendricksonPRIMAXX : public ChSuspension {
     /// Return stiffness and damping data for the tierod bushings.
     /// Used only if tierod bodies are defined (see UseTierodBody).
     /// Returning nullptr (default) results in using kinematic joints (spherical + universal).
-    virtual std::shared_ptr<ChVehicleBushingData> getTierodBushingData() const { return nullptr; }
+    virtual std::shared_ptr<ChJoint::BushingData> getTierodBushingData() const { return nullptr; }
 
     std::shared_ptr<ChBody> m_knuckle[2];      ///< the knuckle bodies (left/right)
     std::shared_ptr<ChBody> m_torquerod[2];    ///< torquerod bodies (left/right)
@@ -259,14 +259,14 @@ class CH_VEHICLE_API ChHendricksonPRIMAXX : public ChSuspension {
 
     std::shared_ptr<ChLinkLockRevolute> m_revoluteKingpin[2];      ///< knuckle-axle housing joints (left/right)
     std::shared_ptr<ChLinkLockSpherical> m_sphericalTorquerod[2];  ///< torquerod-axle housing joints (left/right)
-    std::shared_ptr<ChLinkLockRevolute> m_revoluteTorquerod[2];    ///< torquerod-chasis joints (left/right)
+    std::shared_ptr<ChLinkLockRevolute> m_revoluteTorquerod[2];    ///< torquerod-chassis joints (left/right)
     std::shared_ptr<ChLinkLockSpherical> m_sphericalLowerbeam[2];  ///< lowerbeam-axle housing joints (left/right)
-    std::shared_ptr<ChLinkLockRevolute> m_revoluteLowerbeam[2];    ///< lowerbeam chasis joints (left/right)
+    std::shared_ptr<ChLinkLockRevolute> m_revoluteLowerbeam[2];    ///< lowerbeam chassis joints (left/right)
     std::shared_ptr<ChLinkLockSpherical> m_sphericalTB[2];         ///< transversebeam-lower beam joints (left/right)
 
     std::shared_ptr<ChLinkDistance> m_distTierod[2];       ///< tierod distance constraints (left/right)
-    std::shared_ptr<ChVehicleJoint> m_sphericalTierod[2];  ///< tierod-upright spherical joints (left/right)
-    std::shared_ptr<ChVehicleJoint> m_universalTierod[2];  ///< tierod-chassis universal joints (left/right)
+    std::shared_ptr<ChJoint> m_sphericalTierod[2];  ///< tierod-upright spherical joints (left/right)
+    std::shared_ptr<ChJoint> m_universalTierod[2];  ///< tierod-chassis universal joints (left/right)
 
     std::shared_ptr<ChLinkTSDA> m_shockLB[2];  ///< spring links (left/right)
     std::shared_ptr<ChLinkTSDA> m_shockAH[2];  ///< spring links (left/right)
@@ -311,9 +311,7 @@ class CH_VEHICLE_API ChHendricksonPRIMAXX : public ChSuspension {
                                        const ChVector3d pt_U,
                                        double radius);
 
-    virtual void ExportComponentList(rapidjson::Document& jsonDocument) const override;
-
-    virtual void Output(ChVehicleOutput& database) const override;
+    virtual void PopulateComponentList() override;
 
     static const std::string m_pointNames[NUM_POINTS];
 };

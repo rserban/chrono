@@ -1,0 +1,20 @@
+#pragma SWIG nowarn=302
+#pragma SWIG nowarn=314
+#pragma SWIG nowarn=315
+#pragma SWIG nowarn=362
+#pragma SWIG nowarn=389
+#pragma SWIG nowarn=401
+#pragma SWIG nowarn=473
+#pragma SWIG nowarn=503
+#pragma SWIG nowarn=509
+#pragma SWIG nowarn=516
+#pragma SWIG nowarn=520
+#pragma SWIG nowarn=842
+
+%module(directors="1", threads="1") vsg3d
+// We don't want to enable threads for all Python -> C++ calls, which harm performance
+// We do want to check for GIL for all C++ -> Python calls
+// They are not frequent and we don't know if they are calling from foreign thread.
+%feature("nothreadallow");
+
+%include "chrono_swig/interface/vsg/ChModuleVsg.i"

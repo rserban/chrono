@@ -81,7 +81,7 @@ class ChApi ChLinkMotorLinearSpeed : public ChLinkMotorLinear {
 
     bool avoid_position_drift;
 
-    virtual void Update(double mytime, bool update_assets = true) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
 
     virtual void IntStateGather(const unsigned int off_x,
                                 ChState& x,
@@ -93,7 +93,7 @@ class ChApi ChLinkMotorLinearSpeed : public ChLinkMotorLinear {
                                  const unsigned int off_v,
                                  const ChStateDelta& v,
                                  const double T,
-                                 bool full_update) override;
+                                 UpdateFlags update_flags) override;
     virtual void IntStateGatherAcceleration(const unsigned int off_a, ChStateDelta& a) override;
     virtual void IntStateScatterAcceleration(const unsigned int off_a, const ChStateDelta& a) override;
     virtual void IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, const double c) override;
@@ -116,7 +116,7 @@ class ChApi ChLinkMotorLinearSpeed : public ChLinkMotorLinear {
                                    const unsigned int off_L,
                                    ChVectorDynamic<>& L) override;
 
-    virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c) override;
+    virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c, const double c_vel) override;
 
     virtual void VariablesFbReset() override;
     virtual void VariablesFbLoadForces(double factor = 1) override;

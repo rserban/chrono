@@ -18,9 +18,7 @@
 
 #include "chrono_vehicle/utils/ChVehiclePath.h"
 #include "chrono_postprocess/ChGnuPlot.h"
-#include "chrono/core/ChGlobal.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
+#include "chrono/core/ChDataPath.h"
 
 using namespace chrono;
 using namespace vehicle;
@@ -57,7 +55,7 @@ int main(int argc, char* argv[]) {
     // Create (if needed) output directory
     const std::string out_dir = GetChronoOutputPath() + "DEMO_PATHS";
 
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }

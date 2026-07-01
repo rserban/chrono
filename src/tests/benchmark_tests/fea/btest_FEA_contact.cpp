@@ -88,6 +88,7 @@ class FEAcontactTest_MUMPS : public FEAcontactTest {
 
 FEAcontactTest::FEAcontactTest(SolverType solver_type) {
     m_system = new ChSystemSMC();
+    m_system->SetGravityY();
     m_system->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     // Set solver parameters
@@ -114,8 +115,9 @@ FEAcontactTest::FEAcontactTest(SolverType solver_type) {
             solver->EnableDiagonalPreconditioner(true);
             solver->SetVerbose(false);
             solver->SetTolerance(1e-12);
-
             m_system->SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
+
+            break;
         }
         case SolverType::MKL: {
 #ifdef CHRONO_PARDISO_MKL
@@ -183,12 +185,12 @@ void FEAcontactTest::CreateBeams(std::shared_ptr<ChContactMaterialSMC> cmat) {
     }
 
     auto surf = chrono_types::make_shared<ChContactSurfaceMesh>(cmat);
+    surf->AddFacesFromBoundary(*mesh, 0.002);
     mesh->AddContactSurface(surf);
-    surf->AddFacesFromBoundary(0.002);
 
-    auto vis_speed = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto vis_speed = chrono_types::make_shared<ChVisualShapeFEA>();
     vis_speed->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_SPEED_NORM);
-    vis_speed->SetColorscaleMinMax(0.0, 5.50);
+    vis_speed->SetColormapRange(0.0, 5.50);
     vis_speed->SetSmoothFaces(true);
     mesh->AddVisualShapeFEA(vis_speed);
 }
@@ -207,17 +209,17 @@ void FEAcontactTest::CreateCables(std::shared_ptr<ChContactMaterialSMC> cmat) {
     builder.BuildBeam(mesh, section, 10, ChVector3d(0, 0.1, -0.5), ChVector3d(0.5, 0.5, -0.5));
 
     auto cloud = chrono_types::make_shared<ChContactSurfaceNodeCloud>(cmat);
+    cloud->AddAllNodes(*mesh, 0.025);
     mesh->AddContactSurface(cloud);
-    cloud->AddAllNodes(0.025);
 
-    auto vis_speed = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto vis_speed = chrono_types::make_shared<ChVisualShapeFEA>();
     vis_speed->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_SPEED_NORM);
-    vis_speed->SetColorscaleMinMax(0.0, 5.50);
+    vis_speed->SetColormapRange(0.0, 5.50);
     vis_speed->SetSmoothFaces(true);
     vis_speed->SetWireframe(true);
     mesh->AddVisualShapeFEA(vis_speed);
 
-    auto vis_nodes = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto vis_nodes = chrono_types::make_shared<ChVisualShapeFEA>();
     vis_nodes->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
     vis_nodes->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     vis_nodes->SetSymbolsThickness(0.008);

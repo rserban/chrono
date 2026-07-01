@@ -16,12 +16,12 @@
 // The uneven two-track surface is modeled by means of standard PSD spectra as
 // defined in the ISO 8608 standard. ISO 8608 defines 8 classes of uneven
 // roads all can be selected from preset configurations if the two tracks
-// shall be uncorrelated or independend. Tracks like this are used for
+// shall be uncorrelated or independent. Tracks like this are used for
 // intensive vehicle testing, because they apply a high load to the vehicle
 // structure.
 //
-// If normal road surface conditions are prefered, correlated tracks are the
-// better choice. From test we know that the measured cohereny is a function of
+// If normal road surface conditions are preferred, correlated tracks are the
+// better choice. From test we know that the measured coherency is a function of
 //  - vehicle track width
 //  - signal wavelength
 //  - unevenness
@@ -36,7 +36,7 @@
 // where Phi_h0 is the unevenness and w is the waviness. ISO 8608 uses only w = 2.
 // omega is the spatial natural frequency. omega0 is defined to 1 rad/m.
 //
-// The transformation to spatial cordinates is done by inverse Fourier transform.
+// The transformation to spatial coordinates is done by inverse Fourier transform.
 // Care has been taken, that the signal does not repeat inside the demanded x
 // interval by selecting sufficient spectral coefficients.
 //
@@ -48,7 +48,7 @@
 // to generate a set of random phase angles in the range [0,2Pi] for every track.
 // We must use a uniform random number for this to avoid 'monster waves'.
 // Every track gets is own set of phase angles. If correlated signals are demanded
-// the phase angle sets left and right are blended whith the coherence function.
+// the phase angle sets left and right are blended with the coherence function.
 //
 // For practical work it is necessary to limit the used wavelengths. The minimal
 // useful wavelength is 0.3 m. This is roughly the contact patch length of the tire.
@@ -64,7 +64,7 @@
 // for vehicle ride quality (6 Watt method). WES proposed to use 60 ft high pass
 // filter before calculating the RMS.
 //
-// Three different initilizer methods can be used: a preset based one, an
+// Three different initializer methods can be used: a preset based one, an
 // unevenness/waviness based one, and an IRI based one. The second one allows the
 // usage of non-ISO wavinesses. IRI must be given in [mm/m] to generate useful
 // results.
@@ -147,21 +147,21 @@ class CH_VEHICLE_API RandomSurfaceTerrain : public ChTerrain {
 
     ~RandomSurfaceTerrain() {}
 
+    /// Get the point on the terrain below the specified location.
+    virtual ChVector3d GetPoint(const ChVector3d& loc) const override;
+
     /// Get the terrain height below the specified location.
-    /// Returns the constant value passed at construction.
     virtual double GetHeight(const ChVector3d& loc) const override;
 
     /// Get the terrain normal at the point below the specified location.
-    /// Returns a constant unit vector along the vertical axis.
     virtual ChVector3d GetNormal(const ChVector3d& loc) const override;
 
     /// Get the terrain coefficient of friction at the point below the specified location.
-    /// This coefficient of friction value may be used by certain tire models to modify
-    /// the tire characteristics, but it will have no effect on the interaction of the terrain
-    /// with other objects (including tire models that do not explicitly use it).
-    /// For RandomSurfaceTerrain, this function defers to the user-provided functor object
-    /// of type ChTerrain::FrictionFunctor, if one was specified.
-    /// Otherwise, it returns the constant value specified at construction.
+    /// This coefficient of friction value may be used by certain tire models to modify the tire characteristics, but it
+    /// will have no effect on the interaction of the terrain with other objects (including tire models that do not
+    /// explicitly use it). For RandomSurfaceTerrain, this function defers to the user-provided functor object of type
+    /// ChTerrain::FrictionFunctor, if one was specified. Otherwise, it returns the constant value specified at
+    /// construction.
     virtual float GetCoefficientFriction(const ChVector3d& loc) const override;
 
     /// Get the (detrended) root mean square of the tracks, height offset is not considered [m]
@@ -171,26 +171,28 @@ class CH_VEHICLE_API RandomSurfaceTerrain : public ChTerrain {
     double GetIRI() { return m_iri; }
 
     /// Enable creation of a collision mesh and enable collision (default: no collision mesh).
-    /// Optionally (length > 0), create a flat lane of given length positioned before the uneven portion.
-    /// The specified radius (default 0) is used as a "mesh thickness" to improve robustness of the collision detection.
-    /// Note that this function must be called before Initialize().
+    /// Optionally (length > 0), create a flat lane of given length positioned before the uneven portion. The specified
+    /// radius (default 0) is used as a "mesh thickness" to improve robustness of the collision detection. Note that
+    /// this function must be called before Initialize().
     void EnableCollisionMesh(std::shared_ptr<ChContactMaterial> material,
                              double length = 0,
                              double sweep_sphere_radius = 0);
 
-    /// Select a road surface from presets, ISO 8608 and literature
+    /// Select a road surface from presets (ISO 8608 and literature).
     void Initialize(RandomSurfaceTerrain::SurfaceType surfType = RandomSurfaceTerrain::SurfaceType::FLAT,
                     double vehicleTrackWidth = 2.0,
                     RandomSurfaceTerrain::VisualisationType vType = RandomSurfaceTerrain::VisualisationType::MESH);
-    /// Directly generate a road surface from unevenness and waviness, optional consideration of
-    /// correlation, if unevenness fits between ISO classes A to E
+
+    /// Directly generate a road surface from unevenness and waviness.
+    /// Optionally consider correlation, if unevenness fits between ISO classes A to E.
     void Initialize(double unevenness,
                     double waviness = 2.0,
                     double vehicleTrackWidth = 2.0,
                     bool considerCorrelation = true,
                     RandomSurfaceTerrain::VisualisationType vType = RandomSurfaceTerrain::VisualisationType::MESH);
-    /// Directly generate a road surface from International Roughness Index [mm/m], optional consideration of
-    /// correlation, if unevenness fits between ISO classes A to E
+    
+    /// Directly generate a road surface from International Roughness Index [mm/m].
+    /// Optionally consider correlation, if unevenness fits between ISO classes A to E.
     void Initialize(double iri,
                     double vehicleTrackWidth = 2.0,
                     bool considerCorrelation = true,
@@ -236,7 +238,7 @@ class CH_VEHICLE_API RandomSurfaceTerrain : public ChTerrain {
 
     int m_Nfft;                  ///< number of fft coefficients to avoid periodicity in x[xmin...xmax]
     std::vector<double> m_ck;    ///< Fourier coefficients
-    std::vector<double> m_wfft;  ///< natural freqencies for iFFT
+    std::vector<double> m_wfft;  ///< natural frequencies for iFFT
 
     ChVectorDynamic<> m_phase_left;
     ChVectorDynamic<> m_phase_right;

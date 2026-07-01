@@ -319,12 +319,13 @@ ChVector3d ChTrackContactManager::GetSprocketResistiveTorque(VehicleSide side) c
 bool ChTrackContactManager::OnReportContact(const ChVector3d& pA,
                                             const ChVector3d& pB,
                                             const ChMatrix33<>& plane_coord,
-                                            const double& distance,
-                                            const double& eff_radius,
+                                            double distance,
+                                            double eff_radius,
                                             const ChVector3d& react_forces,
                                             const ChVector3d& react_torques,
                                             ChContactable* modA,
-                                            ChContactable* modB) {
+                                            ChContactable* modB,
+                                            int constraint_offset) {
     ContactInfo info;
 
     // Ignore contacts with zero force or positive separation.
@@ -477,17 +478,19 @@ void ChTrackCollisionManager::Reset() {
 
 static const double nrm_threshold = 0.8;
 
-bool ChTrackCollisionManager::OnNarrowphase(ChCollisionInfo& contactinfo) {
-    ChBody* bodyA = dynamic_cast<ChBody*>(contactinfo.modelA->GetContactable());
-    ChBody* bodyB = dynamic_cast<ChBody*>(contactinfo.modelB->GetContactable());
+bool ChTrackCollisionManager::OnNarrowphase(ChCollisionInfo& cinfo) {
+    ChBody* bodyA = dynamic_cast<ChBody*>(cinfo.modelA->GetContactable());
+    ChBody* bodyB = dynamic_cast<ChBody*>(cinfo.modelB->GetContactable());
 
     if (!bodyA || !bodyB)
         return true;
 
+    auto tagA = VehicleObjTag::ExtractPartTag(bodyA->GetTag());  // body A tag
+    auto tagB = VehicleObjTag::ExtractPartTag(bodyB->GetTag());  // body B tag
+
     // Body B is a track shoe body
-    if (bodyB->GetTag() == TrackedVehicleBodyTag::SHOE_BODY) {
-        auto nrm = bodyA->TransformDirectionParentToLocal(contactinfo.vN);  // Express collision normal in body A frame
-        auto tag = bodyA->GetTag();                                         // body A tag
+    if (tagB == VehiclePartTag::SHOE) {
+        auto nrm = bodyA->TransformDirectionParentToLocal(cinfo.vN);  // Express collision normal in body A frame
 
         // Identify "lateral" contacts (assumed to be with a guiding pin) and let Chrono generate contacts
         if (std::abs(nrm.y()) > nrm_threshold) {
@@ -497,24 +500,23 @@ bool ChTrackCollisionManager::OnNarrowphase(ChCollisionInfo& contactinfo) {
         // Intercept and cache collisions between wheels and shoe or ground and shoe.
         // (note that no collisions with sprocket are generated anyway)
         // Do not generate Chrono contact for such collisions.
-        if (m_idler_shoe && tag == TrackedVehicleBodyTag::IDLER_BODY) {
-            m_collisions_idler.push_back(contactinfo);
+        if (m_idler_shoe && tagA == VehiclePartTag::IDLER) {
+            m_collisions_idler.push_back(cinfo);
             return false;
         }
-        if (m_wheel_shoe && tag == TrackedVehicleBodyTag::WHEEL_BODY) {
-            m_collisions_wheel.push_back(contactinfo);
+        if (m_wheel_shoe && tagA == VehiclePartTag::TRACK_WHEEL) {
+            m_collisions_wheel.push_back(cinfo);
             return false;
         }
-        if (m_ground_shoe && tag != TrackedVehicleBodyTag::IDLER_BODY && tag != TrackedVehicleBodyTag::WHEEL_BODY) {
-            m_collisions_ground.push_back(contactinfo);
+        if (m_ground_shoe && tagA != VehiclePartTag::IDLER && tagA != VehiclePartTag::TRACK_WHEEL) {
+            m_collisions_ground.push_back(cinfo);
             return false;
         }
     }
 
     // Body A is a track shoe body
-    if (bodyA->GetTag() == TrackedVehicleBodyTag::SHOE_BODY) {
-        auto nrm = bodyB->TransformDirectionParentToLocal(contactinfo.vN);  // Express collision normal in body B frame
-        auto tag = bodyB->GetTag();                                         // body B tag
+    if (tagA == VehiclePartTag::SHOE) {
+        auto nrm = bodyB->TransformDirectionParentToLocal(cinfo.vN);  // Express collision normal in body B frame
 
         // Identify "lateral" contacts (assumed to be with a guiding pin) and let Chrono generate contacts
         if (std::abs(nrm.y()) > nrm_threshold) {
@@ -524,20 +526,20 @@ bool ChTrackCollisionManager::OnNarrowphase(ChCollisionInfo& contactinfo) {
         // Intercept and cache collisions between wheels and shoe or ground and shoe.
         // (note that no collisions with sprocket are generated anyway)
         // Do not generate Chrono contact for such collisions.
-        if (m_idler_shoe && tag == TrackedVehicleBodyTag::IDLER_BODY) {
-            auto contactinfoS = contactinfo;
+        if (m_idler_shoe && tagB == VehiclePartTag::IDLER) {
+            auto contactinfoS = cinfo;
             contactinfoS.SwapModels();
             m_collisions_idler.push_back(contactinfoS);
             return false;
         }
-        if (m_wheel_shoe && tag == TrackedVehicleBodyTag::WHEEL_BODY) {
-            auto contactinfoS = contactinfo;
+        if (m_wheel_shoe && tagB == VehiclePartTag::TRACK_WHEEL) {
+            auto contactinfoS = cinfo;
             contactinfoS.SwapModels();
             m_collisions_wheel.push_back(contactinfoS);
             return false;
         }
-        if (m_ground_shoe && tag != TrackedVehicleBodyTag::IDLER_BODY && tag != TrackedVehicleBodyTag::WHEEL_BODY) {
-            auto contactinfoS = contactinfo;
+        if (m_ground_shoe && tagB != VehiclePartTag::IDLER && tagB != VehiclePartTag::TRACK_WHEEL) {
+            auto contactinfoS = cinfo;
             contactinfoS.SwapModels();
             m_collisions_ground.push_back(contactinfoS);
             return false;
@@ -555,15 +557,15 @@ void ChTrackCustomContact::Setup() {
     ApplyForces();
 
     // Perform a full update of the load container
-    ChLoadContainer::Update(ChTime, false);
+    ChLoadContainer::Update(ChTime, UpdateFlags::UPDATE_ALL);
 }
 
-void ChTrackCustomContact::Update(double mytime, bool update_assets) {
+void ChTrackCustomContact::Update(double time, UpdateFlags update_flags) {
     // Note: since Update could be called multiple times per time step, we do not invoke the
     // callback function here to calculate custom contact forces (since they are based on collision
     // detection information which only occurs once per time step). Instead, we do this in Setup.
     // We still override this function to prevent unnecessary calculations in the base class Update.
-    ChTime = mytime;
+    ChPhysicsItem::Update(time, update_flags);
 }
 
 void ChTrackCustomContact::ApplyForces() {

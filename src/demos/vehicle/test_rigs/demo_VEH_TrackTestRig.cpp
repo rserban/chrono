@@ -15,19 +15,18 @@
 //
 // =============================================================================
 
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
-#include "chrono_vehicle/ChVehicleModelData.h"
-#include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriverIRR.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
+#include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriver.h"
 #include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigDataDriver.h"
 #include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigRoadDriver.h"
 #include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRig.h"
-#include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigVisualSystemIrrlicht.h"
 
 #include "chrono_models/vehicle/m113/track_assembly/M113_TrackAssemblyDoublePin.h"
 #include "chrono_models/vehicle/m113/track_assembly/M113_TrackAssemblySinglePin.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
+#include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigVisualSystemVSG.h"
 
 #include "demos/SetChronoSolver.h"
 
@@ -59,7 +58,7 @@ bool use_track_RSDA = true;
 
 // Specification of test rig inputs
 enum class DriverMode {
-    KEYBOARD,    // interactive (Irrlicht) driver
+    KEYBOARD,    // interactive driver
     DATAFILE,    // inputs from data file
     ROADPROFILE  // inputs to follow road profile
 };
@@ -77,18 +76,18 @@ double step_size_NSC = 1e-3;
 double step_size_SMC = 5e-4;
 
 // Solver and integrator types
-////ChSolver::Type slvr_type = ChSolver::Type::BARZILAIBORWEIN;
+ChSolver::Type slvr_type = ChSolver::Type::BARZILAIBORWEIN;
 ////ChSolver::Type slvr_type = ChSolver::Type::PSOR;
 ////ChSolver::Type slvr_type = ChSolver::Type::MINRES;
 ////ChSolver::Type slvr_type = ChSolver::Type::GMRES;
 ////ChSolver::Type slvr_type = ChSolver::Type::SPARSE_LU;
 ////ChSolver::Type slvr_type = ChSolver::Type::SPARSE_QR;
-ChSolver::Type slvr_type = ChSolver::Type::PARDISO_MKL;
+////ChSolver::Type slvr_type = ChSolver::Type::PARDISO_MKL;
 ////ChSolver::Type slvr_type = ChSolver::Type::MUMPS;
 
 ////ChTimestepper::Type intgr_type = ChTimestepper::Type::EULER_IMPLICIT;
-ChTimestepper::Type intgr_type = ChTimestepper::Type::EULER_IMPLICIT_PROJECTED;
-////ChTimestepper::Type intgr_type = ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED;
+////ChTimestepper::Type intgr_type = ChTimestepper::Type::EULER_IMPLICIT_PROJECTED;
+ChTimestepper::Type intgr_type = ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED;
 ////ChTimestepper::Type intgr_type = ChTimestepper::Type::HHT;
 
 // Verbose output level (solver and integrator)
@@ -116,8 +115,8 @@ int main(int argc, char* argv[]) {
 
     ChTrackTestRig* rig = nullptr;
     if (use_JSON) {
-        rig = new ChTrackTestRig(vehicle::GetDataFile(filename), create_track, contact_method, detracking_control);
-        std::cout << "Rig uses track assembly from JSON file: " << vehicle::GetDataFile(filename) << std::endl;
+        rig = new ChTrackTestRig(GetVehicleDataFile(filename), create_track, contact_method, detracking_control);
+        std::cout << "Rig uses track assembly from JSON file: " << GetVehicleDataFile(filename) << std::endl;
     } else {
         VehicleSide side = LEFT;
         BrakeType brake_type = BrakeType::SIMPLE;
@@ -148,16 +147,6 @@ int main(int argc, char* argv[]) {
 
     rig->GetSystem()->SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
-    // ---------------------------------------
-    // Create the vehicle Irrlicht application
-    // ---------------------------------------
-
-    auto vis = chrono_types::make_shared<ChTrackTestRigVisualSystemIrrlicht>();
-    vis->SetWindowTitle("Track Test Rig");
-    vis->SetChaseCamera(ChVector3d(0), 3.0, 0.0);
-    vis->SetChaseCameraMultipliers(1e-4, 10);
-    ////vis->RenderTrackShoeFrames(true, 0.4);
-
     // -----------------------------------
     // Create and attach the driver system
     // -----------------------------------
@@ -165,20 +154,20 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<ChTrackTestRigDriver> driver;
     switch (driver_mode) {
         case DriverMode::KEYBOARD: {
-            auto irr_driver = chrono_types::make_shared<ChTrackTestRigInteractiveDriverIRR>(*vis);
+            auto irr_driver = chrono_types::make_shared<ChTrackTestRigInteractiveDriver>();
             irr_driver->SetThrottleDelta(1.0 / 50);
             irr_driver->SetDisplacementDelta(1.0 / 250);
             driver = irr_driver;
             break;
         }
         case DriverMode::DATAFILE: {
-            auto data_driver = chrono_types::make_shared<ChTrackTestRigDataDriver>(vehicle::GetDataFile(driver_file));
+            auto data_driver = chrono_types::make_shared<ChTrackTestRigDataDriver>(GetVehicleDataFile(driver_file));
             driver = data_driver;
             break;
         }
         case DriverMode::ROADPROFILE: {
             auto road_driver =
-                chrono_types::make_shared<ChTrackTestRigRoadDriver>(vehicle::GetDataFile(road_file), road_speed);
+                chrono_types::make_shared<ChTrackTestRigRoadDriver>(GetVehicleDataFile(road_file), road_speed);
             driver = road_driver;
             break;
         }
@@ -211,29 +200,13 @@ int main(int argc, char* argv[]) {
 
     rig->Initialize();
 
-    vis->Initialize();
-    vis->AddLightDirectional();
-    vis->AddSkyBox();
-    vis->AddLogo();
-    vis->AttachVehicle(rig);
-
-    ////ChVector3d target_point = rig->GetPostPosition();
-    ////ChVector3d target_point = rig->GetTrackAssembly()->GetIdler()->GetWheelBody()->GetPos();
-    ////ChVector3d target_point = rig->GetTrackAssembly()->GetSprocket()->GetGearBody()->GetPos();
-    ChVector3d target_point = 0.5 * (rig->GetTrackAssembly()->GetSprocket()->GetGearBody()->GetPos() +
-                                     rig->GetTrackAssembly()->GetIdler()->GetWheelBody()->GetPos());
-
-    vis->SetChaseCameraPosition(target_point + ChVector3d(0, -5, 0));
-    vis->SetChaseCameraState(utils::ChChaseCamera::Free);
-    vis->SetChaseCameraAngle(CH_PI_2);
-
     // -----------------
     // Set up rig output
     // -----------------
 
     const std::string out_dir = GetChronoOutputPath() + "TRACK_TEST_RIG";
     if (output) {
-        if (!filesystem::create_directory(filesystem::path(out_dir))) {
+        if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
             std::cout << "Error creating directory " << out_dir << std::endl;
             return 1;
         }
@@ -241,10 +214,20 @@ int main(int argc, char* argv[]) {
         ////rig->SetDriverLogFilename(out_dir + "/TTR_driver.txt");
 
         rig->SetTrackAssemblyOutput(true);
-        rig->SetOutput(ChVehicleOutput::ASCII, out_dir, "output", out_step_size);
+        rig->SetOutput(ChOutput::Format::ASCII, ChOutput::Mode::FRAMES, out_dir, "output", out_step_size);
 
         rig->SetPlotOutput(out_step_size * 0.1);
     }
+
+    // ----------------------------------------
+    // Create the run-time visualization system
+    // ----------------------------------------
+
+    auto vis = chrono_types::make_shared<ChTrackTestRigVisualSystemVSG>();
+    vis->SetWindowSize(1280, 800);
+    vis->SetWindowTitle("Track Test Rig");
+    vis->AttachTTR(rig);
+    vis->Initialize();
 
     // ------------------------------
     // Solver and integrator settings
@@ -296,10 +279,6 @@ int main(int argc, char* argv[]) {
 
         // Advance simulation of the rig
         rig->Advance(step_size);
-
-        // Update visualization app
-        vis->Synchronize(rig->GetChTime(), {0, rig->GetThrottleInput(), 0});
-        vis->Advance(step_size);
 
         ////if (driver->Ended())
         ////    break;

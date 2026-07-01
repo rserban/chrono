@@ -150,7 +150,7 @@ class ChApi ChLinkMotorLinearDriveline : public ChLinkMotorLinear {
     ChVector3d shaft2_rotation_dir;
 
     /// Update this object. Also relinks the innerconstraints.
-    virtual void Update(double mytime, bool update_assets = true) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
 
     virtual unsigned int GetNumCoordsPosLevel() override;
     virtual unsigned int GetNumConstraints() override;
@@ -166,7 +166,7 @@ class ChApi ChLinkMotorLinearDriveline : public ChLinkMotorLinear {
                                  const unsigned int off_v,
                                  const ChStateDelta& v,
                                  const double T,
-                                 bool full_update) override;
+                                 UpdateFlags update_flags) override;
     virtual void IntStateGatherAcceleration(const unsigned int off_a, ChStateDelta& a) override;
     virtual void IntStateScatterAcceleration(const unsigned int off_a, const ChStateDelta& a) override;
     virtual void IntStateIncrement(const unsigned int off_x,
@@ -197,9 +197,10 @@ class ChApi ChLinkMotorLinearDriveline : public ChLinkMotorLinear {
     virtual void IntLoadConstraint_C(const unsigned int off,
                                      ChVectorDynamic<>& Qc,
                                      const double c,
+                                     const double c_vel, 
                                      bool do_clamp,
                                      double recovery_clamp) override;
-    virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c) override;
+    virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c, const double c_vel) override;
     virtual void IntToDescriptor(const unsigned int off_v,
                                  const ChStateDelta& v,
                                  const ChVectorDynamic<>& R,

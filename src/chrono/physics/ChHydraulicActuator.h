@@ -27,7 +27,7 @@
 
 #include <array>
 
-#include "chrono/physics/ChExternalDynamics.h"
+#include "chrono/physics/ChExternalDynamicsODE.h"
 #include "chrono/physics/ChHydraulicCircuit.h"
 #include "chrono/physics/ChBody.h"
 #include "chrono/functions/ChFunction.h"
@@ -43,7 +43,7 @@ namespace chrono {
 /// is inferred from the states of those two bodies. Alternatively, a hydraulic actuator can be instantiated stand-alone
 /// (e.g., for use in a co-simulation setting), in which case the actuator length and rate must be provided from
 /// outside.
-class ChApi ChHydraulicActuatorBase : public ChExternalDynamics {
+class ChApi ChHydraulicActuatorBase : public ChExternalDynamicsODE {
   public:
     virtual ~ChHydraulicActuatorBase() {}
 
@@ -62,15 +62,15 @@ class ChApi ChHydraulicActuatorBase : public ChExternalDynamics {
     void SetActuatorInitialLength(double len);
 
     /// Set initial loading force.
-    /// If provided, this value is used in calculating consistent initial conditions, using the initial dircetional
+    /// If provided, this value is used in calculating consistent initial conditions, using the initial directional
     /// valve spool position and the initial cylinder pressures as initial guesses. Otherwise, the initial actuator
     /// state is set to the user specified values (which may be inconsistent with the configuration of the cylinder
     /// piston).
-    void SetInitialLoad(double F0);
+    void SetInitialLoad(double initial_load);
 
     /// Initialize the hydraulic actuator stand-alone.
     /// In this case, actuator position and rate are supposed to be provided from the outside.
-    void Initialize();
+    virtual void Initialize() override;
 
     /// Initialize this hydraulic actuator by connecting it between the two specified bodies.
     void Initialize(std::shared_ptr<ChBody> body1,  ///< first connected body
@@ -129,13 +129,13 @@ class ChApi ChHydraulicActuatorBase : public ChExternalDynamics {
     virtual bool IsStiff() const override { return true; }
 
     /// Update the physics item at current state.
-    virtual void Update(double time, bool update_assets = true) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
 
     /// Load generalized forces.
     virtual void IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, const double c) override;
 
     bool is_attached;            ///< true if actuator attached to bodies
-    ChBody* m_body1;             ///< first conected body
+    ChBody* m_body1;             ///< first connected body
     ChBody* m_body2;             ///< second connected body
     ChVector3d m_loc1;           ///< point on body 1 (local frame)
     ChVector3d m_loc2;           ///< point on body 2 (local frame)
@@ -202,7 +202,7 @@ class ChApi ChHydraulicActuator2 : public ChHydraulicActuatorBase {
     void SetHoseVolumes(double hose_dvalve_piston, double hose_dvalve_rod);
 
   private:
-    // Interface to ChExternalDynamics
+    // Interface to ChExternalDynamicsODE
 
     virtual unsigned int GetNumStates() const override { return 1 + 2; }
 
@@ -228,7 +228,7 @@ class ChApi ChHydraulicActuator2 : public ChHydraulicActuatorBase {
     /// Extract cylinder pressures from current state.
     virtual Vec2 ExtractCylinderPressures() const override;
 
-    /// Evaluate pressure rates at curent state.
+    /// Evaluate pressure rates at current state.
     Vec2 EvaluatePressureRates(double t, const Vec2& p, double U);
 
     Vec2 pc0;   ///< initial cylinder pressures
@@ -292,7 +292,7 @@ class ChApi ChHydraulicActuator3 : public ChHydraulicActuatorBase {
     ChHydraulicThrottleValve& ThrottleValve() { return tvalve; }
 
   private:
-    // Interface to ChExternalDynamics
+    // Interface to ChExternalDynamicsODE
 
     virtual unsigned int GetNumStates() const override { return 1 + 3; }
 
@@ -318,7 +318,7 @@ class ChApi ChHydraulicActuator3 : public ChHydraulicActuatorBase {
     /// Extract cylinder pressures from current state.
     virtual Vec2 ExtractCylinderPressures() const override;
 
-    /// Evaluate pressure rates at curent state.
+    /// Evaluate pressure rates at current state.
     Vec3 EvaluatePressureRates(double t, const Vec3& p, double U);
 
     ChHydraulicThrottleValve tvalve;  ///< throttle valve

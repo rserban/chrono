@@ -22,7 +22,7 @@
 #include <iomanip>
 #include <memory>
 
-
+#include "chrono/core/ChDataPath.h"
 #include "chrono/assets/ChVisualShapeTriangleMesh.h"
 #include "chrono/assets/ChVisualMaterial.h"
 #include "chrono/assets/ChVisualShape.h"
@@ -30,16 +30,18 @@
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/utils/ChUtilsCreators.h"
-#include "chrono_thirdparty/filesystem/path.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
+#include "chrono_sensor/ChConfigSensor.h"
 #include "chrono_sensor/sensors/ChNoiseModel.h"
 #include "chrono_sensor/sensors/ChGPSSensor.h"
 #include "chrono_sensor/sensors/ChIMUSensor.h"
 
 #include "chrono_sensor/ChSensorManager.h"
 #include "chrono_sensor/filters/ChFilterAccess.h"
-#include "chrono_sensor/filters/ChFilterVisualize.h"
+#ifdef CHRONO_HAS_OPTIX
+    #include "chrono_sensor/filters/ChFilterVisualize.h"
+#endif
 
 using namespace chrono;
 using namespace chrono::sensor;
@@ -106,7 +108,7 @@ float end_time = 20.0f;
 bool save = true;
 
 // Output directories
-const std::string out_dir = "SENSOR_OUTPUT/";
+const std::string out_dir = GetChronoOutputPath() + "SENSOR_GPSIMU/";
 
 int main(int argc, char* argv[]) {
     std::cout << "Copyright (c) 2019 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n" << std::endl;
@@ -259,16 +261,16 @@ int main(int argc, char* argv[]) {
     // -----------------
     // Initialize output
     // -----------------
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
 
     // Create a CSV writer to record the IMU data
-    utils::ChWriterCSV imu_csv(" ");
+    ChWriterCSV imu_csv(" ");
 
     // Create a CSV writer to record the GPS data
-    utils::ChWriterCSV gps_csv(" ");
+    ChWriterCSV gps_csv(" ");
 
     // ---------------
     // Simulate system

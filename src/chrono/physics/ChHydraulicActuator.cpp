@@ -40,16 +40,16 @@ void ChHydraulicActuatorBase::SetActuatorLength(double len, double vel) {
     sd = vel;
 }
 
-void ChHydraulicActuatorBase::SetInitialLoad(double F0) {
-    this->calculate_consistent_IC = true;
-    this->F0 = F0;
+void ChHydraulicActuatorBase::SetInitialLoad(double initial_load) {
+    calculate_consistent_IC = true;
+    F0 = initial_load;
 }
 
 void ChHydraulicActuatorBase::Initialize() {
     OnInitialize(cyl.p0, cyl.L0, dvalve.U0);
 
     // Initialize the external dynamics
-    ChExternalDynamics::Initialize();
+    ChExternalDynamicsODE::Initialize();
 }
 
 void ChHydraulicActuatorBase::Initialize(std::shared_ptr<ChBody> body1,  // first connected body
@@ -103,9 +103,9 @@ double ChHydraulicActuatorBase::GetInput(double t) const {
     return ChClamp(ref_fun->GetVal(t), -1.0, +1.0);
 }
 
-void ChHydraulicActuatorBase::Update(double time, bool update_assets) {
+void ChHydraulicActuatorBase::Update(double time, UpdateFlags update_flags) {
     // Update the external dynamics
-    ChExternalDynamics::Update(time, update_assets);
+    ChExternalDynamicsODE::Update(time, update_flags);
 
     // If the actuator is attached to bodies, update its length and rate from the body states
     // and calculate the generated force to the two bodies.
@@ -146,7 +146,7 @@ void ChHydraulicActuatorBase::IntLoadResidual_F(const unsigned int off, ChVector
         return;
 
     // Load external dynamics
-    ChExternalDynamics::IntLoadResidual_F(off, R, c);
+    ChExternalDynamicsODE::IntLoadResidual_F(off, R, c);
 
     if (is_attached) {
         // Add forces to connected bodies (calculated in Update)

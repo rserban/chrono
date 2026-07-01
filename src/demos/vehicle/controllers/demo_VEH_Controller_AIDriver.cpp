@@ -19,16 +19,16 @@
 //
 // =============================================================================
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 #include "chrono_vehicle/driver/AIDriver.h"
-#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
+
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
 
 #include "chrono_models/vehicle/sedan/Sedan.h"
 #include "chrono_models/vehicle/sedan/Sedan_AIDriver.h"
 
 using namespace chrono;
-using namespace chrono::irrlicht;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::sedan;
 
@@ -67,26 +67,28 @@ int main(int argc, char* argv[]) {
     auto patch_mat = minfo.CreateMaterial(ChContactMethod::SMC);
 
     auto patch = terrain.AddPatch(patch_mat, CSYSNORM, 100.0, 100.0);
-    patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
+    patch->SetTexture(GetVehicleDataFile("terrain/textures/tile4.jpg"), 200, 200);
     patch->SetColor(ChColor(0.8f, 0.8f, 0.5f));
 
     terrain.Initialize();
 
-    // Create the vehicle Irrlicht interface
-    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
+    // Create the vehicle run-time interface
+    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
+    vis->AttachVehicle(&sedan.GetVehicle());
     vis->SetWindowTitle("Sedan AI Demo");
+    vis->SetWindowSize(1280, 800);
+    vis->EnableSkyTexture(SkyMode::DOME);
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->EnableShadows();
     vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
     vis->Initialize();
-    vis->AddLightDirectional();
-    vis->AddSkyBox();
-    vis->AddLogo();
-    vis->AttachVehicle(&sedan.GetVehicle());
 
     // Create the driver system
     // Option 1: use concrete driver class
     Sedan_AIDriver driver(sedan.GetVehicle());
     // Option 2: use driuver specified through JSON file
-    ////AIDriver driver(sedan.GetVehicle(), vehicle::GetDataFile("sedan/driver/Sedan_AIDriver.json"));
+    ////AIDriver driver(sedan.GetVehicle(), GetVehicleDataFile("sedan/driver/Sedan_AIDriver.json"));
 
     driver.Initialize();
 

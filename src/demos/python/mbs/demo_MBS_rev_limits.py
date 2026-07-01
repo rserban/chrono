@@ -28,6 +28,7 @@ import math as m
 print("Copyright (c) 2017 projectchrono.org")
 
 sys = chrono.ChSystemNSC()
+sys.SetGravityY()
 
 # Create ground body
 ground = chrono.ChBody()
@@ -75,7 +76,7 @@ vis.AttachSystem(sys)
 vis.SetWindowSize(1024,768)
 vis.SetWindowTitle('Limits on LinkLockRevolute demo')
 vis.Initialize()
-vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
+vis.AddLogo(chrono.GetChronoDataFile('logo_chrono_alpha.png'))
 vis.AddSkyBox()
 vis.AddCamera(chrono.ChVector3d(-2, 1.5, 5))
 vis.AddTypicalLights()
@@ -89,7 +90,7 @@ p2 = chrono.ChVector3d(m.cos(max_angle), -m.sin(max_angle), 0)
 while vis.Run():
     vis.BeginScene() 
     vis.Render()
-    irr.drawSegment(vis, p0, p0 + p1 * 4);
-    irr.drawSegment(vis, p0, p0 + p2 * 4);
+    irr.DrawSegment(vis, p0, p0 + p1 * 4);
+    irr.DrawSegment(vis, p0, p0 + p2 * 4);
     vis.EndScene()
     sys.DoStepDynamics(1e-3)

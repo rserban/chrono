@@ -29,8 +29,6 @@
 
 #include "chrono_postprocess/ChPovRay.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-
 using namespace chrono;
 using namespace chrono::postprocess;
 
@@ -39,13 +37,14 @@ int main(int argc, char* argv[]) {
 
     // Create output directory
     std::string out_dir = GetChronoOutputPath() + "POVRAY_1";
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
 
     // Create a Chrono system and set the associated collision system
     ChSystemNSC sys;
+    sys.SetGravityY();
     sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     /* Start example */

@@ -44,13 +44,13 @@ bool ChShaftsMotorPosition::Initialize(std::shared_ptr<ChShaft> shaft_1, std::sh
     return true;
 }
 
-void ChShaftsMotorPosition::Update(double mytime, bool update_assets) {
+void ChShaftsMotorPosition::Update(double time, UpdateFlags update_flags) {
     // Inherit time changes of parent class
-    ChShaftsMotor::Update(mytime, update_assets);
+    ChShaftsMotor::Update(time, update_flags);
 
     // Update class data
-    motor_function->Update(mytime);  // call callbacks if any
-    violation = GetMotorPos() - motor_function->GetVal(mytime) - rot_offset;
+    motor_function->Update(time);  // call callbacks if any
+    violation = GetMotorPos() - motor_function->GetVal(time) - rot_offset;
 }
 
 void ChShaftsMotorPosition::IntStateGatherReactions(const unsigned int off_L, ChVectorDynamic<>& L) {
@@ -72,6 +72,7 @@ void ChShaftsMotorPosition::IntLoadResidual_CqL(const unsigned int off_L,    // 
 void ChShaftsMotorPosition::IntLoadConstraint_C(const unsigned int off_L,  // offset in Qc residual
                                                 ChVectorDynamic<>& Qc,     // result: the Qc residual, Qc += c*C
                                                 const double c,            // a scaling factor
+                                                const double c_vel,        // the scaling factor if the constraint is at speed level
                                                 bool do_clamp,             // apply clamping to c*C?
                                                 double recovery_clamp      // value for min/max clamping of c*C
 ) {
@@ -85,7 +86,8 @@ void ChShaftsMotorPosition::IntLoadConstraint_C(const unsigned int off_L,  // of
 
 void ChShaftsMotorPosition::IntLoadConstraint_Ct(const unsigned int off_L,  // offset in Qc residual
                                                  ChVectorDynamic<>& Qc,     // result: the Qc residual, Qc += c*Ct
-                                                 const double c             // a scaling factor
+                                                 const double c,            // the scaling factor
+                                                 const double c_vel         // the scaling factor if the constraint is at speed level
 ) {
     double ct = -motor_function->GetDer(GetChTime());
     Qc(off_L) += c * ct;

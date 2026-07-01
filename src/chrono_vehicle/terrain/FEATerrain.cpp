@@ -26,7 +26,7 @@
 #include "chrono/fea/ChContactSurfaceMesh.h"
 #include "chrono/assets/ChVisualShapeFEA.h"
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/ChWorldFrame.h"
 #include "chrono_vehicle/terrain/FEATerrain.h"
 
@@ -50,19 +50,23 @@ FEATerrain::FEATerrain(ChSystem* system)
     system->Add(m_mesh);
 }
 
-// Return the terrain height at the specified location
 double FEATerrain::GetHeight(const ChVector3d& loc) const {
     //// TODO
     return 0;
 }
 
-// Return the terrain normal at the specified location
+ChVector3d FEATerrain::GetPoint(const ChVector3d& loc) const {
+    //// TODO
+    ChVector3d point = loc;
+    ChWorldFrame::Project(point);
+    return point;
+}
+
 ChVector3d FEATerrain::GetNormal(const ChVector3d& loc) const {
     //// TODO
     return ChWorldFrame::Vertical();
 }
 
-// Return the terrain coefficient of friction at the specified location
 float FEATerrain::GetCoefficientFriction(const ChVector3d& loc) const {
     return m_friction_fun ? (*m_friction_fun)(loc) : 0.8f;
 }
@@ -243,9 +247,9 @@ void FEATerrain::Initialize(const ChVector3d& start_point,
     // Options for visualization in irrlicht
     // -------------------------------------
 
-    auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>(m_mesh);
+    auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizemesh->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_SPEED_NORM);
-    mvisualizemesh->SetColorscaleMinMax(0.0, 5.50);
+    mvisualizemesh->SetColormapRange(0.0, 5.50);
     mvisualizemesh->SetShrinkElements(true, 0.995);
     mvisualizemesh->SetSmoothFaces(false);
     m_mesh->AddVisualShapeFEA(mvisualizemesh);

@@ -1,5 +1,5 @@
 {
-    "Name": "M113 BandANCF TrackShoe Left",
+    "Name": "M113 BandANCF TrackShoe",
     "Type": "TrackShoe",
     "Template": "TrackShoeBandANCF",
 
@@ -97,6 +97,6 @@
     },
 
     "Visualization": {
-        "Mesh": "M113/TrackShoeBandANCF.obj"
+        "Mesh": "vehicle/M113/TrackShoeBandANCF.obj"
     }
 }

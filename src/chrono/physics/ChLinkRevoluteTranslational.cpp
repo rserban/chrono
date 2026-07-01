@@ -54,10 +54,12 @@ ChLinkRevoluteTranslational::ChLinkRevoluteTranslational(const ChLinkRevoluteTra
     m_cur_dot = other.m_cur_dot;
     m_cur_dist = other.m_cur_dist;
 
-    m_cnstr_par1.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_par2.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_dot.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_dist.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+    if (other.m_body1 && other.m_body2) {
+        m_cnstr_par1.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_par2.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_dot.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_dist.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+    }
 
     for (int i = 0; i < 4; i++) {
         m_multipliers[i] = other.m_multipliers[i];
@@ -188,9 +190,9 @@ void ChLinkRevoluteTranslational::Initialize(std::shared_ptr<ChBody> body1,
 // -----------------------------------------------------------------------------
 // Link update function
 // -----------------------------------------------------------------------------
-void ChLinkRevoluteTranslational::Update(double time, bool update_assets) {
-    // Inherit time changes of parent class (ChLink)
-    ChLink::UpdateTime(time);
+void ChLinkRevoluteTranslational::Update(double time, UpdateFlags update_flags) {
+    // Inherit time changes of parent class
+    ChLink::Update(time, update_flags);
 
     // Express the body locations and direction in absolute frame
     ChVector3d p1_abs = m_body1->TransformPointLocalToParent(m_p1);
@@ -385,6 +387,7 @@ void ChLinkRevoluteTranslational::IntLoadResidual_CqL(const unsigned int off_L,
 void ChLinkRevoluteTranslational::IntLoadConstraint_C(const unsigned int off_L,
                                                       ChVectorDynamic<>& Qc,
                                                       const double c,
+                                                      const double c_vel,  
                                                       bool do_clamp,
                                                       double recovery_clamp) {
     if (!IsActive())

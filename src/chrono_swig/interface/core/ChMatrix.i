@@ -11,6 +11,10 @@
 
 using namespace chrono;
 
+
+#ifdef CHRONO_PYTHON_NUMPY
+#include <numpy/arrayobject.h>
+#endif
 %}
 
 #ifdef SWIGPYTHON  // --------------------------------------------------------------------- PYTHON
@@ -39,13 +43,26 @@ defines the Python function return ($result) from the C++ args ($1, $2...)
     delete($1);
 %}
 
-%typemap(argout) (double* p, int len) {
+// version handling
+#if SWIG_VERSION >= 0x040300
+  // SWIG 4.3.0+ use a new three argument form with $isvoid flag
+  %typemap(argout) (double* p, int len) {
     PyObject* list = PyList_New($2);
-    int i;
-    for(i = 0; i < $2; ++i)
+    for (int i = 0; i < $2; ++i) {
         PyList_SET_ITEM(list, i, PyFloat_FromDouble($1[i]));
+    }
+    $result = SWIG_Python_AppendOutput($result, list, $isvoid);
+  }
+#else
+  // SWIG < 4.3.0 fall back to the older AppendOutput form
+  %typemap(argout) (double* p, int len) {
+    PyObject* list = PyList_New($2);
+    for (int i = 0; i < $2; ++i) {
+        PyList_SET_ITEM(list, i, PyFloat_FromDouble($1[i]));
+    }
     $result = SWIG_Python_AppendOutput($result, list);
-}
+  }
+#endif
 
 %typemap(in) (int numel, double* q) %{
     if (PyList_Check($input)) {
@@ -81,13 +98,26 @@ defines the Python function return ($result) from the C++ args ($1, $2...)
     delete($1);
 %}
 
-%typemap(argout) (int* p, int len) {
+#if SWIG_VERSION >= 0x040300
+  // SWIG 4.3.0+ use a new three argument form with $isvoid flag
+  %typemap(argout) (int* p, int len) {
     PyObject* list = PyList_New($2);
-    int i;
-    for(i = 0; i < $2; ++i)
-        PyList_SET_ITEM(list, i, PyLong_FromLong($1[i]));
+    for (int i = 0; i < $2; ++i) {
+      PyList_SET_ITEM(list, i, PyLong_FromLong($1[i]));
+    }
+    $result = SWIG_Python_AppendOutput($result, list, $isvoid);
+  }
+#else
+  // SWIG < 4.3.0 fall back to the older AppendOutput form
+  %typemap(argout) (int* p, int len) {
+    PyObject* list = PyList_New($2);
+    for (int i = 0; i < $2; ++i) {
+      PyList_SET_ITEM(list, i, PyLong_FromLong($1[i]));
+    }
     $result = SWIG_Python_AppendOutput($result, list);
-}
+  }
+#endif
+
 
 
 %typemap(in) (int numel, int* q) %{
@@ -112,7 +142,7 @@ defines the Python function return ($result) from the C++ args ($1, $2...)
 %}
 
 
-%typemap(in) (double *mat, int ros, int col) %{
+%typemap(in) (double* mat, int rows, int cols) %{
     if (PyList_Check($input)) {
         $2 = PyList_Size($input);
         $3 = PyList_Size(PyList_GetItem($input, 0));
@@ -133,7 +163,7 @@ defines the Python function return ($result) from the C++ args ($1, $2...)
     }
 %}
 
-%typemap(freearg) (double *mat, int ros, int col) %{
+%typemap(freearg) (double* mat, int rows, int cols) %{
     delete($1);
 %}
 
@@ -243,6 +273,19 @@ class chrono::ChVectorDynamic : public Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen
 
 %extend chrono::ChMatrixDynamic<double> {
     public:
+    
+#ifdef CHRONO_PYTHON_NUMPY
+        ChMatrixDynamic(double* a, int rows, int cols) {
+            auto* m = new chrono::ChMatrixDynamic<double>(rows, cols);
+
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
+                    (*m)(i, j) = a[i*cols + j];
+                }
+            }
+            return m;
+        }
+#endif
         // these functions are also argument-templated, so we need to specify the types
         // ***SWIG template mechanism does not work here for operator() ***
         //%template(operator+) operator+<double>;
@@ -274,7 +317,6 @@ class chrono::ChVectorDynamic : public Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen
         }
 
         void GetMatrixData(double* p, int len) {
-            int r = $self->rows();
             int c = $self->cols();
             //double matr[len];
             //double* matr = $self->data();
@@ -285,11 +327,11 @@ class chrono::ChVectorDynamic : public Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen
             }
         }
 
-        void SetMatr(double *mat, int rows, int col) {
-            ($self)->resize(rows, col);
+        void SetMatr(double* mat, int rows, int cols) {
+            ($self)->resize(rows, cols);
             for (int i = 0; i < rows; i++){
-                for (int j = 0; j < col; j++){
-                    (*$self)(i, j) = mat[i*col + j];
+                for (int j = 0; j < cols; j++){
+                    (*$self)(i, j) = mat[i*cols + j];
                 }
             }
         }
@@ -300,6 +342,20 @@ class chrono::ChVectorDynamic : public Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen
                 (*$self)(i,j) = 0;
             }
         }
+
+// NumPy integration: single-call conversion to numpy array
+#ifdef CHRONO_PYTHON_NUMPY
+		PyObject* to_numpy() {
+            int rows = $self->rows(), cols = $self->cols();
+			npy_intp dims[2] = {(npy_intp)rows, (npy_intp)cols};
+			PyObject* array = PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+			if (!array) return NULL;
+			double* dst = (double*)PyArray_DATA((PyArrayObject*)array);
+			const double* src = $self->data();
+            std::memcpy(dst, src, (rows * cols) * sizeof(double));
+			return array;
+		}
+#endif
 };
 
 
@@ -331,7 +387,6 @@ namespace chrono {
         }
 
         void GetMatrixData(double* p, int len) {
-            int r = $self->rows();
             int c = $self->cols();
             for (int i = 0; i < len; i++){
                 int ri = floor (i/c);
@@ -340,10 +395,10 @@ namespace chrono {
             }
         }
 
-        void SetMatr(double *mat, int rows, int col) {
+        void SetMatr(double* mat, int rows, int cols) {
             for (int i = 0; i < 6; i++){
                 for (int j = 0; j < 6; j++){
-                    (*$self)(i, j) = mat[i*col + j];
+                    (*$self)(i, j) = mat[i*cols + j];
                 }
             }
         }
@@ -355,6 +410,18 @@ namespace chrono {
             }
         }
 
+// NumPy integration: single-call conversion to numpy array
+#ifdef CHRONO_PYTHON_NUMPY
+		PyObject* to_numpy() {
+			npy_intp dims[2] = {6, 6};
+			PyObject* array = PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+			if (!array) return NULL;
+			double* dst = (double*)PyArray_DATA((PyArrayObject*)array);
+			const double* src = $self->data();
+            std::memcpy(dst, src, 36 * sizeof(double));
+			return array;
+		}
+#endif
 };
 
 #ifdef SWIGPYTHON  // --------------------------------------------------------------------- PYTHON
@@ -384,6 +451,19 @@ def GetVect(self):
 
 setattr(ChVectorDynamicd, "GetVect", GetVect)
 
+def __vect_setitem(self,index,vals):
+    if index >= self.Size() or index < 0:
+        raise NameError('Bad index. Setting value at [{0}] in a vector of size {1}'.format(index,self.Size()))
+    self.SetItem(index, vals)
+
+def __vect_getitem(self,index):
+    if index >= self.Size() or index < 0:
+        raise NameError('Bad index. Getting value at [{0}] in a vector of size {1}'.format(index,self.Size()))
+    return self.GetItem(index)
+
+setattr(ChVectorDynamicd, "__getitem__", __vect_getitem)
+setattr(ChVectorDynamicd, "__setitem__", __vect_setitem)
+
 def __matr_setitem(self,index,vals):
     row = index[0];
     col = index[1];
@@ -405,6 +485,20 @@ def __matr_getitem(self,index):
 setattr(ChMatrixDynamicd, "__getitem__", __matr_getitem)
 setattr(ChMatrixDynamicd, "__setitem__", __matr_setitem)
 
+#ifdef CHRONO_PYTHON_NUMPY
+def __matrdyn_array__(self, dtype=None):
+    import numpy as np
+    a = self.to_numpy()
+    return np.asarray(a, dtype=dtype) if dtype is not None else a
+
+def __matr66_array__(self, dtype=None):
+    import numpy as np
+    a = self.to_numpy()
+    return np.asarray(a, dtype=dtype) if dtype is not None else a
+
+setattr(ChMatrixDynamicd, "__array__", __matrdyn_array__)
+setattr(ChMatrix66d, "__array__", __matr66_array__)
+#endif
 %}
 
 #endif             // --------------------------------------------------------------------- PYTHON

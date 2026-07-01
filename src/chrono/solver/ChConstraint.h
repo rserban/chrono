@@ -116,7 +116,7 @@ class ChApi ChConstraint {
 
     /// Indicate whether the constraint is currently active.
     /// In general, this indicates if it must be included into the system solver or not.
-    /// This method acumulates the effect of all flags, so a constraint may be inactive either because it is 'disabled',
+    /// This method accumulates the effect of all flags, so a constraint may be inactive either because it is 'disabled',
     /// 'broken', 'redundant', or not 'valid'.
     inline bool IsActive() const { return active; }
 
@@ -162,14 +162,14 @@ class ChApi ChConstraint {
     ///  - the Eq_a and Eq_b matrices
     ///  - the g_i product
     /// This function is often called by solvers at the beginning of the solution process.
-    /// Note: This function *must* be overriden by specialized derived classes, which have some Jacobians.
-    virtual void Update_auxiliary() {}
+    /// Note: This function *must* be overridden by specialized derived classes, which have some Jacobians.
+    virtual void UpdateAuxiliary() {}
 
     /// Return the 'g_i' product, that is [Cq_i]*[invM_i]*[Cq_i]' (+cfm)
     double GetSchurComplement() const { return g_i; }
 
     /// Usually you should not use the SetSchurComplement function, because g_i
-    /// should be automatically computed during the Update_auxiliary() .
+    /// should be automatically computed during the UpdateAuxiliary() .
     void SetSchurComplement(double m_g_i) { g_i = m_g_i; }
 
     /// Compute the product between the Jacobian of this constraint, [Cq_i], and the vector of variables.

@@ -164,7 +164,7 @@ ANCFBeamTest::ANCFBeamTest(int num_elements, SolverType solver_type, int NumThre
     integrator->SetMaxIters(100);
     integrator->SetAbsTolerances(1e-5);
     integrator->SetVerbose(false);
-    integrator->SetModifiedNewton(true);
+    integrator->SetJacobianUpdateMethod(ChTimestepperImplicit::JacobianUpdate::EVERY_STEP);
 
     // Mesh properties
     double f = 5.0;
@@ -188,13 +188,13 @@ ANCFBeamTest::ANCFBeamTest(int num_elements, SolverType solver_type, int NumThre
     m_system->Add(mesh);
 
     // Setup visualization
-    auto vis_surf = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto vis_surf = chrono_types::make_shared<ChVisualShapeFEA>();
     vis_surf->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
     vis_surf->SetWireframe(true);
     vis_surf->SetDrawInUndeformedReference(true);
     mesh->AddVisualShapeFEA(vis_surf);
 
-    auto vis_node = chrono_types::make_shared<ChVisualShapeFEA>(mesh);
+    auto vis_node = chrono_types::make_shared<ChVisualShapeFEA>();
     vis_node->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
     vis_node->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
     vis_node->SetSymbolsThickness(0.01);
@@ -266,9 +266,9 @@ void ANCFBeamTest::SimulateVis() {
                   << std::endl;
         vis->BeginScene();
         vis->Render();
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(1, 0, 0), ChColor(1, 0, 0));
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 1, 0), ChColor(0, 1, 0));
-        irrlicht::tools::drawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 0, 1), ChColor(0, 0, 1));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(1, 0, 0), ChColor(1, 0, 0));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 1, 0), ChColor(0, 1, 0));
+        irrlicht::tools::DrawSegment(vis.get(), ChVector3d(0), ChVector3d(0, 0, 1), ChColor(0, 0, 1));
         ExecuteStep();
         vis->EndScene();
     }

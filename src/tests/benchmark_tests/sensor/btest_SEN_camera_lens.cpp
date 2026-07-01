@@ -24,8 +24,6 @@
 #include "chrono/core/ChRandom.h"
 #include "chrono/utils/ChUtilsCreators.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-
 #include "chrono_sensor/sensors/ChCameraSensor.h"
 #include "chrono_sensor/ChSensorManager.h"
 #include "chrono_sensor/filters/ChFilterAccess.h"
@@ -89,7 +87,8 @@ int main(int argc, char* argv[]) {
     // -----------------
     // Create the system
     // -----------------
-    ChSystemNSC mphysicalSystem;
+    ChSystemNSC sys;
+    sys.SetGravityY();
 
     // -----------------------------------------
     // add box with checkerboard pattern to the scene
@@ -98,12 +97,12 @@ int main(int argc, char* argv[]) {
     auto box_body = chrono_types::make_shared<ChBodyEasyBox>(0.001, 10 * .023, 7 * .023, 1000, true, false);
     box_body->SetPos({1.9, 0, 0});
     box_body->SetFixed(true);
-    mphysicalSystem.Add(box_body);
+    sys.Add(box_body);
 
     auto floor = chrono_types::make_shared<ChBodyEasyBox>(1, 1, 1, 1000, false, false);
     floor->SetPos({0, 0, 0});
     floor->SetFixed(true);
-    mphysicalSystem.Add(floor);
+    sys.Add(floor);
 
     auto checkerboard = chrono_types::make_shared<ChVisualMaterial>();
     checkerboard->SetKdTexture(GetChronoDataFile("sensor/textures/checkerboard.png"));
@@ -113,7 +112,7 @@ int main(int argc, char* argv[]) {
     // -----------------------
     // Create a sensor manager
     // -----------------------
-    auto manager = chrono_types::make_shared<ChSensorManager>(&mphysicalSystem);
+    auto manager = chrono_types::make_shared<ChSensorManager>(&sys);
     manager->scene->AddPointLight({-10.f, 0.0f, 0.f}, {2.0f / 2, 1.8902f / 2, 1.7568f / 2}, 50.0f);
 
     // -------------------------------------------------------
@@ -191,10 +190,10 @@ int main(int argc, char* argv[]) {
         manager->Update();
 
         // Perform step of dynamics
-        mphysicalSystem.DoStepDynamics(step_size);
+        sys.DoStepDynamics(step_size);
 
         // Get the current time of the simulation
-        ch_time = (float)mphysicalSystem.GetChTime();
+        ch_time = (float)sys.GetChTime();
     }
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> wall_time = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);

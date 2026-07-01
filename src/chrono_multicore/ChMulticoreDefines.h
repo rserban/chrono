@@ -18,10 +18,11 @@
 
 #pragma once
 
+#include <vector>
+
 #include "chrono_multicore/ChApiMulticore.h"
 
 #ifdef __CDT_PARSER__
-    #define BLAZE_SERIAL_SECTION
     #define CH_MULTICORE_API
     #define custom_vector std::vector
 #else
@@ -74,7 +75,7 @@ enum BilateralType {
     SHAFT_SHAFT_SHAFT,  ///< constraints involving 3 1-D shaft elements
     SHAFT_BODY,         ///< constraints between a shaft and a rigid body
     SHAFT_SHAFT_BODY,   ///< constraints involving two shafts and one rigid body
-    UNKNOWN             ///< unknow constraint type
+    UNKNOWN             ///< unknown constraint type
 };
 
 /// Supported Logging Levels.

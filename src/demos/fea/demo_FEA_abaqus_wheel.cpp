@@ -29,14 +29,16 @@
 #include "chrono/fea/ChMeshFileLoader.h"
 #include "chrono/fea/ChContactSurfaceMesh.h"
 #include "chrono/fea/ChContactSurfaceNodeCloud.h"
-#include "chrono/assets/ChVisualShapeFEA.h"
 #include "chrono/fea/ChLinkNodeFrame.h"
+#include "chrono/fea/ChLoaderPressure.h"
 #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
-#include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
+
+#include "FEAvisualization.h"
 
 using namespace chrono;
 using namespace chrono::fea;
-using namespace chrono::irrlicht;
+
+ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
 int main(int argc, char* argv[]) {
     std::cout << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << std::endl;
@@ -51,6 +53,7 @@ int main(int argc, char* argv[]) {
 
     // Create a Chrono physical system and set the associated collision system
     ChSystemSMC sys;
+    sys.SetGravityY();
     sys.SetCollisionSystemType(ChCollisionSystem::Type::BULLET);
 
     sys.SetNumThreads(std::min(4, ChOMP::GetNumProcs()), 0, 1);
@@ -101,16 +104,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Create some stones / obstacles on the ground
-    if (true) {
-        for (int i = 0; i < 150; ++i) {
-            auto mcube = chrono_types::make_shared<ChBodyEasyBox>(0.18, 0.04, 0.18, 2700, true, true, mysurfmaterial2);
-            ChQuaternion<> vrot;
-            vrot.SetFromAngleY(ChRandom::Get() * CH_2PI);
-            mcube->Move(ChCoordsys<>(VNULL, vrot));
-            mcube->SetPos(
-                ChVector3d((ChRandom::Get() - 0.5) * 1.4, ChRandom::Get() * 0.2 + 0.05, -ChRandom::Get() * 2.6 + 0.2));
-            sys.Add(mcube);
-        }
+    for (int i = 0; i < 150; ++i) {
+        auto mcube = chrono_types::make_shared<ChBodyEasyBox>(0.18, 0.04, 0.18, 2700, true, true, mysurfmaterial2);
+        ChQuaternion<> vrot;
+        vrot.SetFromAngleY(ChRandom::Get() * CH_2PI);
+        mcube->Move(ChCoordsys<>(VNULL, vrot));
+        mcube->SetPos(
+            ChVector3d((ChRandom::Get() - 0.5) * 1.4, ChRandom::Get() * 0.2 + 0.05, -ChRandom::Get() * 2.6 + 0.2));
+        sys.Add(mcube);
     }
 
     // FINITE ELEMENT MESH
@@ -146,8 +147,8 @@ int main(int argc, char* argv[]) {
     // In this case it is a ChContactSurfaceNodeCloud, so just pass
     // all nodes to it.
     auto mcontactsurf = chrono_types::make_shared<ChContactSurfaceNodeCloud>(mysurfmaterial);
+    mcontactsurf->AddAllNodes(*my_mesh);
     my_mesh->AddContactSurface(mcontactsurf);
-    mcontactsurf->AddAllNodes();
 
     // Apply initial speed and angular speed
     for (unsigned int i = 0; i < my_mesh->GetNumNodes(); ++i) {
@@ -208,39 +209,35 @@ int main(int argc, char* argv[]) {
     // coordinates and vertex colors as in the FEM elements.
     // Such triangle mesh can be rendered by Irrlicht or POVray or whatever
     // postprocessor that can handle a colored ChVisualShapeTriangleMesh).
-    auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+
+    ChColormap::Type colormap_type = ChColormap::Type::JET;
+    ChVector2d colormap_range(0.0, 10);
+
+    auto mvisualizemesh = chrono_types::make_shared<ChVisualShapeFEA>();
     mvisualizemesh->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_SPEED_NORM);
-    mvisualizemesh->SetColorscaleMinMax(0.0, 10);
+    mvisualizemesh->SetColormapRange(colormap_range);
+    mvisualizemesh->SetColormap(colormap_type);
     mvisualizemesh->SetSmoothFaces(true);
     my_mesh->AddVisualShapeFEA(mvisualizemesh);
 
     /*
-        auto mvisualizemeshB = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+        auto mvisualizemeshB = chrono_types::make_shared<ChVisualShapeFEA>();
         mvisualizemeshB->SetFEMdataType(ChVisualShapeFEA::DataType::SURFACE);
         mvisualizemeshB->SetWireframe(true);
         my_mesh->AddVisualShapeFEA(mvisualizemeshB);
     */
     /*
-        auto mvisualizemeshC = chrono_types::make_shared<ChVisualShapeFEA>(my_mesh);
+        auto mvisualizemeshC = chrono_types::make_shared<ChVisualShapeFEA>();
         mvisualizemeshC->SetFEMglyphType(ChVisualShapeFEA::GlyphType::NODE_DOT_POS);
         mvisualizemeshC->SetFEMdataType(ChVisualShapeFEA::DataType::NONE);
         mvisualizemeshC->SetSymbolsThickness(0.006);
         my_mesh->AddVisualShapeFEA(mvisualizemeshC);
      */
 
-    // Create the Irrlicht visualization system
-    auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
-    vis->AttachSystem(&sys);
-    vis->SetWindowSize(1280, 720);
-    vis->SetWindowTitle("FEA contacts");
-    vis->Initialize();
-    vis->AddLogo();
-    vis->AddSkyBox();
-    vis->AddTypicalLights();
-    vis->AddCamera(ChVector3d(1.0, 1.4, -1.2), ChVector3d(0, tire_rad, 0));
-    vis->AddLightWithShadow(ChVector3d(1.5, 5.5, -2.5), ChVector3d(0, 0, 0), 3, 2.2, 7.2, 40, 512,
-                            ChColor(0.8f, 0.8f, 1.0f));
-    vis->EnableShadows();
+    // Create the run-time visualization system
+    auto vis = CreateVisualizationSystem(vis_type, CameraVerticalDir::Y, sys, "Abaqus wheel",     //
+                                         ChVector3d(2.0, 2.8, -2.4), ChVector3d(0, tire_rad, 0),  //
+                                         true, "Node speed", colormap_range, colormap_type);
 
     // SIMULATION LOOP
 
@@ -248,7 +245,7 @@ int main(int argc, char* argv[]) {
     auto mkl_solver = chrono_types::make_shared<ChSolverPardisoMKL>();
     mkl_solver->LockSparsityPattern(true);
     sys.SetSolver(mkl_solver);
-    sys.Update();
+    sys.Update(UpdateFlags::UPDATE_ALL & ~UpdateFlags::VISUAL_ASSETS);
 
     // Change type of integrator:
     sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);  // fast, less precise

@@ -15,14 +15,14 @@
 // Base class for a leaf-spring solid axle suspension.
 // Derived from ChSuspension, but still an abstract base class.
 //
-// This class is meant for modelling a very simple nonsteerable solid leafspring
-// axle. The guiding function of leafspring is modelled by a ChLinkLockRevolutePrismatic
+// This class is meant for modeling a very simple non-steerable solid leafspring
+// axle. The guiding function of leafspring is modeled by a ChLinkLockRevolutePrismatic
 // joint, it allows vertical movement and tilting of the axle tube but no elasticity.
-// The spring function of the leafspring is modelled by a vertical spring element.
+// The spring function of the leafspring is modeled by a vertical spring element.
 // Tie up of the leafspring is not possible with this approach, as well as the
 // characteristic kinematics along wheel travel. The roll center and roll stability
 // is met well, if spring track is defined correctly. The class has been designed
-// for maximum easyness and numerical efficiency.
+// for maximum easiness and numerical efficiency.
 //
 // The suspension subsystem is modeled with respect to a right-handed frame,
 // with X pointing towards the front, Y to the left, and Z up (ISO standard).
@@ -76,18 +76,18 @@ class CH_VEHICLE_API ChLeafspringAxle : public ChSuspension {
     /// Specify whether or not this is an independent suspension.
     virtual bool IsIndependent() const final override { return false; }
 
-    /// Initialize this suspension subsystem.
+    /// Construct this suspension subsystem.
     /// The suspension subsystem is initialized by attaching it to the specified chassis and (if provided) to the
     /// specified subchassis, at the specified location (with respect to and expressed in the reference frame of the
     /// chassis). It is assumed that the suspension reference frame is always aligned with the chassis reference frame.
     /// Since this suspension is non-steerable, the steering subsystem is always ignored.
-    virtual void Initialize(
+    virtual void Construct(
         std::shared_ptr<ChChassis> chassis,        ///< [in] associated chassis subsystem
         std::shared_ptr<ChSubchassis> subchassis,  ///< [in] associated subchassis subsystem (may be null)
         std::shared_ptr<ChSteering> steering,      ///< [in] associated steering subsystem (may be null)
         const ChVector3d& location,                ///< [in] location relative to the chassis frame
-        double left_ang_vel = 0,                   ///< [in] initial angular velocity of left wheel
-        double right_ang_vel = 0                   ///< [in] initial angular velocity of right wheel
+        double left_ang_vel,                       ///< [in] initial angular velocity of left wheel
+        double right_ang_vel                       ///< [in] initial angular velocity of right wheel
         ) override;
 
     /// Add visualization assets for the suspension subsystem.
@@ -217,9 +217,7 @@ class CH_VEHICLE_API ChLeafspringAxle : public ChSuspension {
                                      double radius,
                                      const ChColor& color);
 
-    virtual void ExportComponentList(rapidjson::Document& jsonDocument) const override;
-
-    virtual void Output(ChVehicleOutput& database) const override;
+    virtual void PopulateComponentList() override;
 
     static const std::string m_pointNames[NUM_POINTS];
 };

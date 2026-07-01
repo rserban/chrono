@@ -34,7 +34,7 @@
     #include "chrono_sensor/sensors/ChGPSSensor.h"
 #else
     #define EARTH_RADIUS 6371000.0  // [meters]
-#endif                              // SENSOR
+#endif
 
 namespace chrono {
 namespace synchrono {
@@ -83,7 +83,7 @@ class SYN_API SynGPSTools {
     /// Optionally pass in a vertical offset for the points and whether the path should be a closed curve
     std::shared_ptr<ChBezierCurve> CurveFromGPS(const std::string& filename, double vert_offset = 0, bool closed = 0);
 
-    /// @brief Convert GPS coordinate to 3D cartesian point with an optionally specified height
+    /// @brief Convert GPS coordinate to 3D Cartesian point with an optionally specified height
     /// @param gps the point to convert
     /// @param height optional z/altitude-offset, defaults to 0.5
     ChVector3d To3DCartesian(const GPScoord& gps, double height = 0.5) const;

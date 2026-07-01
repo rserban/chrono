@@ -99,7 +99,7 @@ class ChApi ChLinkUniversal : public ChLink {
 
     // Solver and integrator interface functions
 
-    virtual void Update(double time, bool update_assets = true) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
 
     virtual void IntStateGatherReactions(const unsigned int off_L, ChVectorDynamic<>& L) override;
     virtual void IntStateScatterReactions(const unsigned int off_L, const ChVectorDynamic<>& L) override;
@@ -110,6 +110,7 @@ class ChApi ChLinkUniversal : public ChLink {
     virtual void IntLoadConstraint_C(const unsigned int off,
                                      ChVectorDynamic<>& Qc,
                                      const double c,
+                                     const double c_vel, 
                                      bool do_clamp,
                                      double recovery_clamp) override;
     virtual void IntToDescriptor(const unsigned int off_v,

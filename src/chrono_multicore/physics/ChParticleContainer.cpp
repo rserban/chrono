@@ -20,12 +20,8 @@
 #include "chrono_multicore/ChDataManager.h"
 #include "chrono_multicore/constraints/ChConstraintUtils.h"
 
-#include "chrono/multicore_math/ChMulticoreMath.h"
+#include "chrono/multicore_math/thrust.h"
 #include "chrono/multicore_math/matrix.h"
-
-#ifdef CHRONO_MULTICORE_USE_CUDA
-    #include "chrono_multicore/cuda/ChMPM.cuh"
-#endif
 
 namespace chrono {
 
@@ -37,7 +33,6 @@ ChParticleContainer::ChParticleContainer() {
     mass = 0.037037;
     start_boundary = 0;
     start_contact = 0;
-    mpm_iterations = 0;
 
     nu = .2;
     youngs_modulus = 1.4e5;
@@ -47,96 +42,46 @@ ChParticleContainer::ChParticleContainer() {
     theta_s = 7.5e-3;
     theta_c = 2.5e-2;
     alpha_flip = .95;
-    mpm_init = false;
 }
 
 void ChParticleContainer::AddBodies(const std::vector<real3>& positions, const std::vector<real3>& velocities) {
-    custom_vector<real3>& pos_fluid = data_manager->host_data.pos_3dof;
-    custom_vector<real3>& vel_fluid = data_manager->host_data.vel_3dof;
+    custom_vector<real3>& pos_3dof = data_manager->host_data.pos_3dof;
+    custom_vector<real3>& vel_3dof = data_manager->host_data.vel_3dof;
 
-    pos_fluid.insert(pos_fluid.end(), positions.begin(), positions.end());
-    vel_fluid.insert(vel_fluid.end(), velocities.begin(), velocities.end());
-    // In case the number of velocities provided were not enough, resize to the number of fluid bodies
-    vel_fluid.resize(pos_fluid.size());
-    data_manager->num_fluid_bodies = (uint)pos_fluid.size();
+    pos_3dof.insert(pos_3dof.end(), positions.begin(), positions.end());
+    vel_3dof.insert(vel_3dof.end(), velocities.begin(), velocities.end());
+    // In case the number of velocities provided were not enough, resize to the number of particle velocities
+    vel_3dof.resize(pos_3dof.size());
+    data_manager->num_particles = (uint)pos_3dof.size();
 }
-void ChParticleContainer::Update3DOF(double ChTime) {
-    uint num_fluid_bodies = data_manager->num_fluid_bodies;
-    uint num_rigid_bodies = data_manager->num_rigid_bodies;
-    uint num_shafts = data_manager->num_shafts;
-    uint num_motors = data_manager->num_motors;
+void ChParticleContainer::Update3DOF(double time) {
+    num_particles = data_manager->num_particles;
+    num_rigid_bodies = data_manager->num_rigid_bodies;
+    num_shafts = data_manager->num_shafts;
+    num_motors = data_manager->num_motors;
     real3 h_gravity = data_manager->settings.step_size * mass * data_manager->settings.gravity;
-#ifdef CHRONO_MULTICORE_USE_CUDA
-    if (mpm_init) {
-        temp_settings.dt = (float)data_manager->settings.step_size;
-        temp_settings.kernel_radius = (float)kernel_radius;
-        temp_settings.inv_radius = float(1.0 / kernel_radius);
-        temp_settings.bin_edge = float(kernel_radius * 2);
-        temp_settings.inv_bin_edge = float(1.0 / (kernel_radius * 2.0));
-        temp_settings.max_velocity = (float)max_velocity;
-        temp_settings.mu = (float)lame_mu;
-        temp_settings.lambda = (float)lame_lambda;
-        temp_settings.hardening_coefficient = (float)hardening_coefficient;
-        temp_settings.theta_c = (float)theta_c;
-        temp_settings.theta_s = (float)theta_s;
-        temp_settings.alpha_flip = (float)alpha_flip;
-        temp_settings.youngs_modulus = (float)youngs_modulus;
-        temp_settings.poissons_ratio = (float)nu;
-        temp_settings.num_mpm_markers = data_manager->num_fluid_bodies;
-        temp_settings.mass = (float)mass;
-        temp_settings.yield_stress = (float)yield_stress;
-        temp_settings.num_iterations = mpm_iterations;
-
-        if (mpm_iterations > 0) {
-            mpm_pos.resize(data_manager->num_fluid_bodies * 3);
-            mpm_vel.resize(data_manager->num_fluid_bodies * 3);
-            mpm_jejp.resize(data_manager->num_fluid_bodies * 2);
-            for (int i = 0; i < (signed)data_manager->num_fluid_bodies; i++) {
-                mpm_pos[i * 3 + 0] = (float)data_manager->host_data.pos_3dof[i].x;
-                mpm_pos[i * 3 + 1] = (float)data_manager->host_data.pos_3dof[i].y;
-                mpm_pos[i * 3 + 2] = (float)data_manager->host_data.pos_3dof[i].z;
-            }
-            for (int i = 0; i < (signed)data_manager->num_fluid_bodies; i++) {
-                mpm_vel[i * 3 + 0] = (float)data_manager->host_data.vel_3dof[i].x;
-                mpm_vel[i * 3 + 1] = (float)data_manager->host_data.vel_3dof[i].y;
-                mpm_vel[i * 3 + 2] = (float)data_manager->host_data.vel_3dof[i].z;
-            }
-
-            MPM_UpdateDeformationGradient(std::ref(temp_settings), std::ref(mpm_pos), std::ref(mpm_vel),
-                                          std::ref(mpm_jejp));
-
-            mpm_thread = std::thread(MPM_Solve, std::ref(temp_settings), std::ref(mpm_pos), std::ref(mpm_vel));
-
-            //            for (int i = 0; i < data_manager->num_fluid_bodies; i++) {
-            //                data_manager->host_data.vel_3dof[i].x = mpm_vel[i * 3 + 0];
-            //                data_manager->host_data.vel_3dof[i].y = mpm_vel[i * 3 + 1];
-            //                data_manager->host_data.vel_3dof[i].z = mpm_vel[i * 3 + 2];
-            //            }
-        }
-    }
-#endif
 
     uint offset = num_rigid_bodies * 6 + num_shafts + num_motors;
 #pragma omp parallel for
-    for (int i = 0; i < (signed)num_fluid_bodies; i++) {
+    for (int i = 0; i < (signed)num_particles; i++) {
         data_manager->host_data.hf[offset + i * 3 + 0] = h_gravity.x;
         data_manager->host_data.hf[offset + i * 3 + 1] = h_gravity.y;
         data_manager->host_data.hf[offset + i * 3 + 2] = h_gravity.z;
     }
 }
 
-void ChParticleContainer::UpdatePosition(double ChTime) {
-    uint num_fluid_bodies = data_manager->num_fluid_bodies;
-    uint num_rigid_bodies = data_manager->num_rigid_bodies;
-    uint num_shafts = data_manager->num_shafts;
-    uint num_motors = data_manager->num_motors;
+void ChParticleContainer::UpdatePosition(double time) {
+    num_particles = data_manager->num_particles;
+    num_rigid_bodies = data_manager->num_rigid_bodies;
+    num_shafts = data_manager->num_shafts;
+    num_motors = data_manager->num_motors;
 
-    custom_vector<real3>& pos_fluid = data_manager->host_data.pos_3dof;
-    custom_vector<real3>& vel_fluid = data_manager->host_data.vel_3dof;
+    custom_vector<real3>& pos_3dof = data_manager->host_data.pos_3dof;
+    custom_vector<real3>& vel_3dof = data_manager->host_data.vel_3dof;
 
     uint offset = num_rigid_bodies * 6 + num_shafts + num_motors;
 #pragma omp parallel for
-    for (int i = 0; i < (signed)num_fluid_bodies; i++) {
+    for (int i = 0; i < (signed)num_particles; i++) {
         real3 vel;
         int original_index = data_manager->cd_data->particle_indices_3dof[i];
         // these are sorted so we have to unsort them
@@ -148,75 +93,86 @@ void ChParticleContainer::UpdatePosition(double ChTime) {
         if (speed > max_velocity) {
             vel = vel * max_velocity / speed;
         }
-        vel_fluid[original_index] = vel;
-        pos_fluid[original_index] += vel * data_manager->settings.step_size;
+        vel_3dof[original_index] = vel;
+        pos_3dof[original_index] += vel * data_manager->settings.step_size;
     }
 }
 
 unsigned int ChParticleContainer::GetNumConstraints() {
-    const auto num_fluid_contacts = data_manager->cd_data->num_fluid_contacts;
-    int num_fluid_fluid = 0;
+    num_particle_contacts = data_manager->cd_data->num_particle_contacts;
+    int num_particle_particle = 0;
     if (mu == 0) {
-        num_fluid_fluid = (num_fluid_contacts - data_manager->num_fluid_bodies) / 2;
+        num_particle_particle = (num_particle_contacts - data_manager->num_particles) / 2;
     } else {
-        num_fluid_fluid = (num_fluid_contacts - data_manager->num_fluid_bodies) / 2 * 3;
+        num_particle_particle = (num_particle_contacts - data_manager->num_particles) / 2 * 3;
     }
 
     if (contact_mu == 0) {
-        num_fluid_fluid += data_manager->cd_data->num_rigid_fluid_contacts;
+        num_particle_particle += data_manager->cd_data->num_rigid_particle_contacts;
     } else {
-        num_fluid_fluid += data_manager->cd_data->num_rigid_fluid_contacts * 3;
+        num_particle_particle += data_manager->cd_data->num_rigid_particle_contacts * 3;
     }
 
-    return num_fluid_fluid;
+    return num_particle_particle;
 }
 
 unsigned int ChParticleContainer::GetNumNonZeros() {
-    const auto num_fluid_contacts = data_manager->cd_data->num_fluid_contacts;
-    int nnz_fluid_fluid = 0;
+    num_particle_contacts = data_manager->cd_data->num_particle_contacts;
+    int nnz_particle_particle = 0;
     if (mu == 0) {
-        nnz_fluid_fluid = (num_fluid_contacts - data_manager->num_fluid_bodies) / 2 * 6;
+        nnz_particle_particle = (num_particle_contacts - data_manager->num_particles) / 2 * 6;
 
     } else {
-        nnz_fluid_fluid = (num_fluid_contacts - data_manager->num_fluid_bodies) / 2 * 6 * 3;
+        nnz_particle_particle = (num_particle_contacts - data_manager->num_particles) / 2 * 6 * 3;
     }
 
     if (contact_mu == 0) {
-        nnz_fluid_fluid += 9 * data_manager->cd_data->num_rigid_fluid_contacts;
+        nnz_particle_particle += 9 * data_manager->cd_data->num_rigid_particle_contacts;
     } else {
-        nnz_fluid_fluid += 9 * 3 * data_manager->cd_data->num_rigid_fluid_contacts;
+        nnz_particle_particle += 9 * 3 * data_manager->cd_data->num_rigid_particle_contacts;
     }
 
-    return nnz_fluid_fluid;
+    return nnz_particle_particle;
 }
 
 void ChParticleContainer::ComputeInvMass(int offset) {
-    CompressedMatrix<real>& M_inv = data_manager->host_data.M_inv;
-    uint num_fluid_bodies = data_manager->num_fluid_bodies;
-
+    num_particles = data_manager->num_particles;
+    SparseMatrixType& M_inv = data_manager->host_data.M_inv;
     real inv_mass = 1.0 / mass;
-    for (int i = 0; i < (float)num_fluid_bodies; i++) {
-        M_inv.append(offset + i * 3 + 0, offset + i * 3 + 0, inv_mass);
-        M_inv.finalize(offset + i * 3 + 0);
-        M_inv.append(offset + i * 3 + 1, offset + i * 3 + 1, inv_mass);
-        M_inv.finalize(offset + i * 3 + 1);
-        M_inv.append(offset + i * 3 + 2, offset + i * 3 + 2, inv_mass);
-        M_inv.finalize(offset + i * 3 + 2);
+    if (M_inv.isCompressed()) {
+        real* vals = M_inv.valuePtr();
+        const SparseMatrixType::StorageIndex* outer = M_inv.outerIndexPtr();
+        for (uint i = 0; i < num_particles; i++) {
+            vals[outer[offset + i * 3 + 0]] = inv_mass;
+            vals[outer[offset + i * 3 + 1]] = inv_mass;
+            vals[outer[offset + i * 3 + 2]] = inv_mass;
+        }
+    } else {
+        for (uint i = 0; i < num_particles; i++) {
+            M_inv.insert(offset + i * 3 + 0, offset + i * 3 + 0) = inv_mass;
+            M_inv.insert(offset + i * 3 + 1, offset + i * 3 + 1) = inv_mass;
+            M_inv.insert(offset + i * 3 + 2, offset + i * 3 + 2) = inv_mass;
+        }
     }
 }
 
 void ChParticleContainer::ComputeMass(int offset) {
-    CompressedMatrix<real>& M = data_manager->host_data.M;
-    uint num_fluid_bodies = data_manager->num_fluid_bodies;
-
-    real fluid_mass = mass;
-    for (int i = 0; i < (float)num_fluid_bodies; i++) {
-        M.append(offset + i * 3 + 0, offset + i * 3 + 0, fluid_mass);
-        M.finalize(offset + i * 3 + 0);
-        M.append(offset + i * 3 + 1, offset + i * 3 + 1, fluid_mass);
-        M.finalize(offset + i * 3 + 1);
-        M.append(offset + i * 3 + 2, offset + i * 3 + 2, fluid_mass);
-        M.finalize(offset + i * 3 + 2);
+    num_particles = data_manager->num_particles;
+    SparseMatrixType& M = data_manager->host_data.M;
+    if (M.isCompressed()) {
+        real* vals = M.valuePtr();
+        const SparseMatrixType::StorageIndex* outer = M.outerIndexPtr();
+        for (uint i = 0; i < num_particles; i++) {
+            vals[outer[offset + i * 3 + 0]] = mass;
+            vals[outer[offset + i * 3 + 1]] = mass;
+            vals[outer[offset + i * 3 + 2]] = mass;
+        }
+    } else {
+        for (uint i = 0; i < num_particles; i++) {
+            M.insert(offset + i * 3 + 0, offset + i * 3 + 0) = mass;
+            M.insert(offset + i * 3 + 1, offset + i * 3 + 1) = mass;
+            M.insert(offset + i * 3 + 2, offset + i * 3 + 2) = mass;
+        }
     }
 }
 
@@ -225,80 +181,45 @@ void ChParticleContainer::Setup3DOF(int start_constraint) {
 
     start_boundary = start_constraint;
     if (contact_mu == 0) {
-        start_contact = start_constraint + num_rigid_fluid_contacts;
+        start_contact = start_constraint + num_rigid_particle_contacts;
     } else {
-        start_contact = start_constraint + num_rigid_fluid_contacts * 3;
+        start_contact = start_constraint + num_rigid_particle_contacts * 3;
     }
     body_offset = num_rigid_bodies * 6 + num_shafts + num_motors;
 
-    num_rigid_contacts = (num_fluid_contacts - num_fluid_bodies) / 2;
+    num_rigid_contacts = (num_particle_contacts - num_particles) / 2;
 }
 
 void ChParticleContainer::Initialize() {
-#ifdef CHRONO_MULTICORE_USE_CUDA
-    temp_settings.dt = (float)data_manager->settings.step_size;
-    temp_settings.kernel_radius = (float)kernel_radius;
-    temp_settings.inv_radius = float(1.0 / kernel_radius);
-    temp_settings.bin_edge = float(kernel_radius * 2);
-    temp_settings.inv_bin_edge = float(1.0 / (kernel_radius * 2.0));
-    temp_settings.max_velocity = (float)max_velocity;
-    temp_settings.mu = (float)lame_mu;
-    temp_settings.lambda = (float)lame_lambda;
-    temp_settings.hardening_coefficient = (float)hardening_coefficient;
-    temp_settings.theta_c = (float)theta_c;
-    temp_settings.theta_s = (float)theta_s;
-    temp_settings.alpha_flip = (float)alpha_flip;
-    temp_settings.youngs_modulus = (float)youngs_modulus;
-    temp_settings.poissons_ratio = (float)nu;
-    temp_settings.num_mpm_markers = data_manager->num_fluid_bodies;
-    temp_settings.mass = (float)mass;
-    temp_settings.yield_stress = (float)yield_stress;
-    temp_settings.num_iterations = mpm_iterations;
-    if (mpm_iterations > 0) {
-        mpm_pos.resize(data_manager->num_fluid_bodies * 3);
-
-        for (int i = 0; i < (signed)data_manager->num_fluid_bodies; i++) {
-            mpm_pos[i * 3 + 0] = (float)data_manager->host_data.pos_3dof[i].x;
-            mpm_pos[i * 3 + 1] = (float)data_manager->host_data.pos_3dof[i].y;
-            mpm_pos[i * 3 + 2] = (float)data_manager->host_data.pos_3dof[i].z;
-        }
-
-        MPM_Initialize(temp_settings, mpm_pos);
-    }
-    mpm_init = true;
-#endif
+    CreateVisualization(0.5 * kernel_radius, ChColor(0.65f, 0.40f, 0.10f));
+    Ch3DOFContainer::Initialize();
 }
 
 void ChParticleContainer::Build_D() {
-    CompressedMatrix<real>& D_T = data_manager->host_data.D_T;
-    BuildRigidFluidBoundary(contact_mu, num_fluid_bodies, body_offset, start_boundary, data_manager);
+    SparseMatrixType& D_T = data_manager->host_data.D_T;
+    BuildRigidParticleBoundary(contact_mu, num_particles, body_offset, start_boundary, data_manager);
 
     if (num_rigid_contacts > 0) {
         int index = 0;
         custom_vector<real3>& sorted_pos = data_manager->host_data.sorted_pos_3dof;
 
         if (mu == 0) {
-            Loop_Over_Fluid_Neighbors(                                                       //
-                real3 U = -Normalize(xij); real3 V; real3 W;                                 //
-                Orthogonalize(U, V, W);                                                      //
-                SetRow3Check(D_T, start_contact + index + 0, body_offset + body_a * 3, -U);  //
-                SetRow3Check(D_T, start_contact + index + 0, body_offset + body_b * 3, U);   //
-            );
+            Loop_Over_Particle_Neighbors(real3 U = -Normalize(xij); real3 V; real3 W; Orthogonalize(U, V, W); SetRow3(D_T, start_contact + index + 0, body_offset + body_a * 3, -U);
+                                         SetRow3(D_T, start_contact + index + 0, body_offset + body_b * 3, U););
 
         } else {
-            Loop_Over_Fluid_Neighbors(
-                real3 U = -Normalize(xij); real3 V; real3 W; Orthogonalize(U, V, W);
+            Loop_Over_Particle_Neighbors(real3 U = -Normalize(xij); real3 V; real3 W; Orthogonalize(U, V, W);
 
-                // printf("set normal: [%d] [%d]\n", start_contact + index, body_offset + body_a * 3);
+                                         // printf("set normal: [%d] [%d]\n", start_contact + index, body_offset + body_a * 3);
 
-                SetRow3Check(D_T, start_contact + index + 0, body_offset + body_a * 3, -U);
-                SetRow3Check(D_T, start_contact + num_rigid_contacts + index * 2 + 0, body_offset + body_a * 3, -V);
-                SetRow3Check(D_T, start_contact + num_rigid_contacts + index * 2 + 1, body_offset + body_a * 3, -W);
-                // printf("set normal: [%d] [%d]\n", start_contact + index, body_offset + body_b * 3);
+                                         SetRow3(D_T, start_contact + index + 0, body_offset + body_a * 3, -U);
+                                         SetRow3(D_T, start_contact + num_rigid_contacts + index * 2 + 0, body_offset + body_a * 3, -V);
+                                         SetRow3(D_T, start_contact + num_rigid_contacts + index * 2 + 1, body_offset + body_a * 3, -W);
+                                         // printf("set normal: [%d] [%d]\n", start_contact + index, body_offset + body_b * 3);
 
-                SetRow3Check(D_T, start_contact + index + 0, body_offset + body_b * 3, U);
-                SetRow3Check(D_T, start_contact + num_rigid_contacts + index * 2 + 0, body_offset + body_b * 3, V);
-                SetRow3Check(D_T, start_contact + num_rigid_contacts + index * 2 + 1, body_offset + body_b * 3, W););
+                                         SetRow3(D_T, start_contact + index + 0, body_offset + body_b * 3, U);
+                                         SetRow3(D_T, start_contact + num_rigid_contacts + index * 2 + 0, body_offset + body_b * 3, V);
+                                         SetRow3(D_T, start_contact + num_rigid_contacts + index * 2 + 1, body_offset + body_b * 3, W););
         }
     }
 }
@@ -306,40 +227,32 @@ void ChParticleContainer::Build_D() {
 void ChParticleContainer::Build_b() {
     real inv_hpa = 1.0 / (data_manager->settings.step_size + alpha);
 
-    DynamicVector<real>& b = data_manager->host_data.b;
+    VectorType& b = data_manager->host_data.b;
 
-    CorrectionRigidFluidBoundary(contact_mu, contact_cohesion, alpha, contact_recovery_speed, num_fluid_bodies,
-                                 start_boundary, data_manager);
+    CorrectionRigidParticleBoundary(contact_mu, contact_cohesion, alpha, contact_recovery_speed, num_particles, start_boundary, data_manager);
 
     if (num_rigid_contacts > 0) {
-        int index = 0;  // incremented in Loop_Over_Fluid_Neighbors()
+        int index = 0;  // incremented in Loop_Over_Particle_Neighbors()
 
         custom_vector<real3>& sorted_pos = data_manager->host_data.sorted_pos_3dof;
 
         if (mu == 0) {
-            Loop_Over_Fluid_Neighbors(real depth = Length(xij) - kernel_radius;                 //
-                                      real bi = 0;                                              //
-                                      if (cohesion != 0) { depth = Min(depth, 0); }             //
-                                      bi = std::max(inv_hpa * depth, -contact_recovery_speed);  //
-                                      b[start_contact + index + 0] = bi;                        //
-            );
+            Loop_Over_Particle_Neighbors(real depth = Length(xij) - kernel_radius; real bi = 0;
+                                         if (cohesion != 0) { depth = std::min(depth, real(0)); } bi = std::max(inv_hpa * depth, -contact_recovery_speed);
+                                         b[start_contact + index + 0] = bi;);
         } else {
-            Loop_Over_Fluid_Neighbors(real depth = Length(xij) - kernel_radius;                   //
-                                      real bi = 0;                                                //
-                                      if (cohesion != 0) { depth = Min(depth, 0); }               //
-                                      bi = std::max(inv_hpa * depth, -contact_recovery_speed);    //
-                                      b[start_contact + index + 0] = bi;                          //
-                                      b[start_contact + num_rigid_contacts + index * 2 + 0] = 0;  //
-                                      b[start_contact + num_rigid_contacts + index * 2 + 1] = 0;  //
-            );
+            Loop_Over_Particle_Neighbors(real depth = Length(xij) - kernel_radius; real bi = 0;
+                                         if (cohesion != 0) { depth = std::min(depth, real(0)); } bi = std::max(inv_hpa * depth, -contact_recovery_speed);
+                                         b[start_contact + index + 0] = bi; b[start_contact + num_rigid_contacts + index * 2 + 0] = 0;
+                                         b[start_contact + num_rigid_contacts + index * 2 + 1] = 0;);
         }
     }
 }
 
 void ChParticleContainer::Build_E() {
-    DynamicVector<real>& E = data_manager->host_data.E;
+    VectorType& E = data_manager->host_data.E;
 
-    ComplianceRigidFluidBoundary(contact_mu, contact_compliance, alpha, start_boundary, data_manager);
+    ComplianceRigidParticleBoundary(contact_mu, contact_compliance, alpha, start_boundary, data_manager);
     real inv_h = 1.0 / data_manager->settings.step_size;
     real inv_hpa = 1.0 / (data_manager->settings.step_size + alpha);
     real inv_hhpa = inv_h * inv_hpa;
@@ -366,7 +279,7 @@ void ChParticleContainer::Build_E() {
 }
 
 void ChParticleContainer::Project(real* gamma) {
-    ProjectRigidFluidBoundary(contact_mu, contact_cohesion, num_fluid_bodies, start_boundary, gamma, data_manager);
+    ProjectRigidParticleBoundary(contact_mu, contact_cohesion, num_particles, start_boundary, gamma, data_manager);
 
     if (mu == 0) {
 #pragma omp parallel for
@@ -397,13 +310,13 @@ void ChParticleContainer::Project(real* gamma) {
 }
 
 void ChParticleContainer::GenerateSparsity() {
-    CompressedMatrix<real>& D_T = data_manager->host_data.D_T;
-    AppendRigidFluidBoundary(contact_mu, num_fluid_bodies, body_offset, start_boundary, data_manager);
+    SparseMatrixType& D_T = data_manager->host_data.D_T;
+    AppendRigidParticleBoundary(contact_mu, num_particles, body_offset, start_boundary, data_manager);
 
     if (num_rigid_contacts > 0) {
         int index_n = 0;
         int index_t = 0;
-        for (int body_a = 0; body_a < (signed)num_fluid_bodies; body_a++) {
+        for (int body_a = 0; body_a < (signed)num_particles; body_a++) {
             for (int i = 0; i < data_manager->cd_data->c_counts_3dof_3dof[body_a]; i++) {
                 int body_b = data_manager->cd_data->neighbor_3dof_3dof[body_a * ChNarrowphase::max_neighbors + i];
                 if (body_a == body_b || body_a > body_b) {
@@ -413,12 +326,11 @@ void ChParticleContainer::GenerateSparsity() {
                 AppendRow3(D_T, start_contact + index_n + 0, body_offset + body_a * 3, 0);
                 AppendRow3(D_T, start_contact + index_n + 0, body_offset + body_b * 3, 0);
 
-                D_T.finalize(start_contact + index_n + 0);
                 index_n++;
             }
         }
         if (mu != 0) {
-            for (int body_a = 0; body_a < (signed)num_fluid_bodies; body_a++) {
+            for (int body_a = 0; body_a < (signed)num_particles; body_a++) {
                 for (int i = 0; i < data_manager->cd_data->c_counts_3dof_3dof[body_a]; i++) {
                     int body_b = data_manager->cd_data->neighbor_3dof_3dof[body_a * ChNarrowphase::max_neighbors + i];
                     if (body_a == body_b || body_a > body_b) {
@@ -427,13 +339,8 @@ void ChParticleContainer::GenerateSparsity() {
 
                     AppendRow3(D_T, start_contact + num_rigid_contacts + index_t * 2 + 0, body_offset + body_a * 3, 0);
                     AppendRow3(D_T, start_contact + num_rigid_contacts + index_t * 2 + 0, body_offset + body_b * 3, 0);
-
-                    D_T.finalize(start_contact + num_rigid_contacts + index_t * 2 + 0);
-
                     AppendRow3(D_T, start_contact + num_rigid_contacts + index_t * 2 + 1, body_offset + body_a * 3, 0);
                     AppendRow3(D_T, start_contact + num_rigid_contacts + index_t * 2 + 1, body_offset + body_b * 3, 0);
-
-                    D_T.finalize(start_contact + num_rigid_contacts + index_t * 2 + 1);
 
                     index_t++;
                 }
@@ -443,26 +350,23 @@ void ChParticleContainer::GenerateSparsity() {
 }
 
 void ChParticleContainer::CalculateContactForces() {
-    if (data_manager->cd_data->num_rigid_fluid_contacts <= 0) {
+    if (data_manager->cd_data->num_rigid_particle_contacts <= 0) {
         return;
     }
 
-    DynamicVector<real>& gamma = data_manager->host_data.gamma;
-    SubVectorType gamma_n = subvector(gamma, start_boundary, _num_rf_c_);
+    VectorType& gamma = data_manager->host_data.gamma;
+    SubVectorType gamma_n = gamma.segment(start_boundary, _num_rf_c_);
 
-    contact_forces = submatrix(data_manager->host_data.D, 0, start_boundary, _num_dof_, _num_rf_c_) * gamma_n /
-                     data_manager->settings.step_size;
+    contact_forces = data_manager->host_data.D.middleCols(start_boundary, _num_rf_c_).topRows(_num_dof_) * gamma_n / data_manager->settings.step_size;
 
     if (contact_mu != 0) {
-        SubVectorType gamma_t = subvector(gamma, start_boundary + _num_rf_c_, 2 * _num_rf_c_);
-        contact_forces +=
-            submatrix(data_manager->host_data.D, 0, start_boundary + _num_rf_c_, _num_dof_, 2 * _num_rf_c_) * gamma_t /
-            data_manager->settings.step_size;
+        SubVectorType gamma_t = gamma.segment(start_boundary + _num_rf_c_, 2 * _num_rf_c_);
+        contact_forces += data_manager->host_data.D.middleCols(start_boundary + _num_rf_c_, 2 * _num_rf_c_).topRows(_num_dof_) * gamma_t / data_manager->settings.step_size;
     }
 }
 
 real3 ChParticleContainer::GetBodyContactForce(std::shared_ptr<ChBody> body) {
-    if (data_manager->cd_data->num_rigid_fluid_contacts <= 0) {
+    if (data_manager->cd_data->num_rigid_particle_contacts <= 0) {
         return real3(0);
     }
     auto body_id = body->GetIndex();
@@ -470,42 +374,28 @@ real3 ChParticleContainer::GetBodyContactForce(std::shared_ptr<ChBody> body) {
 }
 
 real3 ChParticleContainer::GetBodyContactTorque(std::shared_ptr<ChBody> body) {
-    if (data_manager->cd_data->num_rigid_fluid_contacts <= 0) {
+    if (data_manager->cd_data->num_rigid_particle_contacts <= 0) {
         return real3(0);
     }
     auto body_id = body->GetIndex();
     return real3(contact_forces[body_id * 6 + 3], contact_forces[body_id * 6 + 4], contact_forces[body_id * 6 + 5]);
 }
 
-void ChParticleContainer::PreSolve() {
-#ifdef CHRONO_MULTICORE_USE_CUDA
-    if (mpm_thread.joinable()) {
-        mpm_thread.join();
-    #pragma omp parallel for
-        for (int p = 0; p < (signed)num_fluid_bodies; p++) {
-            int index = data_manager->cd_data->reverse_mapping_3dof[p];
-            data_manager->host_data.v[body_offset + index * 3 + 0] = mpm_vel[p * 3 + 0];
-            data_manager->host_data.v[body_offset + index * 3 + 1] = mpm_vel[p * 3 + 1];
-            data_manager->host_data.v[body_offset + index * 3 + 2] = mpm_vel[p * 3 + 2];
-        }
-    }
-#endif
-}
+void ChParticleContainer::PreSolve() {}
 
 void ChParticleContainer::PostSolve() {}
 
-void ChParticleContainer::GetFluidForce(custom_vector<real3>& forc) {
-    forc.resize(num_fluid_bodies);
+void ChParticleContainer::GetPressureForce(custom_vector<real3>& forc) {
+    forc.resize(num_particles);
 
-    DynamicVector<real>& gamma = data_manager->host_data.gamma;
+    VectorType& gamma = data_manager->host_data.gamma;
 
-    SubVectorType gamma_n = subvector(gamma, start_contact, num_rigid_contacts);
+    SubVectorType gamma_n = gamma.segment(start_contact, num_rigid_contacts);
 
-    DynamicVector<real> pressure_forces =
-        submatrix(data_manager->host_data.D, body_offset, start_contact, num_fluid_bodies * 3, num_rigid_contacts) *
-        gamma_n / data_manager->settings.step_size;
+    VectorType pressure_forces =
+        data_manager->host_data.D.middleCols(start_contact, num_rigid_contacts).middleRows(body_offset, num_particles * 3) * gamma_n / data_manager->settings.step_size;
 
-    for (int i = 0; i < (signed)num_fluid_bodies; i++) {
+    for (int i = 0; i < (signed)num_particles; i++) {
         forc[i] = real3(pressure_forces[i * 3 + 0], pressure_forces[i * 3 + 1], pressure_forces[i * 3 + 2]);
     }
 }

@@ -20,8 +20,6 @@
 #include "chrono/assets/ChVisualShapeModelFile.h"
 #include "chrono_vsg/ChVisualSystemVSG.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-
 // Use the namespace of Chrono
 using namespace chrono;
 using namespace chrono::vsg3d;
@@ -35,7 +33,6 @@ int main(int argc, char* argv[]) {
     vis->SetWindowSize(ChVector2i(1200, 900));
     vis->SetWindowPosition(ChVector2i(100, 300));
     vis->SetWindowTitle("Chrono VSG Assets");
-    vis->SetUseSkyBox(false);
     vis->AddCamera(ChVector3d(0.4, -1, 0.5), ChVector3d(0, 0, 0.4));
     vis->SetCameraAngleDeg(40);
     vis->SetLightIntensity(1.0f);

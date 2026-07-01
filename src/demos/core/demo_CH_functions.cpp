@@ -16,10 +16,10 @@
 //
 // =============================================================================
 
-#include "chrono/core/ChGlobal.h"
-#include "chrono/functions/ChFunction.h"
+#include <cmath>
 
-#include "chrono_thirdparty/filesystem/path.h"
+#include "chrono/core/ChDataPath.h"
+#include "chrono/functions/ChFunction.h"
 
 // Use the namespace of Chrono
 
@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
 
     // Create (if needed) output directory
     const std::string out_dir = GetChronoOutputPath() + "DEMO_FUNCTIONS";
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
       public:
         virtual ChFunctionMyTest* Clone() const override { return new ChFunctionMyTest(); }
 
-        virtual double GetVal(double x) const override { return cos(x); }  // just for test: simple cosine
+        virtual double GetVal(double x) const override { return std::cos(x); }  // just for test: simple cosine
     };
 
     ChFunctionMyTest f_test;

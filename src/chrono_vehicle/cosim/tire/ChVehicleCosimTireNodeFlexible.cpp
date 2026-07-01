@@ -21,14 +21,17 @@
 //
 // =============================================================================
 
+#include "chrono/solver/ChDirectSolverLS.h"
+
 #include "chrono_vehicle/cosim/tire/ChVehicleCosimTireNodeFlexible.h"
 
-#ifdef CHRONO_IRRLICHT
-    #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
+#ifdef CHRONO_PARDISO_MKL
+    #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 #endif
-#ifdef CHRONO_VSG
-    #include "chrono_vsg/ChVisualSystemVSG.h"
-#endif
+
+////#ifdef CHRONO_MUMPS
+////    #include "chrono_mumps/ChSolverMumps.h"
+////#endif
 
 using std::cout;
 using std::endl;
@@ -36,23 +39,37 @@ using std::endl;
 namespace chrono {
 namespace vehicle {
 
-ChVehicleCosimTireNodeFlexible::ChVehicleCosimTireNodeFlexible(int index, const std::string& tire_json)
-    : ChVehicleCosimTireNode(index, tire_json) {
+ChVehicleCosimTireNodeFlexible::ChVehicleCosimTireNodeFlexible(int index, const std::string& tire_json) : ChVehicleCosimTireNode(index, tire_json) {
     assert(GetTireTypeFromSpecfile(tire_json) == TireType::FLEXIBLE);
     assert(m_tire);
     m_tire_def = std::static_pointer_cast<ChDeformableTire>(m_tire);  // cache tire as ChDeformableTire
 
-    // Overwrite default integrator and solver types
-    ////m_int_type = ChTimestepper::Type::HHT;
-    m_int_type = ChTimestepper::Type::EULER_IMPLICIT_PROJECTED;
-
+    // Overwrite default solver and integrator
 #if defined(CHRONO_PARDISO_MKL)
-    m_slv_type = ChSolver::Type::PARDISO_MKL;
-#elif defined(CHRONO_MUMPS)
-    m_slv_type = ChSolver::Type::MUMPS;
+    auto solver = chrono_types::make_shared<ChSolverPardisoMKL>();
+    solver->LockSparsityPattern(true);
+    m_system->SetSolver(solver);
+////#elif defined(CHRONO_MUMPS)
+////    auto solver = chrono_types::make_shared<ChSolverMumps>();
+////    solver->LockSparsityPattern(true);
+////    m_system->SetSolver(solver);
 #else
-    m_slv_type = ChSolver::Type::SPARSE_QR;
+    auto solver = chrono_types::make_shared<ChSolverSparseQR>();
+    solver->LockSparsityPattern(true);
+    m_system->SetSolver(solver);
 #endif
+
+    auto integrator = chrono_types::make_shared<ChTimestepperHHT>(m_system);
+    integrator->SetAlpha(-0.2);
+    integrator->SetMaxIters(50);
+    integrator->SetAbsTolerances(1e-04, 1e2);
+    integrator->SetStepControl(false);
+    integrator->SetJacobianUpdateMethod(ChTimestepperImplicit::JacobianUpdate::EVERY_ITERATION);
+    integrator->SetVerbose(false);
+    m_system->SetTimestepper(integrator);
+
+    // Overwrite default number of threads
+    m_system->SetNumThreads(std::min(4, ChOMP::GetNumProcs()), 0, std::min(4, ChOMP::GetNumProcs()));
 }
 
 void ChVehicleCosimTireNodeFlexible::Advance(double step_size) {
@@ -63,6 +80,8 @@ void ChVehicleCosimTireNodeFlexible::Advance(double step_size) {
         m_tire_def->GetMesh()->ResetCounters();
         m_tire_def->GetMesh()->ResetTimers();
         double h = std::min<>(m_step_size, step_size - t);
+        if (h < 1e-8)
+            break;
         m_system->DoStepDynamics(h);
         t += h;
     }
@@ -73,20 +92,25 @@ void ChVehicleCosimTireNodeFlexible::Advance(double step_size) {
     Render(step_size);
 }
 
-void ChVehicleCosimTireNodeFlexible::OnRender() {
-    if (!m_vsys)
-        return;
-    if (!m_vsys->Run())
-        MPI_Abort(MPI_COMM_WORLD, 1);
+void ChVehicleCosimTireNodeFlexible::AddVisualShapeFEA(std::shared_ptr<ChVisualShapeFEA> shape) {
+    m_tire_def->AddVisualShapeFEA(shape);
+}
 
+void ChVehicleCosimTireNodeFlexible::OnRender() {
+    if (!m_renderRT)
+        return;
+
+#ifdef CHRONO_VSG
     if (m_track) {
         ChVector3d cam_point = m_spindle->GetPos();
         m_vsys->UpdateCamera(cam_point + ChVector3d(1, 2, -0.6), cam_point);
     }
 
-    m_vsys->BeginScene();
-    m_vsys->Render();
-    m_vsys->EndScene();
+    if (m_vsys->Run())
+        m_vsys->Render();
+    else
+        MPI_Abort(MPI_COMM_WORLD, 1);
+#endif
 }
 
 void ChVehicleCosimTireNodeFlexible::InitializeTire(std::shared_ptr<ChWheel> wheel, const ChVector3d& init_loc) {
@@ -110,7 +134,7 @@ void ChVehicleCosimTireNodeFlexible::InitializeTire(std::shared_ptr<ChWheel> whe
     auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
     auto& verts = trimesh->GetCoordsVertices();
     ////auto& norms = trimesh->GetCoordsNormals();
-    auto& idx_verts = trimesh->GetIndicesVertexes();
+    auto& idx_verts = trimesh->GetIndicesVertices();
     auto& idx_norms = trimesh->GetIndicesNormals();
 
     std::vector<ChVector3d> vvel;
@@ -122,10 +146,9 @@ void ChVehicleCosimTireNodeFlexible::InitializeTire(std::shared_ptr<ChWheel> whe
 
     // Tire geometry and contact material
     auto cmat = m_tire_def->GetContactMaterial();
-    m_geometry.m_coll_meshes.push_back(ChVehicleGeometry::TrimeshShape(VNULL, trimesh, 0.0, 0));
-    m_geometry.m_materials.push_back(ChContactMaterialData(cmat->GetSlidingFriction(), cmat->GetRestitution(),
-                                                           cmat->GetYoungModulus(), cmat->GetPoissonRatio(),
-                                                           cmat->GetKn(), cmat->GetGn(), cmat->GetKt(), cmat->GetGt()));
+    m_geometry.coll_meshes.push_back(utils::ChBodyGeometry::TrimeshShape(VNULL, QUNIT, trimesh, 1.0, 0.0, 0));
+    m_geometry.materials.push_back(ChContactMaterialData(cmat->GetSlidingFriction(), cmat->GetRestitution(), cmat->GetYoungModulus(), cmat->GetPoissonRatio(), cmat->GetKn(),
+                                                         cmat->GetGn(), cmat->GetKt(), cmat->GetGt()));
 
     // Preprocess the tire mesh and store neighbor element information for each vertex
     // and vertex indices for each element. This data is used in output.
@@ -145,46 +168,33 @@ void ChVehicleCosimTireNodeFlexible::InitializeTire(std::shared_ptr<ChWheel> whe
         }
     }
 
-    // Create the visualization window (only for the first tire)
-    if (m_renderRT && m_index == 0) {
-#if defined(CHRONO_VSG)
-        auto vsys_vsg = chrono_types::make_shared<vsg3d::ChVisualSystemVSG>();
-        vsys_vsg->AttachSystem(m_system);
-        vsys_vsg->SetWindowTitle("Tire 0 Node");
-        vsys_vsg->SetWindowSize(ChVector2i(1280, 720));
-        vsys_vsg->SetWindowPosition(ChVector2i(100, 100));
-        vsys_vsg->SetUseSkyBox(false);
-        vsys_vsg->SetClearColor(ChColor(0.455f, 0.525f, 0.640f));
-        vsys_vsg->AddCamera(m_cam_pos, ChVector3d(0, 0, 0));
-        vsys_vsg->SetCameraAngleDeg(40);
-        vsys_vsg->SetLightIntensity(1.0f);
-        vsys_vsg->AddGrid(0.1, 0.1, 40, 20, ChCoordsys<>(init_loc, QuatFromAngleX(CH_PI_2)), ChColor(0.1f, 0.1f, 0.1f));
-        vsys_vsg->SetImageOutputDirectory(m_node_out_dir + "/images");
-        vsys_vsg->SetImageOutput(m_writeRT);
-        vsys_vsg->Initialize();
+    // Create the visualization window
+    if (m_renderRT) {
+        std::string title = "Tire " + std::to_string(m_index) + " Node";
 
-        vsys_vsg->ToggleCOGFrameVisibility();
+#ifdef CHRONO_VSG
+        m_vsys = chrono_types::make_shared<vsg3d::ChVisualSystemVSG>();
 
-        m_vsys = vsys_vsg;
-#elif defined(CHRONO_IRRLICHT)
-        auto vsys_irr = chrono_types::make_shared<irrlicht::ChVisualSystemIrrlicht>();
-        vsys_irr->AttachSystem(m_system);
-        vsys_irr->SetWindowTitle("Tire 0 Node");
-        vsys_irr->SetCameraVertical(CameraVerticalDir::Z);
-        vsys_irr->SetWindowSize(1280, 720);
-        vsys_irr->Initialize();
-        vsys_irr->AddLogo();
-        vsys_irr->AddSkyBox();
-        vsys_irr->AddTypicalLights();
-        vsys_irr->AddCamera(m_cam_pos, ChVector3d(0, 0, 0));
+        m_vsys->AttachSystem(m_system);
+        m_vsys->SetWindowTitle(title);
+        m_vsys->SetWindowSize(ChVector2i(1280, 720));
+        m_vsys->SetWindowPosition(ChVector2i(100, 100));
+        m_vsys->SetBackgroundColor(ChColor(0.455f, 0.525f, 0.640f));
+        m_vsys->AddCamera(m_cam_pos, ChVector3d(0, 0, 0));
+        m_vsys->SetCameraAngleDeg(40);
+        m_vsys->SetLightIntensity(1.0f);
+        m_vsys->AddGrid(0.1, 0.1, 40, 20, ChCoordsys<>(init_loc, QuatFromAngleX(CH_PI_2)), ChColor(0.1f, 0.1f, 0.1f));
+        m_vsys->SetImageOutputDirectory(m_node_out_dir + "/images");
+        m_vsys->SetImageOutput(m_writeRT);
+        m_vsys->Initialize();
 
-        m_vsys = vsys_irr;
+        m_vsys->ToggleCOMFrameVisibility();
 #endif
     }
 }
 
 void ChVehicleCosimTireNodeFlexible::LoadMeshState(MeshState& mesh_state) {
-    // Extract tire mesh vertex locations and velocites
+    // Extract tire mesh vertex locations and velocities
     std::vector<ChVector3i> triangles;
     m_contact_load->OutputSimpleMesh(mesh_state.vpos, mesh_state.vvel, triangles);
 
@@ -205,31 +215,78 @@ void ChVehicleCosimTireNodeFlexible::ApplySpindleState(const BodyState& spindle_
 }
 
 void ChVehicleCosimTireNodeFlexible::ApplyMeshForces(const MeshContact& mesh_contact) {
+    // Cache mesh nodal contact forces for reporting
+    m_forces = mesh_contact;
+
+    // Load contact forces
     m_contact_load->InputSimpleForces(mesh_contact.vforce, mesh_contact.vidx);
 
-    if (m_verbose)
-        PrintContactData(mesh_contact.vforce, mesh_contact.vidx);
+    if (m_verbose) {
+        ////PrintContactData(mesh_contact.vforce, mesh_contact.vidx);
+
+        ////if (m_index == 0) {
+        ////    if (mesh_contact.vforce.size() > 0) {
+        ////        double sum = 0;
+        ////        for (auto f : mesh_contact.vforce)
+        ////            sum += f.Length();
+        ////        std::cout << " vforce size = " << mesh_contact.vforce.size() << "   sum = " << sum << std::endl;
+        ////    }
+        ////    if (mesh_contact.vidx.size() > 0)
+        ////        std::cout << " vidx size   = " << mesh_contact.vidx.size() << std::endl;
+        ////}
+    }
 }
 
 void ChVehicleCosimTireNodeFlexible::OnOutputData(int frame) {
-    // Create and write frame output file.
-    utils::ChWriterCSV csv(" ");
-    csv << m_system->GetChTime() << endl;
-    WriteTireStateInformation(csv);
-    WriteTireMeshInformation(csv);
+    // Write fixed mesh information
+    if (frame == 0) {
+        ChWriterCSV csv(" ");
+        WriteTireMeshInformation(csv);
+        std::string filename = m_node_out_dir + "/mesh_info.dat";
+        csv.WriteToFile(filename);
+    }
 
-    std::string filename = OutputFilename(m_node_out_dir + "/simulation", "data", "dat", frame + 1, 5);
-    csv.WriteToFile(filename);
+    // Write current mesh state
+    {
+        ChWriterCSV csv(" ");
+        csv << m_system->GetChTime() << endl;
+        WriteTireStateInformation(csv);
+        std::string filename = OutputFilename(m_node_out_dir + "/simulation", "mesh_state", "dat", frame + 1, 5);
+        csv.WriteToFile(filename);
+        if (m_verbose)
+            cout << "[Tire node   ] write output file ==> " << filename << endl;
+    }
 
-    if (m_verbose)
-        cout << "[Tire node   ] write output file ==> " << filename << endl;
+    // Write current terrain forces
+    {
+        ChWriterCSV csv(" ");
+        csv << m_system->GetChTime() << endl;
+        WriteTireTerrainForces(csv);
+        std::string filename = OutputFilename(m_node_out_dir + "/simulation", "terrain_force", "dat", frame + 1, 5);
+        csv.WriteToFile(filename);
+    }
 }
 
 void ChVehicleCosimTireNodeFlexible::OutputVisualizationData(int frame) {
     //// TODO (format?)
 }
 
-void ChVehicleCosimTireNodeFlexible::WriteTireStateInformation(utils::ChWriterCSV& csv) {
+void ChVehicleCosimTireNodeFlexible::WriteTireMeshInformation(ChWriterCSV& csv) {
+    // Extract mesh
+    auto mesh = m_tire_def->GetMesh();
+
+    // Print tire mesh connectivity
+    csv << "\n Connectivity " << mesh->GetNumElements() << 5 * mesh->GetNumElements() << endl;
+
+    for (unsigned int ie = 0; ie < mesh->GetNumElements(); ie++) {
+        for (unsigned int in = 0; in < m_adjVertices[ie].size(); in++) {
+            csv << m_adjVertices[ie][in];
+        }
+        csv << endl;
+    }
+}
+
+void ChVehicleCosimTireNodeFlexible::WriteTireStateInformation(ChWriterCSV& csv) {
     // Extract vertex states from mesh
     auto mesh = m_tire_def->GetMesh();
     ChState x(mesh->GetNumCoordsPosLevel(), NULL);
@@ -252,21 +309,6 @@ void ChVehicleCosimTireNodeFlexible::WriteTireStateInformation(utils::ChWriterCS
         csv << x(ix) << endl;
     for (int iv = 0; iv < v.size(); iv++)
         csv << v(iv) << endl;
-}
-
-void ChVehicleCosimTireNodeFlexible::WriteTireMeshInformation(utils::ChWriterCSV& csv) {
-    // Extract mesh
-    auto mesh = m_tire_def->GetMesh();
-
-    // Print tire mesh connectivity
-    csv << "\n Connectivity " << mesh->GetNumElements() << 5 * mesh->GetNumElements() << endl;
-
-    for (unsigned int ie = 0; ie < mesh->GetNumElements(); ie++) {
-        for (unsigned int in = 0; in < m_adjVertices[ie].size(); in++) {
-            csv << m_adjVertices[ie][in];
-        }
-        csv << endl;
-    }
 
     // Print strain information: eps_xx, eps_yy, eps_xy averaged over surrounding elements
     /*
@@ -291,6 +333,20 @@ void ChVehicleCosimTireNodeFlexible::WriteTireMeshInformation(utils::ChWriterCSV
     */
 }
 
+void ChVehicleCosimTireNodeFlexible::WriteTireTerrainForces(ChWriterCSV& csv) {
+    // Write forces reduced to the spindle body
+    auto s_force = m_tire_def->ReportTireForce(nullptr);
+    csv << s_force.point << endl;
+    csv << s_force.force << endl;
+    csv << s_force.moment << endl;
+
+    // Write mesh nodal forces
+    csv << m_forces.nv << endl;
+    for (int i = 0; i < m_forces.nv; i++) {
+        csv << m_forces.vidx[i] << m_forces.vforce[i] << endl;
+    }
+}
+
 void ChVehicleCosimTireNodeFlexible::PrintLowestNode() {
     // Unfortunately, we do not have access to the node container of a mesh, so we cannot use some nice algorithm here.
     unsigned int num_nodes = m_tire_def->GetMesh()->GetNumNodes();
@@ -301,8 +357,7 @@ void ChVehicleCosimTireNodeFlexible::PrintLowestNode() {
         // Ugly castings here!!!
         if (auto nodeXYZ = std::dynamic_pointer_cast<fea::ChNodeFEAxyz>(m_tire_def->GetMesh()->GetNode(i))) {
             z = nodeXYZ->GetPos().z();
-        } else if (auto nodeXYZrot =
-                       std::dynamic_pointer_cast<fea::ChNodeFEAxyzrot>(m_tire_def->GetMesh()->GetNode(i))) {
+        } else if (auto nodeXYZrot = std::dynamic_pointer_cast<fea::ChNodeFEAxyzrot>(m_tire_def->GetMesh()->GetNode(i))) {
             z = nodeXYZrot->GetPos().z();
         }
 
@@ -315,12 +370,10 @@ void ChVehicleCosimTireNodeFlexible::PrintLowestNode() {
     cout << "[Tire node   ] lowest node:    index = " << index << "  height = " << zmin << endl;
 }
 
-void ChVehicleCosimTireNodeFlexible::PrintContactData(const std::vector<ChVector3d>& forces,
-                                                      const std::vector<int>& indices) {
+void ChVehicleCosimTireNodeFlexible::PrintContactData(const std::vector<ChVector3d>& forces, const std::vector<int>& indices) {
     cout << "[Tire node   ] contact forces" << endl;
     for (int i = 0; i < indices.size(); i++) {
-        cout << "  id = " << indices[i] << "  force = " << forces[i].x() << "  " << forces[i].y() << "  "
-             << forces[i].z() << endl;
+        cout << "  id = " << indices[i] << "  force = " << forces[i].x() << "  " << forces[i].y() << "  " << forces[i].z() << endl;
     }
 }
 

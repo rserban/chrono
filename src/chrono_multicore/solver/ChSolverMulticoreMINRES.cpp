@@ -16,12 +16,7 @@
 
 using namespace chrono;
 
-uint ChSolverMulticoreMinRes::Solve(ChSchurProduct& SchurProduct,
-                                    ChProjectConstraints& Project,
-                                    const uint max_iter,
-                                    const uint size,
-                                    const DynamicVector<real>& mb,
-                                    DynamicVector<real>& x) {
+uint ChSolverMulticoreMinRes::Solve(ChSchurProduct& SchurProduct, ChProjectConstraints& Project, const uint max_iter, const uint size, const VectorType& mb, VectorType& x) {
     if (size == 0) {
         return 0;
     }
@@ -33,20 +28,20 @@ uint ChSolverMulticoreMinRes::Solve(ChSchurProduct& SchurProduct,
     v.resize(N);
     v_hat.resize(x.size());
     w.resize(N);
+    w.setZero();
     Av.resize(x.size());
 
-    real beta, c = 1, eta, norm_rMR, norm_r0, c_old = 1, s_old = 0, s = 0, alpha, beta_old, c_oold, s_oold, r1_hat, r1,
-               r2, r3;
+    real beta, c = 1, eta, norm_rMR, norm_r0, c_old = 1, s_old = 0, s = 0, alpha, beta_old, c_oold, s_oold, r1_hat, r1, r2, r3;
     SchurProduct(x, v_hat);
     v_hat = mb - v_hat;
-    beta = Sqrt((v_hat, v_hat));
+    beta = v_hat.norm();
     w_old = w;
     eta = beta;
     xMR = x;
     norm_rMR = beta;
     norm_r0 = beta;
-    v = 0;
-    w = 0;
+    v.setZero();
+    w.setZero();
 
     if (beta == 0 || norm_rMR / norm_r0 < data_manager->settings.solver.tol_speed) {
         return 0;
@@ -57,13 +52,13 @@ uint ChSolverMulticoreMinRes::Solve(ChSchurProduct& SchurProduct,
         v_old = v;
         v = 1.0 / beta * v_hat;
         SchurProduct(v, Av);
-        alpha = (v, Av);
+        alpha = v.dot(Av);
         ////v_hat = Av - alpha * v - beta * v_old;
         v_hat = Av - alpha * v;
         v_hat -= beta * v_old;
 
         beta_old = beta;
-        beta = Sqrt((v_hat, v_hat));
+        beta = v_hat.norm();
 
         // QR factorization
         c_oold = c_old;
@@ -71,7 +66,7 @@ uint ChSolverMulticoreMinRes::Solve(ChSchurProduct& SchurProduct,
         s_oold = s_old;
         s_old = s;
         r1_hat = c_old * alpha - c_oold * s_old * beta_old;
-        r1 = 1 / Sqrt(r1_hat * r1_hat + beta * beta);
+        r1 = 1 / std::sqrt(r1_hat * r1_hat + beta * beta);
         r2 = s_old * alpha + c_oold * c_old * beta_old;
         r3 = s_oold * beta_old;
 
@@ -89,7 +84,7 @@ uint ChSolverMulticoreMinRes::Solve(ChSchurProduct& SchurProduct,
         w *= r1;
 
         x = x + c * eta * w;
-        norm_rMR = norm_rMR * Abs(s);
+        norm_rMR = norm_rMR * std::abs(s);
         eta = -s * eta;
         residual = norm_rMR / norm_r0;
 

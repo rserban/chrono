@@ -2,7 +2,7 @@
 
 #include "chrono/assets/ChVisualShapeLine.h"
 #include "chrono/geometry/ChLineBezier.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChUtilsInputOutput.h"
 #include "chrono/utils/ChUtils.h"
 
 #include "chrono_vehicle/ChWorldFrame.h"
@@ -14,14 +14,13 @@ using namespace chrono::vehicle;
 namespace chrono {
 namespace synchrono {
 
-ChMultiPathFollowerACCDriver::ChMultiPathFollowerACCDriver(
-    ChVehicle& vehicle,
-    std::vector<std::shared_ptr<ChBezierCurve>> paths,
-    const std::string& path_name,
-    double target_speed,
-    double target_following_time,
-    double target_min_distance,
-    double current_distance)
+ChMultiPathFollowerACCDriver::ChMultiPathFollowerACCDriver(ChVehicle& vehicle,
+                                                           std::vector<std::shared_ptr<ChBezierCurve>> paths,
+                                                           const std::string& path_name,
+                                                           double target_speed,
+                                                           double target_following_time,
+                                                           double target_min_distance,
+                                                           double current_distance)
     : ChDriver(vehicle),
       m_steeringPID(paths),
       m_target_speed(target_speed),
@@ -114,17 +113,14 @@ void ChMultiplePathSteeringController::CalcTargetLocation() {
     m_tracker[m_lane]->CalcClosestPoint(m_sentinel, m_target);
 }
 
-void ChMultiplePathSteeringController::Reset(const ChFrameMoving<>& ref_frame) {
-    // Let the base class calculate the current location of the sentinel point.
-    ChSteeringController::Reset(ref_frame);
-
+void ChMultiplePathSteeringController::OnReset(const ChFrameMoving<>& ref_frame) {
     // Reset the path tracker with the new sentinel location
     for (int i = 0; i < m_tracker.size(); i++) {
         m_tracker[i]->Reset(m_sentinel);
     }
 }
 
-double ChMultiplePathSteeringController::Advance(const ChFrameMoving<>& ref_frame, double time, double step) {
+double ChMultiplePathSteeringController::OnAdvance(const ChFrameMoving<>& ref_frame, double time, double step) {
     // Calculate current "sentinel" location.  This is a point at the look-ahead distance in front of the vehicle.
     m_sentinel = ref_frame.TransformPointLocalToParent(m_dist * ChWorldFrame::Forward());
 

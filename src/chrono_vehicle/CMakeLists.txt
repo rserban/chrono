@@ -4,149 +4,87 @@
 # Cannot be used stand-alone (it is loaded by parent CMake configuration file)
 #=============================================================================
 
-option(ENABLE_MODULE_VEHICLE "Enable the Chrono Vehicle module" OFF)
+option(CH_ENABLE_MODULE_VEHICLE "Enable the Chrono Vehicle module" OFF)
 
 # Return now if this module is not enabled
-if(NOT ENABLE_MODULE_VEHICLE)
-   mark_as_advanced(ENABLE_OPENCRG)
-   mark_as_advanced(FORCE ENABLE_IRRKLANG)
-   mark_as_advanced(FORCE IRRKLANG_INSTALL_DIR)
-   mark_as_advanced(FORCE IRRKLANG_LIBRARY)
+if(NOT CH_ENABLE_MODULE_VEHICLE)
+   mark_as_advanced(FORCE CH_ENABLE_OPENCRG)
    return()
 endif()
 
 message(STATUS "\n==== Chrono Vehicle module ====\n")
 
-mark_as_advanced(CLEAR ENABLE_OPENCRG)
-mark_as_advanced(CLEAR ENABLE_IRRKLANG)
-mark_as_advanced(CLEAR IRRKLANG_INSTALL_DIR)
-mark_as_advanced(CLEAR IRRKLANG_LIBRARY)
+mark_as_advanced(CLEAR CH_ENABLE_OPENCRG)
 
 # Provide option to add OpenCRG support.
-option(ENABLE_OPENCRG "Enable OpenCRG terrain library support" OFF)
-
-# If Irrlicht support was enabled, provide option to add Irrklang support.
-cmake_dependent_option(ENABLE_IRRKLANG "Enable Irrklang library for sound" OFF
-                       "ENABLE_MODULE_IRRLICHT" OFF)
+option(CH_ENABLE_OPENCRG "Enable OpenCRG terrain library support" OFF)
 
 # ----------------------------------------------------------------------------
 # Find the OpenCRG library
 # ----------------------------------------------------------------------------
-if (ENABLE_OPENCRG)
-   
-   if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-      set(OpenCRG_INCLUDE_DIR ""  CACHE PATH   "The directory where crgBaseLib.h resides")
-      set(OpenCRG_LIBRARY   "" CACHE FILEPATH "The OpenCRG library")
-      set(OpenCRG_DLL  "" CACHE FILEPATH "The OpenCRG DLL")
-   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-      find_path(OpenCRG_INCLUDE_DIR NAMES crgBaseLib.h PATHS "/usr/local/include")
-      find_library(OpenCRG_LIBRARY NAMES OpenCRG PATHS "/usr/local/lib")
-   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-      find_path(OpenCRG_INCLUDE_DIR NAMES crgBaseLib.h PATHS "/usr/local/include")
-      find_library(OpenCRG_LIBRARY NAMES OpenCRG PATHS "/usr/local/lib")
-   endif()
 
-   mark_as_advanced(CLEAR OpenCRG_INCLUDE_DIR)
-   mark_as_advanced(CLEAR OpenCRG_LIBRARY)
-   if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-     mark_as_advanced(CLEAR OpenCRG_DLL)
-   endif()
+if(CH_ENABLE_OPENCRG)
 
-   if(EXISTS "${OpenCRG_INCLUDE_DIR}/crgBaseLib.h" AND EXISTS "${OpenCRG_LIBRARY}")
-     set(HAVE_OPENCRG ON)
-   else()
-     set(HAVE_OPENCRG OFF)
-   endif()
+  find_package(OpenCRG)
 
-   message(STATUS "OpenCRG include dir: ${OpenCRG_INCLUDE_DIR}")
-   message(STATUS "OpenCRG library:     ${OpenCRG_LIBRARY}")
+  if (OpenCRG_FOUND)
+    message(STATUS "OpenCRG include dir: ${OpenCRG_INCLUDE_DIR}")
+    message(STATUS "OpenCRG library:     ${OpenCRG_LIBRARY}")
 
-else()
-
-   mark_as_advanced(FORCE OpenCRG_INCLUDE_DIR)
-   mark_as_advanced(FORCE OpenCRG_LIBRARY)
-   if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-     mark_as_advanced(FORCE OpenCRG_DLL)
-   endif()
-
-   set(HAVE_OPENCRG OFF)
-
-endif()
-
-SET(HAVE_OPENCRG "${HAVE_OPENCRG}" PARENT_SCOPE)
-
-# ----------------------------------------------------------------------------
-# Find IrrKlang library
-# ----------------------------------------------------------------------------
-if(ENABLE_IRRKLANG)
-
-  if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-      set(IRRKLANG_INSTALL_DIR ""  CACHE PATH   "Where is your IrrKlang SDK installed?")
-      set(IRRKLANG_LIBRARY   "" CACHE FILEPATH "Where is your Irrklang library?")
-  elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-      FIND_PATH(IRRKLANG_INSTALL_DIR NAMES irrKlang.h PATHS "/usr/include/irrklang" "/usr/local/include/irrklang")
-      FIND_LIBRARY(IRRKLANG_LIBRARY NAMES Irrklang PATHS "/usr/local/lib" ${IRRKLANG_INSTALL_DIR}/lib/Linux)
-  endif()
-
-  if(EXISTS "${IRRKLANG_INSTALL_DIR}/include")
-      set(CH_IRRKLANG_INCLUDES "${IRRKLANG_INSTALL_DIR}/include")
-  else()
-      set(CH_IRRKLANG_INCLUDES "${IRRKLANG_INSTALL_DIR}")
-  endif()
-
-  if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-    if("${CH_COMPILER}" STREQUAL "COMPILER_MSVC")
-        set(CH_IRRKLANG_DLL "${IRRKLANG_INSTALL_DIR}/bin/Win32-VisualStudio/irrKlang.dll")
-    elseif("${CH_COMPILER}" STREQUAL "COMPILER_MSVC_X64")
-        set(CH_IRRKLANG_DLL "${IRRKLANG_INSTALL_DIR}/bin/Winx64-VisualStudio/irrKlang.dll")
+    mark_as_advanced(FORCE OpenCRG_INCLUDE_DIR)
+    mark_as_advanced(FORCE OpenCRG_LIBRARY)
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        mark_as_advanced(FORCE OpenCRG_DLL)
     endif()
+
+    set(CH_USE_OPENCRG ON)
+
+    file(COPY ${CMAKE_SOURCE_DIR}/cmake/FindOpenCRG.cmake DESTINATION ${CMAKE_BINARY_DIR}/cmake/)
+    install(FILES "${CMAKE_SOURCE_DIR}/cmake/FindOpenCRG.cmake" DESTINATION ${CH_CONFIG_INSTALL_PATH})
+
+  else()
+    message("WARNING: OpenCRG not found; disabling CRG support in Chrono::Vehicle")
+
+    set(OpenCRG_INCLUDE_DIR "" CACHE PATH "Directory containing OpenCRG include files")
+    set(OpenCRG_LIBRARY "" CACHE FILEPATH "OpenCRG library")
+
+    mark_as_advanced(CLEAR OpenCRG_INCLUDE_DIR)
+    mark_as_advanced(CLEAR OpenCRG_LIBRARY)
+
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        set(OpenCRG_DLL "" CACHE FILEPATH "OpenCRG DLL (Windows only)")
+        mark_as_advanced(CLEAR OpenCRG_DLL)
+    endif()
+
+    set(CH_USE_OPENCRG OFF)
+
   endif()
-
-  mark_as_advanced(CLEAR IRRKLANG_INSTALL_DIR)
-  mark_as_advanced(CLEAR IRRKLANG_LIBRARY)
-
-  message(STATUS "IrrKlang include dir: ${IRRKLANG_INSTALL_DIR}")
-  message(STATUS "IrrKlang library:     ${IRRKLANG_LIBRARY}")
-  
-  set(HAVE_IRRKLANG TRUE)
-
-else()
-
-  mark_as_advanced(FORCE IRRKLANG_INSTALL_DIR)
-  mark_as_advanced(FORCE IRRKLANG_LIBRARY)
-
-  set(HAVE_IRRKLANG FALSE)
-
 endif()
 
-SET(HAVE_IRRKLANG "${HAVE_IRRKLANG}" PARENT_SCOPE)
+SET(CH_USE_OPENCRG "${CH_USE_OPENCRG}" PARENT_SCOPE)
 
 # ----------------------------------------------------------------------------
 # Generate and install configuration file
 # ----------------------------------------------------------------------------
 
 # Prepare replacement variables
-if(HAVE_OPENCRG)
-  set(CHRONO_OPENCRG "#define CHRONO_OPENCRG")
+if(CH_USE_OPENCRG)
+  set(CHRONO_OPENCRG "#define CHRONO_HAS_OPENCRG")
 else()
-  set(CHRONO_OPENCRG "#undef CHRONO_OPENCRG")
-endif()
-
-if(ENABLE_IRRKLANG)
-  set(CHRONO_IRRKLANG "#define CHRONO_IRRKLANG")
-else()
-  set(CHRONO_IRRKLANG "#undef CHRONO_IRRKLANG")
+  set(CHRONO_OPENCRG "#undef CHRONO_HAS_OPENCRG")
 endif()
 
 # Generate the configuration header file using substitution variables.
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ChConfigVehicle.h.in
-               ${PROJECT_BINARY_DIR}/chrono_vehicle/ChConfigVehicle.h)
+set(CV_CONFIG_FILE ${PROJECT_BINARY_DIR}/chrono_vehicle/ChConfigVehicle.h)
 
-install(FILES "${PROJECT_BINARY_DIR}/chrono_vehicle/ChConfigVehicle.h"
-        DESTINATION include/chrono_vehicle)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ChConfigVehicle.h.in ${CV_CONFIG_FILE} @ONLY)
 
-if(ENABLE_MODULE_VSG)
+source_group("" FILES ${CV_CONFIG_FILE})
+
+install(FILES ${CV_CONFIG_FILE} DESTINATION include/chrono_vehicle)
+
+if(CH_ENABLE_MODULE_VSG)
     # Find the VSG library
     if (VULKAN_SDK)
         set(ENV{VULKAN_SDK} ${VULKAN_SDK})
@@ -158,7 +96,7 @@ if(ENABLE_MODULE_VSG)
 endif()
 
 # ----------------------------------------------------------------------------
-# List the files in the ChronoEngine_vehicle library
+# List the files in the Chrono_vehicle library
 # ----------------------------------------------------------------------------
 
 # --------------- COMMON FILES
@@ -171,8 +109,6 @@ set(CV_BASE_FILES
     ChDriver.cpp
     ChPart.h
     ChPart.cpp
-    ChVehicleJoint.h
-    ChVehicleJoint.cpp
     ChDriveline.h
     ChDriveline.cpp
     ChPowertrainAssembly.h
@@ -187,13 +123,11 @@ set(CV_BASE_FILES
     ChTerrain.cpp
     ChVehicle.h
     ChVehicle.cpp
-    ChVehicleGeometry.h
-    ChVehicleGeometry.cpp
-    ChVehicleModelData.h
-    ChVehicleModelData.cpp
+    ChVehicleDataPath.h
+    ChVehicleDataPath.cpp
+    ChVehicleOutput.h
     ChVehicleVisualSystem.h
     ChVehicleVisualSystem.cpp
-    ChVehicleOutput.h
     ChWorldFrame.cpp
     ChWorldFrame.h
 )
@@ -207,6 +141,8 @@ set(CV_CHASSIS_FILES
     chassis/ChChassisConnectorArticulated.cpp
     chassis/ChChassisConnectorHitch.h
     chassis/ChChassisConnectorHitch.cpp
+    chassis/ChChassisConnectorFifthWheel.h
+    chassis/ChChassisConnectorFifthWheel.cpp
     chassis/ChChassisConnectorTorsion.h
     chassis/ChChassisConnectorTorsion.cpp
 
@@ -215,10 +151,12 @@ set(CV_CHASSIS_FILES
 
     chassis/ChassisConnectorHitch.h
     chassis/ChassisConnectorHitch.cpp
+    chassis/ChassisConnectorFifthWheel.h
+    chassis/ChassisConnectorFifthWheel.cpp
     chassis/ChassisConnectorArticulated.h
     chassis/ChassisConnectorArticulated.cpp
     chassis/ChassisConnectorTorsion.h
-    chassis/ChassisConnectorTorsion.cpp    
+    chassis/ChassisConnectorTorsion.cpp
 )
 source_group("chassis" FILES ${CV_CHASSIS_FILES})
 
@@ -267,6 +205,10 @@ set(CV_POVERTRAIN_FILES
     powertrain/AutomaticTransmissionShafts.cpp
     powertrain/ManualTransmissionShafts.h
     powertrain/ManualTransmissionShafts.cpp
+    powertrain/ChAutomaticTransmissionSimpleCVT.cpp
+    powertrain/ChAutomaticTransmissionSimpleCVT.h
+    powertrain/AutomaticTransmissionSimpleCVT.cpp
+    powertrain/AutomaticTransmissionSimpleCVT.h
 )
 source_group("powertrain" FILES ${CV_POVERTRAIN_FILES})
 
@@ -283,16 +225,20 @@ set(CV_TERRAIN_FILES
     terrain/SCMTerrain.cpp
     terrain/GranularTerrain.h
     terrain/GranularTerrain.cpp
-    terrain/FEATerrain.h
-    terrain/FEATerrain.cpp
 )
-if(HAVE_OPENCRG)
+if(CH_ENABLE_MODULE_FEA)
+    set(CV_TERRAIN_FILES ${CV_TERRAIN_FILES}
+        terrain/FEATerrain.h
+        terrain/FEATerrain.cpp
+    )
+endif()
+if(CH_USE_OPENCRG)
     set(CV_TERRAIN_FILES ${CV_TERRAIN_FILES}
         terrain/CRGTerrain.h
         terrain/CRGTerrain.cpp
     )
 endif()
-if(ENABLE_MODULE_FSI)
+if(CH_ENABLE_MODULE_FSI_SPH)
     set(CV_TERRAIN_FILES ${CV_TERRAIN_FILES}
         terrain/CRMTerrain.h
         terrain/CRMTerrain.cpp    
@@ -309,24 +255,10 @@ set(CV_UTILS_FILES
     utils/ChAdaptiveSpeedController.cpp
     utils/ChVehiclePath.h
     utils/ChVehiclePath.cpp
-    utils/ChUtilsJSON.h
-    utils/ChUtilsJSON.cpp
+    utils/ChVehicleUtilsJSON.h
+    utils/ChVehicleUtilsJSON.cpp
 )
 source_group("utils" FILES ${CV_UTILS_FILES})
-
-set(CV_OUTPUT_FILES
-    output/ChVehicleOutputASCII.h
-    output/ChVehicleOutputASCII.cpp
-)
-if (HDF5_FOUND)
-    set(CVHDF5_OUTPUT_FILES
-        output/ChVehicleOutputHDF5.h
-        output/ChVehicleOutputHDF5.cpp
-    )
-else()
-    set(CVHDF5_OUTPUT_FILES "")
-endif()
-source_group("output" FILES ${CV_OUTPUT_FILES} ${CVHDF5_OUTPUT_FILES})
 
 # --------------- WHEELED VEHICLE FILES
 
@@ -349,6 +281,8 @@ set(CV_WV_BASE_FILES
     wheeled_vehicle/ChWheeledTrailer.cpp
     wheeled_vehicle/ChWheeledVehicle.h
     wheeled_vehicle/ChWheeledVehicle.cpp
+    wheeled_vehicle/ChSpindle.h
+    wheeled_vehicle/ChSpindle.cpp
     wheeled_vehicle/ChWheel.h
     wheeled_vehicle/ChWheel.cpp
     wheeled_vehicle/ChTire.h
@@ -539,6 +473,8 @@ set(CV_WV_TEST_RIG_FILES
     wheeled_vehicle/test_rig/ChSuspensionTestRigDriver.cpp
     wheeled_vehicle/test_rig/ChSuspensionTestRigDataDriver.h
     wheeled_vehicle/test_rig/ChSuspensionTestRigDataDriver.cpp
+    wheeled_vehicle/test_rig/ChSuspensionTestRigInteractiveDriver.h
+    wheeled_vehicle/test_rig/ChSuspensionTestRigInteractiveDriver.cpp    
     wheeled_vehicle/test_rig/ChTireTestRig.h
     wheeled_vehicle/test_rig/ChTireTestRig.cpp
 )
@@ -557,18 +493,9 @@ set(CV_WV_TIRE_FILES
     wheeled_vehicle/tire/ChTMsimpleTire.cpp
     wheeled_vehicle/tire/ChTMeasyTire.h
     wheeled_vehicle/tire/ChTMeasyTire.cpp
-    wheeled_vehicle/tire/ChDeformableTire.h
-    wheeled_vehicle/tire/ChDeformableTire.cpp
-    wheeled_vehicle/tire/ChANCFTire.h
-    wheeled_vehicle/tire/ChANCFTire.cpp
-    wheeled_vehicle/tire/ChReissnerTire.h
-    wheeled_vehicle/tire/ChReissnerTire.cpp
-    wheeled_vehicle/tire/ChFEATire.h
-    wheeled_vehicle/tire/ChFEATire.cpp
     wheeled_vehicle/tire/ChPac02Tire.h
     wheeled_vehicle/tire/ChPac02Tire.cpp
-
-
+    #
     wheeled_vehicle/tire/RigidTire.h
     wheeled_vehicle/tire/RigidTire.cpp
     wheeled_vehicle/tire/Pac89Tire.h
@@ -579,20 +506,32 @@ set(CV_WV_TIRE_FILES
     wheeled_vehicle/tire/TMeasyTire.cpp
     wheeled_vehicle/tire/TMsimpleTire.h
     wheeled_vehicle/tire/TMsimpleTire.cpp
-    wheeled_vehicle/tire/ReissnerTire.h
-    wheeled_vehicle/tire/ReissnerTire.cpp
-    wheeled_vehicle/tire/ANCFTire.h
-    wheeled_vehicle/tire/ANCFTire.cpp
-    wheeled_vehicle/tire/FEATire.h
-    wheeled_vehicle/tire/FEATire.cpp
-    wheeled_vehicle/tire/ANCFToroidalTire.h
-    wheeled_vehicle/tire/ANCFToroidalTire.cpp
-    wheeled_vehicle/tire/ReissnerToroidalTire.h
-    wheeled_vehicle/tire/ReissnerToroidalTire.cpp
     wheeled_vehicle/tire/Pac02Tire.h
     wheeled_vehicle/tire/Pac02Tire.cpp
-
 )
+if(CH_ENABLE_MODULE_FEA)
+    set(CV_WV_TIRE_FILES ${CV_WV_TIRE_FILES}
+        wheeled_vehicle/tire/ChDeformableTire.h
+        wheeled_vehicle/tire/ChDeformableTire.cpp
+        wheeled_vehicle/tire/ChANCFTire.h
+        wheeled_vehicle/tire/ChANCFTire.cpp
+        wheeled_vehicle/tire/ChReissnerTire.h
+        wheeled_vehicle/tire/ChReissnerTire.cpp
+        wheeled_vehicle/tire/ChFEATire.h
+        wheeled_vehicle/tire/ChFEATire.cpp
+        #
+        wheeled_vehicle/tire/ReissnerTire.h
+        wheeled_vehicle/tire/ReissnerTire.cpp
+        wheeled_vehicle/tire/ANCFTire.h
+        wheeled_vehicle/tire/ANCFTire.cpp
+        wheeled_vehicle/tire/FEATire.h
+        wheeled_vehicle/tire/FEATire.cpp
+        wheeled_vehicle/tire/ANCFToroidalTire.h
+        wheeled_vehicle/tire/ANCFToroidalTire.cpp
+        wheeled_vehicle/tire/ReissnerToroidalTire.h
+        wheeled_vehicle/tire/ReissnerToroidalTire.cpp
+    )
+endif()
 source_group("wheeled_vehicle\\tire" FILES ${CV_WV_TIRE_FILES})
 
 set(CV_WV_VEHICLE_FILES
@@ -728,18 +667,23 @@ set(CV_TV_TRACKSHOE_FILES
     tracked_vehicle/track_shoe/ChTrackShoeBand.cpp
     tracked_vehicle/track_shoe/ChTrackShoeBandBushing.h
     tracked_vehicle/track_shoe/ChTrackShoeBandBushing.cpp
-    tracked_vehicle/track_shoe/ChTrackShoeBandANCF.h
-    tracked_vehicle/track_shoe/ChTrackShoeBandANCF.cpp
-
+    #
     tracked_vehicle/track_shoe/TrackShoeSinglePin.h
     tracked_vehicle/track_shoe/TrackShoeSinglePin.cpp
     tracked_vehicle/track_shoe/TrackShoeDoublePin.h
     tracked_vehicle/track_shoe/TrackShoeDoublePin.cpp
     tracked_vehicle/track_shoe/TrackShoeBandBushing.h
     tracked_vehicle/track_shoe/TrackShoeBandBushing.cpp
-    tracked_vehicle/track_shoe/TrackShoeBandANCF.h
-    tracked_vehicle/track_shoe/TrackShoeBandANCF.cpp
 )
+if(CH_ENABLE_MODULE_FEA)
+    set(CV_TV_TRACKSHOE_FILES ${CV_TV_TRACKSHOE_FILES}
+        tracked_vehicle/track_shoe/ChTrackShoeBandANCF.h
+        tracked_vehicle/track_shoe/ChTrackShoeBandANCF.cpp
+        #
+        tracked_vehicle/track_shoe/TrackShoeBandANCF.h
+        tracked_vehicle/track_shoe/TrackShoeBandANCF.cpp
+    )
+endif()
 source_group("tracked_vehicle\\track_shoe" FILES ${CV_TV_TRACKSHOE_FILES})
 
 set(CV_TV_TRACKASSEMBLY_FILES
@@ -753,18 +697,23 @@ set(CV_TV_TRACKASSEMBLY_FILES
     tracked_vehicle/track_assembly/ChTrackAssemblyBand.cpp
     tracked_vehicle/track_assembly/ChTrackAssemblyBandBushing.h
     tracked_vehicle/track_assembly/ChTrackAssemblyBandBushing.cpp
-    tracked_vehicle/track_assembly/ChTrackAssemblyBandANCF.h
-    tracked_vehicle/track_assembly/ChTrackAssemblyBandANCF.cpp
-
+    #
     tracked_vehicle/track_assembly/TrackAssemblySinglePin.h
     tracked_vehicle/track_assembly/TrackAssemblySinglePin.cpp
     tracked_vehicle/track_assembly/TrackAssemblyDoublePin.h
     tracked_vehicle/track_assembly/TrackAssemblyDoublePin.cpp
     tracked_vehicle/track_assembly/TrackAssemblyBandBushing.h
     tracked_vehicle/track_assembly/TrackAssemblyBandBushing.cpp
-    tracked_vehicle/track_assembly/TrackAssemblyBandANCF.h
-    tracked_vehicle/track_assembly/TrackAssemblyBandANCF.cpp
 )
+if(CH_ENABLE_MODULE_FEA)
+    set(CV_TV_TRACKASSEMBLY_FILES ${CV_TV_TRACKASSEMBLY_FILES}
+        tracked_vehicle/track_assembly/ChTrackAssemblyBandANCF.h
+        tracked_vehicle/track_assembly/ChTrackAssemblyBandANCF.cpp
+        #
+        tracked_vehicle/track_assembly/TrackAssemblyBandANCF.h
+        tracked_vehicle/track_assembly/TrackAssemblyBandANCF.cpp
+    )
+endif()
 source_group("tracked_vehicle\\track_assembly" FILES ${CV_TV_TRACKASSEMBLY_FILES})
 
 set(CV_TV_TEST_RIG_FILES
@@ -776,6 +725,8 @@ set(CV_TV_TEST_RIG_FILES
     tracked_vehicle/test_rig/ChTrackTestRigDataDriver.cpp
     tracked_vehicle/test_rig/ChTrackTestRigRoadDriver.h
     tracked_vehicle/test_rig/ChTrackTestRigRoadDriver.cpp
+    tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriver.h
+    tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriver.cpp
 )
 source_group("tracked_vehicle\\test_rig" FILES ${CV_TV_TEST_RIG_FILES})
 
@@ -788,31 +739,36 @@ set(CV_TV_VEHICLE_FILES
 )
 source_group("tracked_vehicle\\vehicle" FILES ${CV_TV_VEHICLE_FILES})
 
+# --------------- THIRD-PARTY FILES
+
+set(CV_STB_FILES
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb.h
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image.h
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image.cpp
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image_write.h
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image_write.cpp
+)
+source_group("utils\\stb" FILES ${CV_STB_FILES})
+
 # --------------- VEHICLE IRRLICHT INTERFACE
 
-if(ENABLE_MODULE_IRRLICHT)
+if(CH_ENABLE_MODULE_IRRLICHT)
     set(CVIRR_FILES
-        ChVehicleVisualSystemIrrlicht.h
-        ChVehicleVisualSystemIrrlicht.cpp
-        driver/ChInteractiveDriverIRR.h
-        driver/ChInteractiveDriverIRR.cpp
+        visualization/ChVehicleVisualSystemIrrlicht.h
+        visualization/ChVehicleVisualSystemIrrlicht.cpp
     )
     set(CVIRR_WV_FILES
         wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h
         wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.cpp
-        wheeled_vehicle/test_rig/ChSuspensionTestRigInteractiveDriverIRR.h
-        wheeled_vehicle/test_rig/ChSuspensionTestRigInteractiveDriverIRR.cpp    
+        wheeled_vehicle/test_rig/ChSuspensionTestRigVisualSystemIRR.h
+        wheeled_vehicle/test_rig/ChSuspensionTestRigVisualSystemIRR.cpp
     )
     set(CVIRR_TV_FILES
         tracked_vehicle/ChTrackedVehicleVisualSystemIrrlicht.h
         tracked_vehicle/ChTrackedVehicleVisualSystemIrrlicht.cpp
-        tracked_vehicle/test_rig/ChTrackTestRigVisualSystemIrrlicht.h
-        tracked_vehicle/test_rig/ChTrackTestRigVisualSystemIrrlicht.cpp
-        tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriverIRR.h
-        tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriverIRR.cpp
+        tracked_vehicle/test_rig/ChTrackTestRigVisualSystemIRR.h
+        tracked_vehicle/test_rig/ChTrackTestRigVisualSystemIRR.cpp
     )
-
-    message(STATUS "Enable Irrlicht support")
 else()
     set(CVIRR_FILES "")
     set(CVIRR_WV_FILES "")
@@ -825,27 +781,25 @@ source_group("tracked_vehicle" FILES ${CVIRR_TV_FILES})
 
 # --------------- VEHICLE VSG INTERFACE
 
-if(ENABLE_MODULE_VSG)
+if(CH_ENABLE_MODULE_VSG)
     set(CVVSG_FILES
-        ChVehicleVisualSystemVSG.h
-        ChVehicleVisualSystemVSG.cpp
-        driver/ChInteractiveDriverVSG.h
-        driver/ChInteractiveDriverVSG.cpp
+        visualization/ChVehicleVisualSystemVSG.h
+        visualization/ChVehicleVisualSystemVSG.cpp
+        visualization/ChScmVisualizationVSG.h
+        visualization/ChScmVisualizationVSG.cpp
     )
     set(CVVSG_WV_FILES
         wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h
         wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.cpp
-        wheeled_vehicle/test_rig/ChSuspensionTestRigInteractiveDriverVSG.h
-        wheeled_vehicle/test_rig/ChSuspensionTestRigInteractiveDriverVSG.cpp    
+        wheeled_vehicle/test_rig/ChSuspensionTestRigVisualSystemVSG.h
+        wheeled_vehicle/test_rig/ChSuspensionTestRigVisualSystemVSG.cpp    
     )
     set(CVVSG_TV_FILES
         tracked_vehicle/ChTrackedVehicleVisualSystemVSG.h
         tracked_vehicle/ChTrackedVehicleVisualSystemVSG.cpp
-        tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriverVSG.h
-        tracked_vehicle/test_rig/ChTrackTestRigInteractiveDriverVSG.cpp
+        tracked_vehicle/test_rig/ChTrackTestRigVisualSystemVSG.h
+        tracked_vehicle/test_rig/ChTrackTestRigVisualSystemVSG.cpp
     )
-
-    message(STATUS "Enable VSG support")    
 else()
     set(CVVSG_FILES "")
     set(CVVSG_WV_FILES "")
@@ -856,59 +810,31 @@ source_group("" FILES ${CVVSG_FILES})
 source_group("wheeled_vehicle" FILES ${CVVSG_WV_FILES})
 source_group("tracked_vehicle" FILES ${CVVSG_TV_FILES})
 
-# --------------- VEHICLE OpenGL INTERFACE
+# ------------------------------------------------------------------------------
+# Set dependencies on other Chrono modules
+# ------------------------------------------------------------------------------
 
-if(ENABLE_MODULE_OPENGL)
-    set(CVGL_FILES
-        ChVehicleVisualSystemOpenGL.h
-        ChVehicleVisualSystemOpenGL.cpp
-    )
-
-    message(STATUS "Enable OpenGL support")    
-else()
-    set(CVGL_FILES "")
+set(DEPENDENCIES_VEHICLE "")
+if(CH_ENABLE_MODULE_IRRLICHT)
+  list (APPEND DEPENDENCIES_VEHICLE "IRRLICHT")
+endif()
+if(CH_ENABLE_MODULE_VSG)
+  list (APPEND DEPENDENCIES_VEHICLE "VSG")
+endif()
+if(CH_ENABLE_MODULE_FSI_SPH)
+  list (APPEND DEPENDENCIES_VEHICLE "FSI")
+  list (APPEND DEPENDENCIES_VEHICLE "FSI_SPH")
 endif()
 
-source_group("" FILES ${CVGL_FILES})
-
-# --------------- THIRD-PARTY FILES
-
-set(CV_STB_FILES
-    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb.h
-    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image.h
-    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image.cpp
-    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image_write.h
-    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image_write.cpp
-)
-source_group("utils\\stb" FILES ${CV_STB_FILES})
+set(DEPENDENCIES_VEHICLE ${DEPENDENCIES_VEHICLE} PARENT_SCOPE)
 
 # ----------------------------------------------------------------------------
-# Add the ChronoEngine_vehicle library
+# Add the Chrono_vehicle library
 # ----------------------------------------------------------------------------
 
-set(CXX_FLAGS ${CH_CXX_FLAGS})
-set(COMPILE_DEFS "CH_API_COMPILE_VEHICLE")
-set(LINK_FLAGS ${CH_LINKERFLAG_LIB})
-set(LIBRARIES "ChronoEngine")
+message(STATUS "Add Chrono_vehicle library")
 
-if(HDF5_FOUND)
-    set(COMPILE_DEFS "${COMPILE_DEFS} ${H5_BUILT_AS_DYNAMIC_LIB}")
-    include_directories(${HDF5_INCLUDE_DIRS})
-    list(APPEND LIBRARIES ${HDF5_CXX_LIBRARIES})
-endif()
-
-if(HAVE_OPENCRG)
-    include_directories(${OpenCRG_INCLUDE_DIR})
-    list(APPEND LIBRARIES ${OpenCRG_LIBRARY})
-    set(CHRONO_OPENCRG_INCLUDES "${OpenCRG_INCLUDE_DIR}" PARENT_SCOPE)
-endif()
-
-if(ENABLE_MODULE_FSI)
-  include_directories(${CH_FSI_INCLUDES})
-  list(APPEND LIBRARIES ChronoEngine_fsi)
-endif()
-
-add_library(ChronoEngine_vehicle
+add_library(Chrono_vehicle
 #
     ${CV_BASE_FILES}
     ${CV_CHASSIS_FILES}
@@ -916,8 +842,6 @@ add_library(ChronoEngine_vehicle
     ${CV_POVERTRAIN_FILES}
     ${CV_TERRAIN_FILES}
     ${CV_UTILS_FILES}
-    ${CV_OUTPUT_FILES}
-    ${CVHDF5_OUTPUT_FILES}
 #
     ${CV_WV_BASE_FILES}
     ${CV_WV_ANTIROLL_FILES}
@@ -945,194 +869,185 @@ add_library(ChronoEngine_vehicle
     ${CV_TV_VEHICLE_FILES}
 #
     ${CV_STB_FILES}
+#
+    ${CV_CONFIG_FILE}
 )
 
-message(STATUS "Add ChronoEngine_vehicle library")
+add_library(Chrono::vehicle ALIAS Chrono_vehicle)
 
-set_target_properties(ChronoEngine_vehicle PROPERTIES
-                      COMPILE_FLAGS "${CXX_FLAGS}"
-                      LINK_FLAGS "${CH_LINKERFLAG_LIB}")
+set_target_properties(Chrono_vehicle PROPERTIES DEBUG_POSTFIX ${CH_DEBUG_POSTFIX})
 
-target_compile_definitions(ChronoEngine_vehicle PRIVATE "CH_API_COMPILE_VEHICLE")
-target_compile_definitions(ChronoEngine_vehicle PRIVATE "CH_IGNORE_DEPRECATED")
-if(HDF5_FOUND)
-target_compile_definitions(ChronoEngine_vehicle PRIVATE ${HDF5_COMPILE_DEFS})
+if(CH_WHOLE_PROG_OPT)
+  set_target_properties(Chrono_vehicle PROPERTIES COMPILE_FLAGS "/GL")
+  set_target_properties(Chrono_vehicle PROPERTIES LINK_FLAGS "/LTCG")
 endif()
 
-target_link_libraries(ChronoEngine_vehicle ${LIBRARIES})
+if (CH_STATIC)
+  set_target_properties(Chrono_vehicle PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 
-install(TARGETS ChronoEngine_vehicle
+if(MSVC)
+  set_target_properties(Chrono_vehicle PROPERTIES MSVC_RUNTIME_LIBRARY ${CH_MSVC_RUNTIME_LIBRARY})
+endif()
+
+target_link_libraries(Chrono_vehicle PUBLIC Chrono_core)
+
+if(CH_USE_OPENCRG)
+  target_link_libraries(Chrono_vehicle PRIVATE OpenCRG::OpenCRG)
+endif()
+
+if(CH_ENABLE_MODULE_FSI_SPH)
+  target_link_libraries(Chrono_vehicle PRIVATE Chrono_fsi)
+  target_link_libraries(Chrono_vehicle PRIVATE Chrono_fsisph)
+endif()
+
+target_compile_definitions(Chrono_vehicle INTERFACE 
+    $<BUILD_INTERFACE:CHRONO_VEHICLE_DATA_DIR=\"${PROJECT_BINARY_DIR}/bin/data/vehicle/\">
+    $<INSTALL_INTERFACE:CHRONO_VEHICLE_DATA_DIR=\"$<INSTALL_PREFIX>/data/vehicle/\">)
+
+target_compile_definitions(Chrono_vehicle PRIVATE $<$<COMPILE_LANGUAGE:CXX>:CH_API_COMPILE_VEHICLE>)
+
+install(TARGETS Chrono_vehicle
+        EXPORT ChronoTargets
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
-
+        ARCHIVE DESTINATION lib
+        INCLUDES DESTINATION include/chrono_vehicle)
 
 #-------------------------------------------------------------------------------
-# Add the ChronoEngine_vehicle_irrlicht library
+# Add the Chrono_vehicle_irrlicht library
 #-------------------------------------------------------------------------------
 
-if(ENABLE_MODULE_IRRLICHT)
+if(CH_ENABLE_MODULE_IRRLICHT)
+    message(STATUS "Add Chrono_vehicle_irrlicht library")
 
-    include_directories(${CH_IRRLICHT_INCLUDES})
-    set(CXX_FLAGS "${CXX_FLAGS} ${CH_IRRLICHT_CXX_FLAGS}")
-    list(APPEND LIBRARIES ChronoEngine_vehicle)
-    list(APPEND LIBRARIES ChronoEngine_irrlicht) 
-
-    add_library(ChronoEngine_vehicle_irrlicht
+    add_library(Chrono_vehicle_irrlicht
         ${CVIRR_FILES}
         ${CVIRR_WV_FILES}
         ${CVIRR_TV_FILES}
     )
-    
-    if(ENABLE_IRRKLANG)
-        target_include_directories(ChronoEngine_vehicle_irrlicht PUBLIC ${CH_IRRKLANG_INCLUDES})
-        list(APPEND LIBRARIES ${IRRKLANG_LIBRARY})
-        set(CH_IRRLICHT_INCLUDES ${CH_IRRLICHT_INCLUDES} ${CH_IRRKLANG_INCLUDES} PARENT_SCOPE)
-        set(CH_IRRKLANG_INCLUDES "${CH_IRRKLANG_INCLUDES}" PARENT_SCOPE)
+    add_library(Chrono::vehicle_irrlicht ALIAS Chrono_vehicle_irrlicht)
+
+    set_target_properties(Chrono_vehicle_irrlicht PROPERTIES DEBUG_POSTFIX ${CH_DEBUG_POSTFIX})
+
+    if(CH_WHOLE_PROG_OPT)
+      set_target_properties(Chrono_vehicle_irrlicht PROPERTIES COMPILE_FLAGS "/GL")
+      set_target_properties(Chrono_vehicle_irrlicht PROPERTIES LINK_FLAGS "/LTCG")
     endif()
-    
-    set_target_properties(ChronoEngine_vehicle_irrlicht PROPERTIES
-                          COMPILE_FLAGS "${CXX_FLAGS}"
-                          LINK_FLAGS "${CH_LINKERFLAG_LIB}")
-    
-    target_compile_definitions(ChronoEngine_vehicle_irrlicht PRIVATE "CH_API_COMPILE_VEHICLE")
-    target_compile_definitions(ChronoEngine_vehicle_irrlicht PRIVATE "CH_IGNORE_DEPRECATED")
-    
-    target_link_libraries(ChronoEngine_vehicle_irrlicht ${LIBRARIES})
-    
-    install(TARGETS ChronoEngine_vehicle_irrlicht
+
+    if (CH_STATIC)
+      set_target_properties(Chrono_vehicle_irrlicht PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif()
+
+    if(MSVC)
+      set_target_properties(Chrono_vehicle_irrlicht PROPERTIES MSVC_RUNTIME_LIBRARY ${CH_MSVC_RUNTIME_LIBRARY})
+    endif()
+
+    target_link_libraries(Chrono_vehicle_irrlicht PRIVATE Chrono_core Chrono_vehicle)
+    target_link_libraries(Chrono_vehicle_irrlicht PUBLIC Chrono_irrlicht)
+
+    target_compile_definitions(Chrono_vehicle_irrlicht PRIVATE $<$<COMPILE_LANGUAGE:CXX>:CH_API_COMPILE_VEHICLE>)
+
+    install(TARGETS Chrono_vehicle_irrlicht
+            EXPORT ChronoTargets
             RUNTIME DESTINATION bin
             LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib)
+            ARCHIVE DESTINATION lib
+            INCLUDES DESTINATION include/chrono_vehicle) # TODO DARIOM: verify if correct folder
 
 endif()
 
 #-------------------------------------------------------------------------------
-# Add the ChronoEngine_vehicle_vsg library
+# Add the Chrono_vehicle_vsg library
 #-------------------------------------------------------------------------------
 
-if(ENABLE_MODULE_VSG)
+if(CH_ENABLE_MODULE_VSG)
+    message(STATUS "Add Chrono_vehicle_vsg library")
 
-    set(CXX_FLAGS "${CXX_FLAGS} ${CH_IRRLICHT_CXX_FLAGS}")
-    list(APPEND LIBRARIES ChronoEngine_vehicle)
-    list(APPEND LIBRARIES ChronoEngine_vsg) 
-    
-    add_library(ChronoEngine_vehicle_vsg
+    add_library(Chrono_vehicle_vsg
         ${CVVSG_FILES}
         ${CVVSG_WV_FILES}
         ${CVVSG_TV_FILES}
     )
-    
-    set_target_properties(ChronoEngine_vehicle_vsg PROPERTIES
-                          COMPILE_FLAGS "${CXX_FLAGS}"
-                          LINK_FLAGS "${CH_LINKERFLAG_LIB}")
-    
-    target_compile_definitions(ChronoEngine_vehicle_vsg PRIVATE "CH_API_COMPILE_VEHICLE")
-    target_compile_definitions(ChronoEngine_vehicle_vsg PRIVATE "CH_IGNORE_DEPRECATED")
-    
-    target_link_libraries(ChronoEngine_vehicle_vsg ${LIBRARIES})
-    
-    install(TARGETS ChronoEngine_vehicle_vsg
+    add_library(Chrono::vehicle_vsg ALIAS Chrono_vehicle_vsg)
+
+    set_target_properties(Chrono_vehicle_vsg PROPERTIES DEBUG_POSTFIX ${CH_DEBUG_POSTFIX})
+
+    if(CH_WHOLE_PROG_OPT)
+      set_target_properties(Chrono_vehicle_vsg PROPERTIES COMPILE_FLAGS "/GL")
+      set_target_properties(Chrono_vehicle_vsg PROPERTIES LINK_FLAGS "/LTCG")
+    endif()
+
+    if (CH_STATIC)
+      set_target_properties(Chrono_vehicle_vsg PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif()
+
+    if(MSVC)
+      set_target_properties(Chrono_vehicle_vsg PROPERTIES MSVC_RUNTIME_LIBRARY ${CH_MSVC_RUNTIME_LIBRARY})
+    endif()
+
+    target_compile_definitions(Chrono_vehicle_vsg PRIVATE $<$<COMPILE_LANGUAGE:CXX>:CH_API_COMPILE_VEHICLE>)
+
+    target_link_libraries(Chrono_vehicle_vsg PRIVATE Chrono_core Chrono_vehicle)
+    target_link_libraries(Chrono_vehicle_vsg PUBLIC Chrono_vsg)
+
+    install(TARGETS Chrono_vehicle_vsg
+            EXPORT ChronoTargets
             RUNTIME DESTINATION bin
             LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib)
+            ARCHIVE DESTINATION lib
+            INCLUDES DESTINATION include/chrono_vehicle) # TODO DARIOM: verify if correct folder
 
 endif()
 
 #-------------------------------------------------------------------------------
-# Add the ChronoEngine_vehicle_opengl library
+# Trigger CMake for vehicle co-simulation
 #-------------------------------------------------------------------------------
 
-if(ENABLE_MODULE_OPENGL)
-
-    include_directories(${CH_OPENGL_INCLUDES})
-    list(APPEND LIBRARIES ChronoEngine_vehicle)
-    list(APPEND LIBRARIES ChronoEngine_opengl) 
-    
-    add_library(ChronoEngine_vehicle_opengl
-        ${CVGL_FILES}
-    )
-    
-    set_target_properties(ChronoEngine_vehicle_opengl PROPERTIES
-                          COMPILE_FLAGS "${CXX_FLAGS}"
-                          LINK_FLAGS "${CH_LINKERFLAG_LIB}")
-    
-    target_compile_definitions(ChronoEngine_vehicle_opengl PRIVATE "CH_API_COMPILE_VEHICLE")
-    target_compile_definitions(ChronoEngine_vehicle_opengl PRIVATE "CH_IGNORE_DEPRECATED")
-    
-    target_link_libraries(ChronoEngine_vehicle_opengl ${LIBRARIES})
-    
-    install(TARGETS ChronoEngine_vehicle_opengl
-            RUNTIME DESTINATION bin
-            LIBRARY DESTINATION lib
-            ARCHIVE DESTINATION lib)
-
-endif()
-
-#-------------------------------------------------------------------------------
-# Trigger CMake for vehicle cosimulation
-#-------------------------------------------------------------------------------
-
-option(ENABLE_MODULE_VEHICLE_COSIM "Build the Chrono vehicle cosimulation library" TRUE)
-mark_as_advanced(FORCE ENABLE_MODULE_VEHICLE_COSIM)
-if(ENABLE_MODULE_VEHICLE_COSIM)
+option(CH_ENABLE_MODULE_VEHICLE_COSIM "Build the Chrono vehicle co-simulation library" TRUE)
+if(CH_ENABLE_MODULE_VEHICLE_COSIM)
   add_subdirectory(cosim)
 endif()
 
-set(ENABLE_MODULE_VEHICLE_COSIM  "${ENABLE_MODULE_VEHICLE_COSIM}" PARENT_SCOPE)
+set(CH_ENABLE_MODULE_VEHICLE_COSIM  "${CH_ENABLE_MODULE_VEHICLE_COSIM}" PARENT_SCOPE)
+set(DEPENDENCIES_VEHICLECOSIM ${DEPENDENCIES_VEHICLECOSIM} PARENT_SCOPE)
 
 #-------------------------------------------------------------------------------
 # Trigger CMake for vehicle FMUs
 #-------------------------------------------------------------------------------
 
-cmake_dependent_option(ENABLE_MODULE_VEHICLE_FMI  "Enable FMI support for Chrono::Vehicle" ON "ENABLE_MODULE_FMI" OFF)
-mark_as_advanced(FORCE ENABLE_MODULE_VEHICLE_FMI)
-if(ENABLE_MODULE_VEHICLE_FMI)
+cmake_dependent_option(CH_ENABLE_MODULE_VEHICLE_FMI  "Enable FMI support for Chrono::Vehicle" ON "CH_ENABLE_MODULE_FMI" OFF)
+mark_as_advanced(FORCE CH_ENABLE_MODULE_VEHICLE_FMI)
+if(CH_ENABLE_MODULE_VEHICLE_FMI)
   add_subdirectory(fmi)
 endif()
 
-set(ENABLE_MODULE_VEHICLE_FMI  "${ENABLE_MODULE_VEHICLE_FMI}" PARENT_SCOPE)
+set(CH_ENABLE_MODULE_VEHICLE_FMI  "${CH_ENABLE_MODULE_VEHICLE_FMI}" PARENT_SCOPE)
 
 #-------------------------------------------------------------------------------
-# Install Chrono::Vehicle headers
+# Install files
 #-------------------------------------------------------------------------------
 
+# Old way (install headers preserving directory structure)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
         DESTINATION include/chrono_vehicle
         FILES_MATCHING PATTERN "*.h")
 
-# Install required chrono_thirdparty headers
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/Easy_BMP
-        DESTINATION include/chrono_thirdparty
-        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
-
+# Install 3rd party headers       
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb
         DESTINATION include/chrono_thirdparty
         FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
 
-#-------------------------------------------------------------------------------
-# On Windows, copy DLLs (if specified)
-#-------------------------------------------------------------------------------
-
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-
-    if(ENABLE_MODULE_IRRLICHT AND EXISTS "${CH_IRRKLANG_DLL}")
-        add_custom_command(TARGET ChronoEngine_vehicle_irrlicht POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CH_IRRKLANG_DLL}"
-            "${PROJECT_BINARY_DIR}/bin/$<CONFIGURATION>")
-    endif()
-
-    if(EXISTS "${OpenCRG_DLL}")
-        add_custom_command(TARGET ChronoEngine_vehicle POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OpenRG_DLL}"
-            "${PROJECT_BINARY_DIR}/bin/$<CONFIGURATION>")
-      install(FILES "${OpenCRG_DLL}" DESTINATION bin)
-    endif()
-
-  # Make variable visible from outside this directory
-  SET(CH_IRRKLANG_DLL "${CH_IRRKLANG_DLL}" PARENT_SCOPE)
-  SET(CH_OPENCRG_DLL "${OpenCRG_DLL}" PARENT_SCOPE)
-
-endif()
+# On Windows, copy DLLs
+#if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+#    if(EXISTS "${OpenCRG_DLL}")
+#        add_custom_command(TARGET Chrono_vehicle POST_BUILD
+#            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#            "${OpenRG_DLL}"
+#            "${PROJECT_BINARY_DIR}/bin/$<CONFIGURATION>")
+#      install(FILES "${OpenCRG_DLL}" DESTINATION bin)
+#    endif()
+#
+#  # Make variable visible from outside this directory
+#  set(CH_OPENCRG_DLL "${OpenCRG_DLL}" PARENT_SCOPE)
+#endif()

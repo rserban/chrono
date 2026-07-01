@@ -20,7 +20,7 @@
 
 using namespace chrono;
 
-ChSystemMulticoreNSC::ChSystemMulticoreNSC() : ChSystemMulticore() {
+ChSystemMulticoreNSC::ChSystemMulticoreNSC(const std::string& name) : ChSystemMulticore(name) {
     contact_container = chrono_types::make_shared<ChContactContainerMulticoreNSC>(data_manager);
     contact_container->SetSystem(this);
 
@@ -56,13 +56,10 @@ void ChSystemMulticoreNSC::ChangeSolverType(SolverType type) {
 void ChSystemMulticoreNSC::Add3DOFContainer(std::shared_ptr<Ch3DOFContainer> container) {
     data_manager->node_container = container;
 
-    //// TODO: remove this
-    ////data_manager->cd_data->p_kernel_radius = container->kernel_radius;
-    ////data_manager->cd_data->p_collision_envelope = container->collision_envelope;
-    ////data_manager->cd_data->p_collision_family = container->family;
-
     container->SetSystem(this);
     container->data_manager = data_manager;
+
+    container->Initialize();
 }
 
 void ChSystemMulticoreNSC::SetContactContainer(std::shared_ptr<ChContactContainer> container) {
@@ -74,9 +71,8 @@ void ChSystemMulticoreNSC::AddMaterialSurfaceData(std::shared_ptr<ChBody> newbod
     // Reserve space for material properties for the specified body.
     // Notes:
     //  - the actual data is set in UpdateMaterialProperties()
-    //  - coefficients of sliding friction are only needed for fluid-rigid and FEA-rigid contacts;
-    //    for now, we store a single value per body (corresponding to the first collision shape,
-    //    if any, in the associated collision model)
+    //  - coefficients of sliding friction are only needed for particle-rigid; for now, we store a single value per body
+    //    (corresponding to the first collision shape, if any) in the associated collision model
     data_manager->host_data.sliding_friction.push_back(0);
     data_manager->host_data.cohesion.push_back(0);
 }
@@ -86,7 +82,7 @@ void ChSystemMulticoreNSC::UpdateMaterialSurfaceData(int index, ChBody* body) {
     custom_vector<float>& cohesion = data_manager->host_data.cohesion;
 
     if (body->GetCollisionModel() && body->GetCollisionModel()->GetNumShapes() > 0) {
-        auto shape = body->GetCollisionModel()->GetShapeInstance(0).first;
+        auto shape = body->GetCollisionModel()->GetShapeInstance(0).shape;
         auto mat = std::static_pointer_cast<ChContactMaterialNSC>(shape->GetMaterial());
         friction[index] = mat->GetSlidingFriction();
         cohesion[index] = mat->GetCohesion();
@@ -97,33 +93,31 @@ void ChSystemMulticoreNSC::CalculateContactForces() {
     uint num_unilaterals = data_manager->num_unilaterals;
     uint num_rigid_dof = data_manager->num_rigid_bodies * 6;
     uint num_contacts = data_manager->cd_data->num_rigid_contacts;
-    DynamicVector<real>& Fc = data_manager->host_data.Fc;
+    VectorType& Fc = data_manager->host_data.Fc;
 
     data_manager->Fc_current = true;
 
     if (num_contacts == 0) {
         Fc.resize(6 * data_manager->num_rigid_bodies);
-        Fc = 0;
+        Fc.setZero();
         return;
     }
 
-    const SubMatrixType& D_u = blaze::submatrix(data_manager->host_data.D, 0, 0, num_rigid_dof, num_unilaterals);
-    DynamicVector<real> gamma_u = blaze::subvector(data_manager->host_data.gamma, 0, num_unilaterals);
+    const SparseMatrixType& D_u = data_manager->host_data.D.topLeftCorner(num_rigid_dof, num_unilaterals);
+    VectorType gamma_u = data_manager->host_data.gamma.segment(0, num_unilaterals);
     Fc = D_u * gamma_u / data_manager->settings.step_size;
 }
 
 real3 ChSystemMulticoreNSC::GetBodyContactForce(std::shared_ptr<ChBody> body) const {
     assert(data_manager->Fc_current);
     auto body_id = body->GetIndex();
-    return real3(data_manager->host_data.Fc[body_id * 6 + 0], data_manager->host_data.Fc[body_id * 6 + 1],
-                 data_manager->host_data.Fc[body_id * 6 + 2]);
+    return real3(data_manager->host_data.Fc[body_id * 6 + 0], data_manager->host_data.Fc[body_id * 6 + 1], data_manager->host_data.Fc[body_id * 6 + 2]);
 }
 
 real3 ChSystemMulticoreNSC::GetBodyContactTorque(std::shared_ptr<ChBody> body) const {
     assert(data_manager->Fc_current);
     auto body_id = body->GetIndex();
-    return real3(data_manager->host_data.Fc[body_id * 6 + 3], data_manager->host_data.Fc[body_id * 6 + 4],
-                 data_manager->host_data.Fc[body_id * 6 + 5]);
+    return real3(data_manager->host_data.Fc[body_id * 6 + 3], data_manager->host_data.Fc[body_id * 6 + 4], data_manager->host_data.Fc[body_id * 6 + 5]);
 }
 
 static inline chrono::ChVector3<real> ToChVector(const real3& a) {
@@ -157,7 +151,7 @@ void ChSystemMulticoreNSC::AssembleSystem() {
 
     collision_system->Run();
     collision_system->ReportContacts(contact_container.get());
-    ChSystem::Update();
+    ChSystem::Update(UpdateFlags::UPDATE_ALL_NO_VISUAL);
     contact_container->BeginAddContact();
     chrono::ChCollisionInfo icontact;
     for (int i = 0; i < (signed)data_manager->cd_data->num_rigid_contacts; i++) {
@@ -165,10 +159,8 @@ void ChSystemMulticoreNSC::AssembleSystem() {
         icontact.modelA = GetBodies()[cd_pair.x]->GetCollisionModel().get();
         icontact.modelB = GetBodies()[cd_pair.y]->GetCollisionModel().get();
         icontact.vN = ToChVector(data_manager->cd_data->norm_rigid_rigid[i]);
-        icontact.vpA =
-            ToChVector(data_manager->cd_data->cpta_rigid_rigid[i] + data_manager->host_data.pos_rigid[cd_pair.x]);
-        icontact.vpB =
-            ToChVector(data_manager->cd_data->cptb_rigid_rigid[i] + data_manager->host_data.pos_rigid[cd_pair.y]);
+        icontact.vpA = ToChVector(data_manager->cd_data->cpta_rigid_rigid[i] + data_manager->host_data.pos_rigid[cd_pair.x]);
+        icontact.vpB = ToChVector(data_manager->cd_data->cptb_rigid_rigid[i] + data_manager->host_data.pos_rigid[cd_pair.y]);
         icontact.distance = data_manager->cd_data->dpth_rigid_rigid[i];
         icontact.eff_radius = data_manager->cd_data->erad_rigid_rigid[i];
         contact_container->AddContact(icontact);
@@ -238,9 +230,6 @@ void ChSystemMulticoreNSC::AssembleSystem() {
 }
 
 void ChSystemMulticoreNSC::Initialize() {
-    // Mpm update is special because it computes the number of nodes that we have
-    // data_manager->node_container->ComputeDOF();
-
     Setup();
 
     data_manager->system_timer.start("update");

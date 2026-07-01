@@ -12,9 +12,6 @@
 // Authors: Alessandro Tasora, Radu Serban
 // =============================================================================
 
-//// TODO
-//// - eliminate GetPhysicsItem
-
 #ifndef CH_COLLISION_MODEL_H
 #define CH_COLLISION_MODEL_H
 
@@ -38,12 +35,18 @@ class ChCollisionModelImpl;
 /// @addtogroup chrono_collision
 /// @{
 
-/// Class defining the geometric model for collision detection.
+/// Definition of an instance of a collision shape in a collision model.
+struct ChApi ChCollisionShapeInstance {
+    std::shared_ptr<ChCollisionShape> shape;  ///< collision shape (possibly shared)
+    ChFramed frame;                           ///< shape position relative to containing model
+
+    void ArchiveOut(ChArchiveOut& archive_out);
+    void ArchiveIn(ChArchiveIn& archive_in);
+};
+
+/// Definition of a collision model which encapsulates a set of collision shapes for collision detection.
 class ChApi ChCollisionModel {
   public:
-    /// A ShapeInstance is a pair of a collision shape and its position in the model.
-    typedef std::pair<std::shared_ptr<ChCollisionShape>, ChFrame<>> ShapeInstance;
-
     ChCollisionModel();
     ChCollisionModel(const ChCollisionModel& other);
     ~ChCollisionModel();
@@ -69,16 +72,10 @@ class ChApi ChCollisionModel {
     );
 
     /// Set the pointer to the contactable object.
-    void SetContactable(ChContactable* contactable);
+    void SetContactable(ChContactable* new_contactable);
 
     /// Get the pointer to the contactable object.
-    ChContactable* GetContactable() { return contactable; }
-
-    /// Get the pointer to the client owner ChPhysicsItem.
-    ///
-    //// TODO OBSOLETE
-    ///
-    ChPhysicsItem* GetPhysicsItem();
+    ChContactable* GetContactable() const { return contactable; }
 
     /// Synchronize the position and orientation of the collision model to the associated contactable.
     void SyncPosition();
@@ -88,16 +85,16 @@ class ChApi ChCollisionModel {
     void SetFamily(int family);
 
     /// Return the collision family for this model.
-    int GetFamily();
+    int GetFamily() const;
 
     /// By default, family mask is all turned on, so all families can collide with this object, but you can turn on-off
     /// some bytes of this mask so that some families do not collide. When two objects collide, the contact is created
-    /// only if the family is within the 'family mask' of the other, and viceversa.
+    /// only if the family is within the 'family mask' of the other, and vice-versa.
     void DisallowCollisionsWith(int family);
     void AllowCollisionsWith(int family);
 
     /// Return true if this model is allowed to collide with objects in the specified collision family.
-    bool CollidesWith(int family);
+    bool CollidesWith(int family) const;
 
     /// [INTERNAL USE] Return the collision family group of this model.
     /// The collision family of this model is the position of the single set bit in the return value.
@@ -127,7 +124,7 @@ class ChApi ChCollisionModel {
     void SetSafeMargin(float margin) { model_safe_margin = margin; }
 
     /// Return the inward safe margin (see SetSafeMargin).
-    float GetSafeMargin() { return model_safe_margin; }
+    float GetSafeMargin() const { return model_safe_margin; }
 
     /// Set the suggested collision outward 'envelope' used from shapes added from now on.
     /// This 'envelope' is a surrounding invisible volume which extends outward from the surface, and it is used to
@@ -139,7 +136,7 @@ class ChApi ChCollisionModel {
     void SetEnvelope(float envelope) { model_envelope = envelope; }
 
     /// Return the outward safe margin (see SetEnvelope).
-    float GetEnvelope() { return model_envelope; }
+    float GetEnvelope() const { return model_envelope; }
 
     /// Set the default envelope value.
     /// All collision shapes in all collision models created after the call to this function will use this value.
@@ -151,12 +148,16 @@ class ChApi ChCollisionModel {
     /// A particular collision system may ignore this suggested value.
     static void SetDefaultSuggestedMargin(double margin);
 
+    /// Get the default envelope value.
     static double GetDefaultSuggestedEnvelope();
+
+    /// Get the default margin value.
     static double GetDefaultSuggestedMargin();
 
-    /// Return the current axis aligned bounding box (AABB) of the collision model.
-    /// Note that SyncPosition() should be invoked before calling this.
-    ChAABB GetBoundingBox() const;
+    /// Return the axis aligned bounding box (AABB) of the collision model.
+    /// If local=true, return the AABB expressed in the local frame of the owner contactable. Otherwise, return the
+    /// AABB expressed in the absolute coordinate frame (in this case, SyncPosition() should be invoked first).
+    ChAABB GetBoundingBox(bool local = false) const;
 
     /// Method to allow serialization of transient data to archives.
     void ArchiveOut(ChArchiveOut& archive_out);
@@ -165,13 +166,13 @@ class ChApi ChCollisionModel {
     void ArchiveIn(ChArchiveIn& archive_in);
 
     /// Return the number of collision shapes in this model.
-    unsigned int GetNumShapes() const { return (unsigned int)m_shape_instances.size(); }
+    unsigned int GetNumShapes() const { return static_cast<unsigned int>(m_shape_instances.size()); }
 
     /// Get the list of collision shapes in this model.
-    const std::vector<ShapeInstance>& GetShapeInstances() const { return m_shape_instances; }
+    const std::vector<ChCollisionShapeInstance>& GetShapeInstances() const { return m_shape_instances; }
 
     /// Get the collision shape with specified index.
-    const ShapeInstance& GetShapeInstance(int index) const { return m_shape_instances[index]; }
+    const ChCollisionShapeInstance& GetShapeInstance(int index) const { return m_shape_instances[index]; }
 
     /// Set the contact material for all collision shapes in the model (all shapes will share the material).
     /// This function is useful in adjusting contact material properties for objects imported from outside (e.g., from
@@ -192,7 +193,7 @@ class ChApi ChCollisionModel {
     short int family_group;  ///< Collision family group
     short int family_mask;   ///< Collision family mask
 
-    std::vector<ShapeInstance> m_shape_instances;  ///< list of collision shapes and positions in model
+    std::vector<ChCollisionShapeInstance> m_shape_instances;  ///< list of collision shapes and positions in model
 
     ChCollisionModelImpl* impl;  ///< concrete implementation of the collision model
 
@@ -221,7 +222,7 @@ class ChCollisionModelImpl {
     /// Note that SyncPosition() should be invoked before calling this.
     virtual ChAABB GetBoundingBox() const = 0;
 
-    ChCollisionModel* model;  // associated collision model
+    ChCollisionModel* model;  ///< associated collision model
 
     friend class ChCollisionModel;
 };

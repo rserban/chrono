@@ -26,7 +26,7 @@ namespace chrono {
 /// @{
 
 /// Collision convex hull shape.
-/// A convex hull is simply a point cloud that describe a convex polytope. Connectivity between the vertexes, as
+/// A convex hull is simply a point cloud that describe a convex polytope. Connectivity between the vertices, as
 /// faces/edges in triangle meshes is not necessary. Points are passed as a list which is then copied into the model.
 class ChApi ChCollisionShapeConvexHull : public ChCollisionShape {
   public:
@@ -37,8 +37,11 @@ class ChApi ChCollisionShapeConvexHull : public ChCollisionShape {
 
     ~ChCollisionShapeConvexHull() {}
 
-    /// Access the list of vertices of thje convex hull.
+    /// Access the list of vertices of the convex hull.
     const std::vector<ChVector3d>& GetPoints() { return points; }
+
+    /// Get the shape bounding box.
+    virtual ChAABB GetBoundingBox() const override;
 
     /// Method to allow serialization of transient data to archives.
     virtual void ArchiveOut(ChArchiveOut& archive_out) override;
@@ -46,7 +49,7 @@ class ChApi ChCollisionShapeConvexHull : public ChCollisionShape {
     /// Method to allow de-serialization of transient data from archives.
     virtual void ArchiveIn(ChArchiveIn& archive_in) override;
 
-    /// Create convex hull collsion shapes from the specified data file.
+    /// Create convex hull collision shapes from the specified data file.
     /// All shapes are assigned the same contact material.
     static std::vector<std::shared_ptr<ChCollisionShapeConvexHull>> Read(std::shared_ptr<ChContactMaterial> material,
                                                                          const std::string& filename);

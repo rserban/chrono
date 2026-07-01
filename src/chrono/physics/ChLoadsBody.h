@@ -95,7 +95,7 @@ class ChApi ChLoadBodyForce : public ChLoadCustom {
 
     virtual bool IsStiff() override { return false; }
 
-    virtual void Update(double time) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -140,7 +140,7 @@ class ChApi ChLoadBodyTorque : public ChLoadCustom {
 
     virtual bool IsStiff() override { return false; }
 
-    virtual void Update(double time) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -297,6 +297,11 @@ class ChApi ChLoadBodyBody : public ChLoadCustomMultiple {
     std::shared_ptr<ChBody> GetBodyA() const;
     std::shared_ptr<ChBody> GetBodyB() const;
 
+    /// Compute the generalized load(s).
+    virtual void ComputeQ(ChState* state_x,      ///< state position to evaluate Q
+                          ChStateDelta* state_w  ///< state speed to evaluate Q
+                          ) override;
+
   protected:
     ChFrame<> loc_application_A;  ///< application point on body A (local)
     ChFrame<> loc_application_B;  ///< application point on body B (local)
@@ -305,10 +310,6 @@ class ChApi ChLoadBodyBody : public ChLoadCustomMultiple {
     ChFrameMoving<> frame_Aw;     ///< for results
     ChFrameMoving<> frame_Bw;     ///< for results
 
-    /// Compute the generalized load(s).
-    virtual void ComputeQ(ChState* state_x,      ///< state position to evaluate Q
-                          ChStateDelta* state_w  ///< state speed to evaluate Q
-                          ) override;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -341,7 +342,7 @@ class ChApi ChLoadBodyBodyTorque : public ChLoadBodyBody {
 
     virtual bool IsStiff() override { return false; }
 
-    virtual void Update(double time) override;
+    virtual void Update(double time, UpdateFlags update_flags) override;
 
     /// Implement the computation of the body-body force, in local
     /// coordinates of the loc_application_B.
@@ -396,7 +397,7 @@ class ChApi ChLoadBodyBodyBushingSpherical : public ChLoadBodyBody {
 /// Load for a visco-elasto-plastic bushing acting between two bodies.
 /// It uses three values for stiffness along the X Y Z axes of a coordinate system attached
 /// to the second body. This is equivalent to having a bushing with 3x3 diagonal local stiffness matrix.
-/// Also, it allows a very simple plasticity model, to cap the plastic force on x,y,z given three yelds.
+/// Also, it allows a very simple plasticity model, to cap the plastic force on x,y,z given three yields.
 class ChApi ChLoadBodyBodyBushingPlastic : public ChLoadBodyBodyBushingSpherical {
   public:
     ChLoadBodyBodyBushingPlastic(

@@ -25,9 +25,11 @@
 // the number of brick elements to achieve convergence.
 // =============================================================================
 
+#include <cmath>
+
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/solver/ChIterativeSolverLS.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
 #include "chrono/fea/ChElementBar.h"
 #include "chrono/fea/ChElementHexaANCF_3813.h"
@@ -36,8 +38,6 @@
 #include "chrono/fea/ChLinkNodeFrame.h"
 #include "chrono/assets/ChVisualShapeFEA.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-
 using namespace chrono;
 using namespace fea;
 double step_size = 1e-3;
@@ -45,11 +45,14 @@ double sim_time = 15;       // Simulation time for generation of reference file
 double precision = 4e-7;    // Precision value used to assess results
 double sim_time_UT = 0.05;  // Simulation time for unit test 0.05
 
+std::string out_dir = GetChronoTestOutputPath() + "/fea_EAS_brick_ISO";
+
 int main(int argc, char* argv[]) {
-    bool output = (0);  // Determines whether it tests (0) or generates golden file (1)
+    bool generate_output = false;  // Determines whether it tests (false) or generates golden file (true)
+
     ChMatrixDynamic<> FileInputMat(15000, 3);
-    if (output) {
-        std::cout << "Output file: ../TEST_Brick/tip_position.txt\n";
+    if (generate_output) {
+        std::cout << "Output file: " << out_dir + "/UT_EASBrickIso.txt\n";
     } else {
         // Utils to open/read files: Load reference solution ("golden") file
         std::string EASBrick_val_file = GetChronoDataPath() + "testing/fea/UT_EASBrickIso.txt";
@@ -73,6 +76,7 @@ int main(int argc, char* argv[]) {
     // Create the physical system
     // --------------------------
     ChSystemNSC sys;
+    sys.SetGravityY();
 
     std::cout << "-----------------------------------------------------------\n";
     std::cout << "     Brick Element Unit Test \n";
@@ -146,7 +150,7 @@ int main(int argc, char* argv[]) {
         NumNodes(i, 6) = (numDiv_x + 1) * (numDiv_y + 1) + NumNodes(i, 2);
         NumNodes(i, 7) = (numDiv_x + 1) * (numDiv_y + 1) + NumNodes(i, 3);
 
-        // All the elements have the same lenght in this example
+        // All the elements have the same length in this example
         ElemLengthXY(i, 0) = dx;
         ElemLengthXY(i, 1) = dy;
         ElemLengthXY(i, 2) = dz;
@@ -242,15 +246,15 @@ int main(int argc, char* argv[]) {
     // Simulation loop
     double T_F = 10;
     double t_sim = 0;
-    if (output) {
+    if (generate_output) {
         // Create output directory (if it does not already exist).
-        if (!filesystem::create_directory(filesystem::path("../TEST_Brick"))) {
-            std::cout << "Error creating directory ../TEST_Brick\n";
+        if (!CreateOutputDirectory(out_dir)) {
+            std::cout << "Error creating directory " << out_dir << "\n";
             return 1;
         }
 
         // Initialize the output stream and set precision.
-        utils::ChWriterCSV out("\t");
+        ChWriterCSV out("\t");
         out.Stream().setf(std::ios::scientific | std::ios::showpos);
         out.Stream().precision(7);
 
@@ -258,7 +262,7 @@ int main(int argc, char* argv[]) {
         while (sys.GetChTime() < sim_time) {
             t_sim = sys.GetChTime();
             if (t_sim < T_F)
-                nodetip->SetForce(ChVector3d(0, 0, -50 / 2 * (1 - cos((t_sim / T_F) * 3.1415926535))));
+                nodetip->SetForce(ChVector3d(0, 0, -50 / 2 * (1 - std::cos((t_sim / T_F) * CH_PI))));
             else {
                 nodetip->SetForce(ChVector3d(0, 0, -50));
             }
@@ -268,10 +272,9 @@ int main(int argc, char* argv[]) {
                       << nodetip->GetForce().z() << "\n";
         }
         // Write results to output file.
-        out.WriteToFile("../TEST_Brick/tip_position.txt");
+        out.WriteToFile(out_dir + "/UT_EASBrickIso.txt");
     } else {
         // Initialize total number of iterations and timer.
-        int Iterations = 0;
         double start = std::clock();
         int stepNo = 0;
         double AbsVal = 0.0;
@@ -279,7 +282,7 @@ int main(int argc, char* argv[]) {
         while (sys.GetChTime() < sim_time_UT) {
             t_sim = sys.GetChTime();
             if (t_sim < T_F)
-                nodetip->SetForce(ChVector3d(0, 0, -50 / 2 * (1 - cos((t_sim / T_F) * 3.1415926535))));
+                nodetip->SetForce(ChVector3d(0, 0, -50 / 2 * (1 - std::cos((t_sim / T_F) * CH_PI))));
             else {
                 nodetip->SetForce(ChVector3d(0, 0, -50));
             }
@@ -291,11 +294,11 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             stepNo++;
-            Iterations += mystepper->GetNumIterations();
         }
         // Report run time and total number of iterations.
         double duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-        std::cout << "Computation Time: " << duration << "   Number of iterations: " << Iterations << "\n";
+        std::cout << "Computation Time: " << duration << "   Number of iterations: " << mystepper->GetNumIterations()
+                  << "\n";
         std::cout << "Unit test check succeeded \n";
     }
 

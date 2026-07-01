@@ -182,8 +182,9 @@ void ChLinkRSDA::AdjustAngle() {
 // -----------------------------------------------------------------------------
 // Link update function
 // -----------------------------------------------------------------------------
-void ChLinkRSDA::Update(double time, bool update_assets) {
-    UpdateTime(time);
+void ChLinkRSDA::Update(double time, UpdateFlags update_flags) {
+    ChLink::Update(time, update_flags);
+
     // Calculate current angle and angle rate
     CalcAngle();
     AdjustAngle();
@@ -195,9 +196,6 @@ void ChLinkRSDA::Update(double time, bool update_assets) {
     } else {
         m_torque = m_t - m_k * (angle - m_rest_angle) - m_r * m_angle_dt;
     }
-
-    // Update assets
-    ChPhysicsItem::Update(ChTime, update_assets);
 }
 
 void ChLinkRSDA::IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, const double c) {

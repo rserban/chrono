@@ -117,14 +117,14 @@ int main(int argc, char* argv[]) {
     robot.PopulateSystem(sys);
 
     // Get selected bodies of the robot
-    auto torso = robot.GetChBody("torso");
+    auto root = robot.GetRootChBody();
     auto sled = robot.GetChBody("sled");
     auto limb1_wheel = robot.GetChBody("limb1_link8");
     auto limb2_wheel = robot.GetChBody("limb2_link8");
     auto limb3_wheel = robot.GetChBody("limb3_link8");
     auto limb4_wheel = robot.GetChBody("limb4_link8");
 
-    // Enable collsion and set contact material for selected bodies of the robot
+    // Enable collision and set contact material for selected bodies of the robot
     sled->EnableCollision(true);
     limb1_wheel->EnableCollision(true);
     limb2_wheel->EnableCollision(true);
@@ -143,7 +143,7 @@ int main(int argc, char* argv[]) {
     limb4_wheel->GetCollisionModel()->SetAllShapesMaterial(cmat);
 
     // Fix root body
-    robot.GetRootChBody()->SetFixed(true);
+    root->SetFixed(true);
 
     // Read the list of actuated motors, cache the motor links, and set their actuation function
     int num_motors = 32;
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
 
     // Create the visualization window
     std::shared_ptr<ChVisualSystem> vis;
-    auto camera_lookat = torso->GetPos();
+    auto camera_lookat = root->GetPos();
     auto camera_loc = camera_lookat + ChVector3d(3, 3, 0);
 #ifndef CHRONO_IRRLICHT
     if (vis_type == ChVisualSystem::Type::IRRLICHT)
@@ -235,15 +235,13 @@ int main(int argc, char* argv[]) {
             vis_vsg->SetCameraVertical(CameraVerticalDir::Z);
             vis_vsg->SetWindowTitle("RoboSimian URDF demo");
             vis_vsg->AddCamera(camera_loc, camera_lookat);
-            vis_vsg->SetWindowSize(ChVector2i(1200, 800));
-            vis_vsg->SetWindowPosition(ChVector2i(400, 100));
-            vis_vsg->SetClearColor(ChColor(0.455f, 0.525f, 0.640f));
-            vis_vsg->SetUseSkyBox(false);
+            vis_vsg->SetWindowSize(1280, 800);
+            vis_vsg->SetWindowPosition(100, 100);
+            vis_vsg->SetBackgroundColor(ChColor(0.455f, 0.525f, 0.640f));
             vis_vsg->SetCameraAngleDeg(40.0);
             vis_vsg->SetLightIntensity(1.0f);
             vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
-            ////vis_vsg->SetShadows(true);
-            vis_vsg->SetWireFrameMode(false);
+            ////vis_vsg->EnableShadows();
             vis_vsg->Initialize();
 
             vis = vis_vsg;
@@ -279,13 +277,13 @@ int main(int argc, char* argv[]) {
             sys.GetCollisionSystem()->BindItem(ground);
 
             // Release robot
-            torso->SetFixed(false);
+            robot.GetRootChBody()->SetFixed(false);
 
             terrain_created = true;
         }
 
         // Update camera location
-        camera_lookat = ChVector3d(torso->GetPos().x(), torso->GetPos().y(), camera_lookat.z());
+        camera_lookat = ChVector3d(root->GetPos().x(), root->GetPos().y(), camera_lookat.z());
         camera_loc = camera_lookat + ChVector3d(3, 3, 0);
 
         vis->BeginScene();

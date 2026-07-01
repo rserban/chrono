@@ -25,8 +25,9 @@ import math as m
 
 print("Copyright (c) 2017 projectchrono.org")
 
-# Create a Chrono::Engine physical sys
+# Create a Chrono physical sys
 sys = chrono.ChSystemNSC()
+sys.SetGravityY()
 
 # Contact material shared among all bodies
 mat = chrono.ChContactMaterialNSC()
@@ -180,7 +181,7 @@ vis.AttachSystem(sys)
 vis.SetWindowSize(1024,768)
 vis.SetWindowTitle('Gears annd pulleys')
 vis.Initialize()
-vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
+vis.AddLogo(chrono.GetChronoDataFile('logo_chrono_alpha.png'))
 vis.AddSkyBox()
 vis.AddCamera(chrono.ChVector3d(12, 15, -20))
 vis.AddTypicalLights()
@@ -193,10 +194,10 @@ while vis.Run():
     vis.BeginScene() 
     vis.Render()
     # Draw some segments for a simplified representation of pulley
-    chronoirr.drawSegment(vis,
+    chronoirr.DrawSegment(vis,
                           link_pulleyDE.GetBeltUpPos1(),
                           link_pulleyDE.GetBeltUpPos2());
-    chronoirr.drawSegment(vis,
+    chronoirr.DrawSegment(vis,
                           link_pulleyDE.GetBeltBottomPos1(),
                           link_pulleyDE.GetBeltBottomPos2());
     vis.EndScene()

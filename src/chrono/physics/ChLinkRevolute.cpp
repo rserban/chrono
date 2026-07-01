@@ -36,11 +36,13 @@ ChLinkRevolute::ChLinkRevolute(const ChLinkRevolute& other) : ChLink(other) {
     m_frame1 = other.m_frame1;
     m_frame2 = other.m_frame2;
 
-    m_cnstr_x.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_y.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_z.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_uw.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
-    m_cnstr_vw.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+    if (other.m_body1 && other.m_body2) {
+        m_cnstr_x.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_y.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_z.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_uw.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+        m_cnstr_vw.SetVariables(&other.m_body1->Variables(), &other.m_body2->Variables());
+    }
 
     for (int i = 0; i < 5; i++) {
         m_multipliers[i] = other.m_multipliers[i];
@@ -113,9 +115,9 @@ void ChLinkRevolute::Initialize(std::shared_ptr<ChBody> body1,
 // -----------------------------------------------------------------------------
 // Link update function
 // -----------------------------------------------------------------------------
-void ChLinkRevolute::Update(double time, bool update_assets) {
+void ChLinkRevolute::Update(double time, UpdateFlags update_flags) {
     // Inherit time changes of parent class
-    ChLink::UpdateTime(time);
+    ChLink::Update(time, update_flags);
 
     // Express the joint frames in absolute frame
     ChFrame<> frame1_abs = m_frame1 >> *m_body1;
@@ -295,6 +297,7 @@ void ChLinkRevolute::IntLoadResidual_CqL(const unsigned int off_L,    ///< offse
 void ChLinkRevolute::IntLoadConstraint_C(const unsigned int off_L,  ///< offset in Qc residual
                                          ChVectorDynamic<>& Qc,     ///< result: the Qc residual, Qc += c*C
                                          const double c,            ///< a scaling factor
+                                         const double c_vel,        ///< the scaling factor if the constraint is at speed level
                                          bool do_clamp,             ///< apply clamping to c*C?
                                          double recovery_clamp      ///< value for min/max clamping of c*C
 ) {

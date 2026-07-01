@@ -17,11 +17,12 @@
 // =============================================================================
 
 #include "chrono/core/ChCubicSpline.h"
+#include "chrono/utils/ChUtilsGeometry.h"
 #include "chrono/fea/ChElementHexaCorot_8.h"
 #include "chrono/fea/ChLinkNodeFace.h"
 
 #include "chrono_vehicle/wheeled_vehicle/tire/ReissnerTire.h"
-#include "chrono_vehicle/utils/ChUtilsJSON.h"
+#include "chrono_vehicle/utils/ChVehicleUtilsJSON.h"
 
 using namespace chrono::fea;
 using namespace rapidjson;
@@ -216,7 +217,7 @@ void AttachNodeToShell(std::shared_ptr<ChMesh> m_mesh, std::shared_ptr<ChNodeFEA
             bool is_into;
             ChVector3d p_projected;
 
-            val = utils::PointTriangleDistance(m_node->pos, mshell->GetNodeA()->GetCoordsys().pos,
+            val = utils::PointTrianglePlaneDistance(m_node->pos, mshell->GetNodeA()->GetCoordsys().pos,
                                                mshell->GetNodeB()->GetCoordsys().pos,
                                                mshell->GetNodeC()->GetCoordsys().pos, u, v, is_into, p_projected);
             val = fabs(val);
@@ -232,7 +233,7 @@ void AttachNodeToShell(std::shared_ptr<ChMesh> m_mesh, std::shared_ptr<ChNodeFEA
                 best_fit_n3 = mshell->GetNodeC();
             }
 
-            val = utils::PointTriangleDistance(m_node->pos, mshell->GetNodeC()->GetCoordsys().pos,
+            val = utils::PointTrianglePlaneDistance(m_node->pos, mshell->GetNodeC()->GetCoordsys().pos,
                                                mshell->GetNodeD()->GetCoordsys().pos,
                                                mshell->GetNodeA()->GetCoordsys().pos, u, v, is_into, p_projected);
             val = fabs(val);
@@ -249,9 +250,9 @@ void AttachNodeToShell(std::shared_ptr<ChMesh> m_mesh, std::shared_ptr<ChNodeFEA
             }
         }
     }
-    auto mlink = chrono_types::make_shared<ChLinkNodeFaceRot>();
-    mlink->Initialize(m_node, best_fit_n1, best_fit_n2, best_fit_n3);
-    m_mesh->GetSystem()->Add(mlink);
+    auto link = chrono_types::make_shared<ChLinkNodeFace>();
+    link->Initialize(m_node, best_fit_n1, best_fit_n2, best_fit_n3);
+    m_mesh->GetSystem()->Add(link);
 }
 
 // -----------------------------------------------------------------------------

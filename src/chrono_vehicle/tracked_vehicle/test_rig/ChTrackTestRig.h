@@ -27,7 +27,7 @@
 #include <string>
 
 #include "chrono/physics/ChLinkMotorLinearPosition.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
 #include "chrono_vehicle/tracked_vehicle/ChTrackedVehicle.h"
 #include "chrono_vehicle/tracked_vehicle/test_rig/ChTrackTestRigDriver.h"
@@ -60,6 +60,9 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
 
     /// Destructor
     ~ChTrackTestRig();
+
+    /// Get the attached driver (if any).
+    std::shared_ptr<ChTrackTestRigDriver> GetDriver() const { return m_driver; }
 
     /// Set driver system.
     void SetDriver(std::shared_ptr<ChTrackTestRigDriver> driver);
@@ -108,7 +111,7 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
     void Initialize();
 
     /// Advance the state of the track test rig by the specified time step.
-    virtual void Advance(double step) override;
+    virtual void Advance(double step, bool do_collision = true) override;
 
     /// Set collision flags for the various subsystems.
     /// By default, collision is enabled for sprocket, idler, road wheels, and track shoes.
@@ -136,9 +139,7 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
 
     /// Return estimated resistive torque on the specified sprocket.
     /// This torque is available only if monitoring of contacts for that sprocket is enabled.
-    ChVector3d GetSprocketResistiveTorque(VehicleSide side) const {
-        return m_contact_manager->GetSprocketResistiveTorque(side);
-    }
+    ChVector3d GetSprocketResistiveTorque(VehicleSide side) const { return m_contact_manager->GetSprocketResistiveTorque(side); }
 
     /// Write contact information to file.
     /// If data collection was enabled and at least one subsystem is monitored,
@@ -191,12 +192,13 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
     void Create(bool create_track, bool detracking_control);
 
     // Utility function to add visualization to post bodies.
-    void AddPostVisualization(std::shared_ptr<ChBody> post_body,
-                              std::shared_ptr<ChBody> chassis_body,
-                              const ChColor& color);
+    void AddPostVisualization(std::shared_ptr<ChBody> post_body, std::shared_ptr<ChBody> chassis_body, const ChColor& color);
 
-    /// Output data for all modeling components in the track test rig system.
-    virtual void Output(int frame, ChVehicleOutput& database) const override;
+    /// Initialize output for the track test rig system.
+    virtual void InitializeOutput() override;
+
+    /// Write output data for all modeling components in the track test rig system to the output database with given name.
+    virtual void WriteOutput(int frame, double time) const override;
 
     /// Collect data for plotting
     void CollectPlotData(double time);
@@ -218,7 +220,7 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
     std::shared_ptr<ChTrackTestRigDriver> m_driver;  ///< driver system
     double m_throttle_input;                         ///< current driver throttle input
     std::vector<double> m_displ_input;               ///< current post displacement inputs
-    std::string m_driver_logfile;                    ///< name of optioinal driver log file
+    std::string m_driver_logfile;                    ///< name of optional driver log file
 
     double m_ride_height;   ///< ride height
     double m_displ_offset;  ///< post displacement offset (to set reference position)
@@ -242,9 +244,10 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
     bool m_plot_output;
     double m_plot_output_step;
     double m_next_plot_output_time;
-    utils::ChWriterCSV* m_csv;
+    ChWriterCSV* m_csv;
 
-    friend class ChTrackTestRigVisualSystemIrrlicht;
+    friend class ChTrackTestRigVisualSystemIRR;
+    friend class ChTrackTestRigVisualSystemVSG;
 };
 
 /// @} vehicle_tracked_test_rig

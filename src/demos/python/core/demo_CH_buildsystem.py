@@ -13,12 +13,14 @@
 print ("Second tutorial: create and populate a physical system");
 
 
-# Load the Chrono::Engine core module!
+# Load the Chrono core module!
 import pychrono as chrono
 
 
 # Create a physical system,
 my_system = chrono.ChSystemNSC()
+my_system.SetGravityY()
+my_system.SetCollisionSystemType(chrono.ChCollisionSystem.Type_BULLET)
 
 # Create a contact material, shared by all collision shapes
 material = chrono.ChContactMaterialNSC()
@@ -51,15 +53,14 @@ bodyB.AddMarker(markerB)
 my_system.Add(bodyA)
 my_system.Add(bodyB)
 
-
 # Report Contact callback
 class MyReportContactCallback(chrono.ReportContactCallback):
     def __init__(self):
          chrono.ReportContactCallback.__init__(self)
-    def OnReportContact(self,vA,vB,cA,dist,rad,force,torque,modA,modB):
-         bodyUpA = chrono.CastContactableToChBody(modA)
+    def OnReportContact(self,vA,vB,cA,dist,rad,force,torque,modA,modB,cnstr_offset):
+         bodyUpA = chrono.CastToChBody(modA)
          nameA = bodyUpA.GetName()
-         bodyUpB = chrono.CastContactableToChBody(modB)
+         bodyUpB = chrono.CastToChBody(modB)
          nameB = bodyUpB.GetName()
          print ('  contact: point A=' , vA,  '  dist=', dist, 'first body:', nameA, 'second body:', nameB)
          return True        # return False to stop reporting contacts

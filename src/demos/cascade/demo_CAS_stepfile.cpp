@@ -14,15 +14,16 @@
 //
 //   - load a 3D model saved in STEP format from a CAD
 //   - select some sub assemblies from the STEP model
-//   - make Chrono::Engine objects out of those parts
+//   - make Chrono objects out of those parts
 // =============================================================================
 
 #include "chrono/core/ChRealtimeStep.h"
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/physics/ChBodyEasy.h"
-#include "chrono_cascade/ChCascadeBodyEasy.h"
+#include "chrono_cascade/ChBodyEasyCascade.h"
 #include "chrono_cascade/ChCascadeDoc.h"
 #include "chrono_cascade/ChVisualShapeCascade.h"
+#include "chrono/assets/ChVisualSystem.h"
 
 #ifdef CHRONO_IRRLICHT
     #include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
@@ -37,12 +38,23 @@ using namespace chrono::vsg3d;
 using namespace chrono;
 using namespace chrono::cascade;
 
-ChVisualSystem::Type vis_type = ChVisualSystem::Type::IRRLICHT;
+ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
 int main(int argc, char* argv[]) {
-    // Create a ChronoENGINE physical system: all bodies and constraints
+#if !defined(CHRONO_IRRLICHT) && !defined(CHRONO_VSG)
+    std::cerr << "Configure chrono with VSG or Irrlicht to run this example!" << std::endl;
+    return 1;
+#endif
+
+    // Check for valid visualization system
+    if(vis_type == ChVisualSystem::Type::NONE) {
+        std::cout << "Configure chrono with VSG or Irrlicht to run this example!" << std::endl;
+        return 1;
+    }
+    // Create a Chrono physical system: all bodies and constraints
     // will be handled by this ChSystemNSC object.
     ChSystemNSC sys;
+    sys.SetGravityY();
 
     //
     // Load a STEP file, containing a mechanism. The demo STEP file has been
@@ -54,7 +66,7 @@ int main(int argc, char* argv[]) {
     ChCascadeDoc mydoc;
 
     // load the STEP model using this command:
-    bool load_ok = mydoc.Load_STEP(GetChronoDataFile("cascade/assembly.stp").c_str());
+    bool load_ok = mydoc.LoadSTEP(GetChronoDataFile("cascade/assembly.stp").c_str());
     // or specify abs.path: ("C:\\data\\cascade\\assembly.stp");
 
     // print the contained shapes
@@ -76,14 +88,14 @@ int main(int argc, char* argv[]) {
     // the GetNamedShape() function, that can use path/subpath/subsubpath/part
     // syntax and * or ? wildcards, etc.
 
-    std::shared_ptr<ChCascadeBodyEasy> body1;
-    std::shared_ptr<ChCascadeBodyEasy> body2;
+    std::shared_ptr<ChBodyEasyCascade> body1;
+    std::shared_ptr<ChBodyEasyCascade> body2;
 
     if (load_ok) {
         TopoDS_Shape shape1;
         if (mydoc.GetNamedShape(shape1, "Assem1/body1")) {
-            // Create the ChBody using the ChCascadeBodyEasy helper:
-            body1 = chrono_types::make_shared<ChCascadeBodyEasy>(shape1,
+            // Create the ChBody using the ChBodyEasyCascade helper:
+            body1 = chrono_types::make_shared<ChBodyEasyCascade>(shape1,
                                                                  1000,  // density
                                                                  true,  // add a visualization
                                                                  false  // add a collision model
@@ -97,13 +109,13 @@ int main(int argc, char* argv[]) {
 
         TopoDS_Shape shape2;
         if (mydoc.GetNamedShape(shape2, "Assem1/body2")) {
-            // Create the ChBody using the ChCascadeBodyEasy helper (with more detailed visualization tesselation):
+            // Create the ChBody using the ChBodyEasyCascade helper (with more detailed visualization tessellation):
             auto vis_params = chrono_types::make_shared<ChCascadeTriangulate>(  //
                 0.02,                                                           // chordal deflection for triangulation
                 false,                                                          // chordal deflection is relative
                 0.5                                                             // angular deflection for triangulation
             );
-            body2 = chrono_types::make_shared<ChCascadeBodyEasy>(shape2,
+            body2 = chrono_types::make_shared<ChBodyEasyCascade>(shape2,
                                                                  1000,        // density
                                                                  vis_params,  // add a visualization
                                                                  false        // no collision model
@@ -140,6 +152,16 @@ int main(int argc, char* argv[]) {
 
     // Create the run-time visualization system
     std::shared_ptr<ChVisualSystem> vis;
+
+#ifndef CHRONO_IRRLICHT
+    if (vis_type == ChVisualSystem::Type::IRRLICHT)
+        vis_type = ChVisualSystem::Type::VSG;
+#endif
+#ifndef CHRONO_VSG
+    if (vis_type == ChVisualSystem::Type::VSG)
+        vis_type = ChVisualSystem::Type::IRRLICHT;
+#endif
+
     switch (vis_type) {
         case ChVisualSystem::Type::IRRLICHT: {
 #ifdef CHRONO_IRRLICHT

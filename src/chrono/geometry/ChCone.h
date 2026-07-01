@@ -23,6 +23,7 @@ namespace chrono {
 /// @{
 
 /// A conical geometric object for collisions and visualization.
+/// The cone is assumed to be aligned with the z axis of a frame with origin at the cone axis center.
 class ChApi ChCone : public ChVolume {
   public:
     ChCone() : r(0), h(0) {}
@@ -48,8 +49,8 @@ class ChApi ChCone : public ChVolume {
     /// Return the radius of a bounding sphere for this geometry.
     virtual double GetBoundingSphereRadius() const override;
 
-    /// Compute the baricenter of the cone.
-    virtual ChVector3d Baricenter() const override { return ChVector3d(); }
+    /// Compute the barycenter of the cone.
+    virtual ChVector3d Barycenter() const override { return ChVector3d(); }
 
     /// Evaluate position in box volume.
     virtual ChVector3d Evaluate(double parU, double parV, double parW) const override {
@@ -64,16 +65,16 @@ class ChApi ChCone : public ChVolume {
     double GetHeight() const { return h; }
 
     /// Return the volume of this type of solid with given dimensions.
-    static double GetVolume(double radius, double height);
+    static double CalcVolume(double radius, double height);
 
     /// Return the gyration matrix of this type of solid with given dimensions.
-    static ChMatrix33<> GetGyration(double radius, double height);
+    static ChMatrix33<> CalcGyration(double radius, double height);
 
     /// Return the bounding box of this type of solid with given dimensions.
-    static ChAABB GetBoundingBox(double radius, double height);
+    static ChAABB CalcBoundingBox(double radius, double height);
 
     /// Return the radius of a bounding sphere.
-    static double GetBoundingSphereRadius(double radius, double height);
+    static double CalcBoundingSphereRadius(double radius, double height);
 
     /// Method to allow serialization of transient data to archives.
     virtual void ArchiveOut(ChArchiveOut& archive_out) override;

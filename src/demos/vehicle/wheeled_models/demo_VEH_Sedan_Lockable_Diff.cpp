@@ -19,18 +19,16 @@
 //
 // =============================================================================
 
-#include "chrono/utils/ChUtilsInputOutput.h"
+#include "chrono/input_output/ChWriterCSV.h"
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
-#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
+
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
 
 #include "chrono_models/vehicle/sedan/Sedan.h"
 
-#include "chrono_thirdparty/filesystem/path.h"
-
 using namespace chrono;
-using namespace chrono::irrlicht;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::sedan;
 
@@ -91,30 +89,32 @@ int main(int argc, char* argv[]) {
     auto patch2 = terrain.AddPatch(patch2_mat, ChCoordsys<>(ChVector3d(0, +25, 0), QUNIT), 100, 50);
 
     patch1->SetColor(ChColor(0.8f, 0.8f, 0.5f));
-    patch1->SetTexture(vehicle::GetDataFile("terrain/textures/dirt.jpg"), 200, 50);
+    patch1->SetTexture(GetVehicleDataFile("terrain/textures/dirt.jpg"), 200, 50);
 
     patch2->SetColor(ChColor(0.5f, 0.5f, 0.8f));
-    patch2->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 50);
+    patch2->SetTexture(GetVehicleDataFile("terrain/textures/tile4.jpg"), 200, 50);
 
     terrain.Initialize();
 
-    // Create the vehicle Irrlicht interface
-    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
+    // Create the vehicle run-time interface
+    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
+    vis->AttachVehicle(&sedan.GetVehicle());
     vis->SetWindowTitle("Sedan Demo Locked Diff");
+    vis->SetWindowSize(1280, 800);
+    vis->EnableSkyTexture(SkyMode::DOME);
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->EnableShadows();
     vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.5), 4.0, 0.5);
     vis->Initialize();
-    vis->AddLightDirectional();
-    vis->AddSkyBox();
-    vis->AddLogo();
-    vis->AttachVehicle(&sedan.GetVehicle());
 
     // Initialize output
     const std::string out_dir = GetChronoOutputPath() + "SEDAN";
-    if (!filesystem::create_directory(filesystem::path(out_dir))) {
+    if (!CreateOutputDirectory(std::filesystem::path(out_dir))) {
         std::cout << "Error creating directory " << out_dir << std::endl;
         return 1;
     }
-    utils::ChWriterCSV wheelomega_csv("\t");
+    ChWriterCSV wheelomega_csv("\t");
 
     // Simulation loop
     while (vis->Run()) {

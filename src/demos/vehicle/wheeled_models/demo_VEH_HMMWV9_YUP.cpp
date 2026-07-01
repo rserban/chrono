@@ -20,23 +20,20 @@
 #include "chrono/utils/ChFilters.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/ChWorldFrame.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
-#include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
+#include "chrono_vehicle/driver/ChInteractiveDriver.h"
 #include "chrono_vehicle/driver/ChPathFollowerDriver.h"
 #include "chrono_vehicle/utils/ChVehiclePath.h"
 
-#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
 
 #include "chrono_models/vehicle/hmmwv/HMMWV.h"
-
-#include "chrono_thirdparty/filesystem/path.h"
 
 #define USE_PATH_FOLLOWER
 
 using namespace chrono;
-using namespace chrono::irrlicht;
 using namespace chrono::vehicle;
 using namespace chrono::vehicle::hmmwv;
 
@@ -112,19 +109,21 @@ int main(int argc, char* argv[]) {
     auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(ChVector3d(0, terrainHeight, 0), QuatFromAngleX(-CH_PI_2)),
                                   terrainLength, terrainWidth);
     patch->SetColor(ChColor(0.8f, 0.8f, 0.5f));
-    patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
+    patch->SetTexture(GetVehicleDataFile("terrain/textures/tile4.jpg"), 200, 200);
 
     ////// "Mesh" patch (mesh assumed to be defined in a Y up frame)
-    ////auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(), vehicle::GetDataFile("terrain/meshes/bump_YUP.obj"),
+    ////auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(), GetVehicleDataFile("terrain/meshes/bump_YUP.obj"),
     ////                              "ground", 0.005);
-    ////patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
+    ////patch->SetTexture(GetVehicleDataFile("terrain/textures/tile4.jpg"), 200, 200);
 
     ////// "Height-field map" patch (extents are in the forward and lateral directions of the world frame)
-    ////auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(), vehicle::GetDataFile("terrain/height_maps/bump64.bmp"),
+    ////auto patch = terrain.AddPatch(patch_mat, ChCoordsys<>(), GetVehicleDataFile("terrain/height_maps/bump64.bmp"),
     ////                              "field_mesh", 64.0, 64.0, 0.0, 3.0);
-    ////patch->SetTexture(vehicle::GetDataFile("terrain/textures/grass.jpg"), 6.0f, 6.0f);
+    ////patch->SetTexture(GetVehicleDataFile("terrain/textures/grass.jpg"), 6.0f, 6.0f);
 
     terrain.Initialize();
+
+    ChVector3d grid_center = VNULL;
 
 #ifdef USE_PATH_FOLLOWER
     // Path follower driver
@@ -139,24 +138,36 @@ int main(int argc, char* argv[]) {
     };
     auto path = chrono_types::make_shared<ChBezierCurve>(points, true);
 
+    grid_center = initLoc + ChVector3d(10, 0, 10);
+    grid_center.y() = 0.01;
+
     ChPathFollowerDriver driver(hmmwv.GetVehicle(), path, "my_path", 10);
     driver.GetSteeringController().SetLookAheadDistance(5);
     driver.GetSteeringController().SetGains(0.8, 0, 0);
     driver.GetSpeedController().SetGains(0.4, 0, 0);
     driver.Initialize();
+#elif
+    // Interactive driver
+    ChInteractiveDriver driver(hmmwv.GetVehicle());
+    driver.SetSteeringDelta(0.06);
+    driver.SetThrottleDelta(0.02);
+    driver.SetBrakingDelta(0.06);
+    driver.Initialize();
 #endif
 
-    // Vehicle Irrlicht run-time visualization
-    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
+    // Vehicle run-time visualization
+    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
+    vis->AttachVehicle(&hmmwv.GetVehicle());
+    vis->AttachDriver(&driver);
     vis->SetWindowTitle("HMMWV-9 YUP Demo");
+    vis->SetWindowSize(1280, 800);
     vis->SetCameraVertical(CameraVerticalDir::Y);
     vis->SetChaseCamera(ChVector3d(0.0, 0.0, 1.75), 6.0, 0.5);
-    vis->Initialize();
-    vis->AddLightDirectional(-60, 300);
-    vis->AddSkyBox();
-    vis->AddLogo();
-    vis->AddGrid(1.0, 1.0, 20, 20, ChCoordsys<>(ChVector3d(0, 0.01, 0), ChWorldFrame::Quaternion()), ChColor(1, 0, 0));
-    vis->AttachVehicle(&hmmwv.GetVehicle());
+    vis->EnableSkyTexture(SkyMode::DOME);
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->EnableShadows();
+    vis->AddGrid(1.0, 1.0, 20, 20, ChCoordsys<>(grid_center, ChWorldFrame::Quaternion()), ChColor(0.1f, 0.1f, 0.5f));
 
 #ifdef USE_PATH_FOLLOWER
     // Visualization of controller points (sentinel & target)
@@ -166,14 +177,9 @@ int main(int argc, char* argv[]) {
     ballT->SetColor(ChColor(0, 1, 0));
     int iballS = vis->AddVisualModel(ballS, ChFrame<>());
     int iballT = vis->AddVisualModel(ballT, ChFrame<>());
-#elif
-    // Interactive driver
-    ChInteractiveDriverIRR driver(*vis);
-    driver.SetSteeringDelta(0.06);
-    driver.SetThrottleDelta(0.02);
-    driver.SetBrakingDelta(0.06);
-    driver.Initialize();
 #endif
+
+    vis->Initialize();
 
     // ---------------
     // Simulation loop
@@ -188,15 +194,14 @@ int main(int argc, char* argv[]) {
     while (vis->Run()) {
         double time = hmmwv.GetSystem()->GetChTime();
 
-#ifdef USE_PATH_FOLLOWER
-        vis->UpdateVisualModel(iballS, ChFrame<>(driver.GetSteeringController().GetSentinelLocation()));
-        vis->UpdateVisualModel(iballT, ChFrame<>(driver.GetSteeringController().GetTargetLocation()));
-#endif
-
         if (step_number % render_steps == 0) {
+#ifdef USE_PATH_FOLLOWER
+            vis->UpdateVisualModel(iballS, ChFrame<>(driver.GetSteeringController().GetSentinelLocation()));
+            vis->UpdateVisualModel(iballT, ChFrame<>(driver.GetSteeringController().GetTargetLocation()));
+#endif
             vis->BeginScene();
             vis->Render();
-            vis->RenderFrame(ChFrame<>(), 10);
+            // vis->RenderFrame(ChFrame<>(), 10);
             vis->EndScene();
         }
 

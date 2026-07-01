@@ -22,22 +22,12 @@
 #include "chrono/physics/ChSystemNSC.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 
 #include "chrono_models/vehicle/generic/Generic_Vehicle.h"
 
-#ifdef CHRONO_IRRLICHT
-    #include "chrono_vehicle/driver/ChInteractiveDriverIRR.h"
-    #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemIrrlicht.h"
-using namespace chrono::irrlicht;
-#endif
-
-#ifdef CHRONO_VSG
-    #include "chrono_vehicle/driver/ChInteractiveDriverVSG.h"
-    #include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
-using namespace chrono::vsg3d;
-#endif
+#include "chrono_vehicle/wheeled_vehicle/ChWheeledVehicleVisualSystemVSG.h"
 
 using namespace chrono;
 using namespace chrono::vehicle;
@@ -45,14 +35,8 @@ using namespace chrono::vehicle::generic;
 
 // =============================================================================
 
-////std::vector<SuspensionTypeWV> suspension_types_front = {SuspensionTypeWV::DOUBLE_WISHBONE,
-////                                                        SuspensionTypeWV::MACPHERSON_STRUT};
-std::vector<SuspensionTypeWV> suspension_types_front = {SuspensionTypeWV::DOUBLE_WISHBONE,
-                                                        SuspensionTypeWV::MACPHERSON_STRUT};
-
-////std::vector<SuspensionTypeWV> suspension_types_rear = {SuspensionTypeWV::RIGID_SUSPENSION};
-std::vector<SuspensionTypeWV> suspension_types_rear = {SuspensionTypeWV::DOUBLE_WISHBONE_REDUCED,
-                                                       SuspensionTypeWV::MULTI_LINK};
+std::vector<SuspensionTypeWV> suspension_types_front = {SuspensionTypeWV::DOUBLE_WISHBONE, SuspensionTypeWV::MACPHERSON_STRUT};
+std::vector<SuspensionTypeWV> suspension_types_rear = {SuspensionTypeWV::DOUBLE_WISHBONE_REDUCED, SuspensionTypeWV::MULTI_LINK};
 
 SteeringTypeWV steering_type = SteeringTypeWV::PITMAN_ARM;
 BrakeType brake_type = BrakeType::SHAFTS;
@@ -64,9 +48,6 @@ TransmissionModelType transmission_type = TransmissionModelType::AUTOMATIC_SHAFT
 TireModelType tire_type = TireModelType::PAC02;
 
 // =============================================================================
-
-// Run-time visualization system (IRRLICHT or VSG)
-ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
 // Simulation step size
 double step_size = 1e-3;
@@ -81,8 +62,7 @@ double t_end = 20;
 
 class Driver : public ChDriver {
   public:
-    Driver(ChVehicle& vehicle, double frequency, double delay)
-        : ChDriver(vehicle), m_frequency(frequency), m_delay(delay) {}
+    Driver(ChVehicle& vehicle, double frequency, double delay) : ChDriver(vehicle), m_frequency(frequency), m_delay(delay) {}
     ~Driver() {}
 
     virtual void Synchronize(double time) override {
@@ -112,35 +92,32 @@ class Driver : public ChDriver {
 
 // =============================================================================
 
-Generic_Vehicle CreateVehicle(ChSystem& sys,
-                              ChVector3d location,
-                              SuspensionTypeWV suspension_type_front,
-                              SuspensionTypeWV suspension_type_rear) {
+std::shared_ptr<Generic_Vehicle> CreateVehicle(ChSystem& sys, ChVector3d location, SuspensionTypeWV suspension_type_front, SuspensionTypeWV suspension_type_rear) {
     // Construct vehicle
-    Generic_Vehicle vehicle(&sys,                   // containing system
-                            false,                  // fixed chassis
-                            suspension_type_front,  // front suspension type
-                            suspension_type_rear,   // rear suspension type
-                            steering_type,          // sterring mechanism type
-                            driveline_type,         // driveline type
-                            brake_type,             // brake type
-                            false,                  // use bodies to model tierods
-                            false                   // include an antiroll bar
+    auto vehicle = chrono_types::make_shared<Generic_Vehicle>(&sys,                   // containing system
+                                                              false,                  // fixed chassis
+                                                              suspension_type_front,  // front suspension type
+                                                              suspension_type_rear,   // rear suspension type
+                                                              steering_type,          // sterring mechanism type
+                                                              driveline_type,         // driveline type
+                                                              brake_type,             // brake type
+                                                              false,                  // use bodies to model tierods
+                                                              false                   // include an antiroll bar
     );
 
     // Initialize vehicle
-    vehicle.Initialize(ChCoordsys<>(location, QUNIT));
+    vehicle->Initialize(ChCoordsys<>(location, QUNIT));
 
-    vehicle.SetChassisVisualizationType(VisualizationType::NONE);
-    vehicle.SetSuspensionVisualizationType(VisualizationType::PRIMITIVES);
-    vehicle.SetSteeringVisualizationType(VisualizationType::PRIMITIVES);
-    vehicle.SetWheelVisualizationType(VisualizationType::NONE);
+    vehicle->SetChassisVisualizationType(VisualizationType::NONE);
+    vehicle->SetSuspensionVisualizationType(VisualizationType::PRIMITIVES);
+    vehicle->SetSteeringVisualizationType(VisualizationType::PRIMITIVES);
+    vehicle->SetWheelVisualizationType(VisualizationType::NONE);
 
     // Create and initialize the powertrain system
-    vehicle.CreateAndInitializePowertrain(engine_type, transmission_type);
+    vehicle->CreateAndInitializePowertrain(engine_type, transmission_type);
 
     // Create and initialize the tires
-    vehicle.CreateAndInitializeTires(tire_type, VisualizationType::PRIMITIVES);
+    vehicle->CreateAndInitializeTires(tire_type, VisualizationType::PRIMITIVES);
 
     return vehicle;
 }
@@ -171,7 +148,7 @@ int main(int argc, char* argv[]) {
     auto x_num = suspension_types_rear.size();
     auto y_num = suspension_types_front.size();
 
-    std::vector<Generic_Vehicle> vehicles;
+    std::vector<std::shared_ptr<Generic_Vehicle>> vehicles;
     auto i_ego = y_num / 2;
 
     for (int ix = 0; ix < x_num; ix++) {
@@ -185,7 +162,7 @@ int main(int argc, char* argv[]) {
     // Create a vehicle driver
     // -----------------------
 
-    Driver driver(vehicles[0], 0.25, 1.0);
+    Driver driver(*vehicles[0], 0.25, 1.0);
 
     // ----------------------
     // Create a rigid terrain
@@ -205,66 +182,27 @@ int main(int argc, char* argv[]) {
                                   ChCoordsys<>(ChVector3d(terrain_x, terrain_y, 0), QUNIT),  //
                                   terrain_size_x, terrain_size_y);
     patch->SetColor(ChColor(0.5f, 0.8f, 0.5f));
-    patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
+    patch->SetTexture(GetVehicleDataFile("terrain/textures/tile4.jpg"), 200, 200);
     terrain.Initialize();
 
     // ---------------------------------
     // Create the run-time visualization
     // ---------------------------------
 
-#ifndef CHRONO_IRRLICHT
-    if (vis_type == ChVisualSystem::Type::IRRLICHT)
-        vis_type = ChVisualSystem::Type::VSG;
-#endif
-#ifndef CHRONO_VSG
-    if (vis_type == ChVisualSystem::Type::VSG)
-        vis_type = ChVisualSystem::Type::IRRLICHT;
-#endif
-
-    std::shared_ptr<ChVehicleVisualSystem> vis;
-    switch (vis_type) {
-        case ChVisualSystem::Type::IRRLICHT: {
-#ifdef CHRONO_IRRLICHT
-            // Create the vehicle Irrlicht interface
-            auto vis_irr = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
-            vis_irr->SetWindowTitle("Generic Vehicles");
-            vis_irr->SetChaseCamera(VNULL, 6.0, 1.5);
-            ////vis_irr->SetChaseCameraState(utils::ChChaseCamera::Track);
-            ////vis_irr->SetChaseCameraPosition(ChVector3d(-6, terrain_y, 3.0));
-            vis_irr->Initialize();
-            vis_irr->AddLightDirectional();
-            vis_irr->AddSkyBox();
-            vis_irr->AddLogo();
-            vis_irr->AttachVehicle(&vehicles[i_ego]);
-
-            vis = vis_irr;
-#endif
-            break;
-        }
-        default:
-        case ChVisualSystem::Type::VSG: {
-#ifdef CHRONO_VSG
-            // Create the vehicle VSG interface
-            auto vis_vsg = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
-            vis_vsg->SetWindowTitle("Generic Vehicles");
-            vis_vsg->SetWindowSize(ChVector2i(1200, 900));
-            vis_vsg->SetWindowPosition(ChVector2i(100, 300));
-            vis_vsg->AttachVehicle(&vehicles[i_ego]);
-            vis_vsg->SetChaseCamera(VNULL, 8.0, 1.5);
-            ////vis_vsg->SetChaseCameraState(utils::ChChaseCamera::Track);
-            ////vis_vsg->SetChaseCameraPosition(ChVector3d(-6, terrain_y, 3.0));
-            vis_vsg->SetUseSkyBox(true);
-            vis_vsg->SetCameraAngleDeg(40);
-            vis_vsg->SetLightIntensity(1.0f);
-            vis_vsg->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
-            vis_vsg->SetShadows(true);
-            vis_vsg->Initialize();
-
-            vis = vis_vsg;
-#endif
-            break;
-        }
-    }
+    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemVSG>();
+    vis->SetWindowTitle("Generic Vehicles");
+    vis->SetWindowSize(1280, 800);
+    vis->SetWindowPosition(100, 100);
+    vis->AttachVehicle(vehicles[i_ego].get());
+    vis->SetChaseCamera(VNULL, 8.0, 1.5);
+    ////vis->SetChaseCameraState(utils::ChChaseCamera::Track);
+    ////vis->SetChaseCameraPosition(ChVector3d(-6, terrain_y, 3.0));
+    vis->EnableSkyTexture(SkyMode::DOME);
+    vis->SetCameraAngleDeg(40);
+    vis->SetLightIntensity(1.0f);
+    vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
+    vis->EnableShadows();
+    vis->Initialize();
 
     // ---------------
     // Simulation loop
@@ -273,7 +211,7 @@ int main(int argc, char* argv[]) {
     int render_frame = 0;
 
     for (auto& vehicle : vehicles)
-        vehicle.EnableRealtime(true);
+        vehicle->EnableRealtime(true);
 
     while (true) {
         double time = sys.GetChTime();
@@ -281,7 +219,7 @@ int main(int argc, char* argv[]) {
         // Stop simulation when vehicles reach the end of the terrain patch
         bool done = false;
         for (const auto& vehicle : vehicles) {
-            if (vehicle.GetPos().x() > terrain_size_x - 10)
+            if (vehicle->GetPos().x() > terrain_size_x - 10)
                 done = true;
         }
         if (done)
@@ -308,7 +246,7 @@ int main(int argc, char* argv[]) {
         driver.Synchronize(time);
         terrain.Synchronize(time);
         for (auto& vehicle : vehicles)
-            vehicle.Synchronize(time, driver_inputs, terrain);
+            vehicle->Synchronize(time, driver_inputs, terrain);
         if (vis)
             vis->Synchronize(time, driver_inputs);
 
@@ -316,7 +254,7 @@ int main(int argc, char* argv[]) {
         driver.Advance(step_size);
         terrain.Advance(step_size);
         for (auto& vehicle : vehicles)
-            vehicle.Advance(step_size);
+            vehicle->Advance(step_size);
         if (vis)
             vis->Advance(step_size);
 

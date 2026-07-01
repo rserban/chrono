@@ -16,6 +16,7 @@
 #define CH_COLLISION_SHAPE
 
 #include "chrono/core/ChApiCE.h"
+#include "chrono/geometry/ChGeometry.h"
 #include "chrono/physics/ChContactMaterial.h"
 
 namespace chrono {
@@ -37,8 +38,9 @@ class ChApi ChCollisionShape {
         TRIANGLEMESH,  // triangle mesh (compound object)
         BARREL,        // Not supported in Chrono collision system
         POINT,
-        TRIANGLE,      // stand-alone collision triangle
-        MESHTRIANGLE,  // triangle in a connected mesh
+        SEGMENT,
+        TRIANGLE,           // stand-alone collision triangle
+        CONNECTEDTRIANGLE,  // triangle in a connected mesh
         CAPSULE,
         CONE,         // Not implemented in Bullet collision system
         ROUNDEDBOX,   // Not implemented in Bullet collision system
@@ -46,7 +48,7 @@ class ChApi ChCollisionShape {
         TETRAHEDRON,  // Not implemented in Bullet collision system
         PATH2D,       // 2D path (compound object)
         SEGMENT2D,    // line segment (part of a 2D path)
-        ARC2D,        // circlular arc (part of a 2D path)
+        ARC2D,        // circular arc (part of a 2D path)
         UNKNOWN_SHAPE
     };
 
@@ -59,6 +61,28 @@ class ChApi ChCollisionShape {
     std::shared_ptr<ChContactMaterial> GetMaterial() const { return m_material; }
     ChContactMethod GetContactMethod() const { return m_material->GetContactMethod(); }
 
+    /// Get the shape bounding box.
+    /// The default implementation returns an inverted AABB.
+    virtual ChAABB GetBoundingBox() const { return ChAABB(); }
+
+    /// Set this collision shape as modifiable (default: false).
+    /// Set to true to indicate that the asset may change and therefore requires updates (e.g. for a deformable
+    /// triangular mesh). Note that this also includes changes in materials.
+    /// A collision system may take advantage of this setting to accelerate rendering.
+    void SetMutable(bool val) { is_mutable = val; }
+
+    /// Return true if the collision shape is marked as modifiable.
+    bool IsMutable() const { return is_mutable; }
+
+    /// Set the parent shape.
+    /// This is meaningful only for collision shapes that are part of a compound (for example, a ChCollisionShapeConnectedTriangle which is part of a ChCollisionShapeTriangleMesh).
+    /// For collision shapes that are not part of a compound, the parent shape should be left at its default `nullptr` value.
+    void SetParentShape(std::shared_ptr<ChCollisionShape> parent);
+
+    /// Get the parent shape.
+    /// Returns `nullptr` is this collision shape is not part of a compound.
+    ChCollisionShape* GetParentShape() const { return m_parent; }
+
     /// Method to allow serialization of transient data to archives.
     virtual void ArchiveOut(ChArchiveOut& archive_out);
 
@@ -66,8 +90,10 @@ class ChApi ChCollisionShape {
     virtual void ArchiveIn(ChArchiveIn& archive_in);
 
   protected:
-    Type m_type;                                    ///< type of collision shape
-    std::shared_ptr<ChContactMaterial> m_material;  ///< surface contact material
+    Type m_type;                                              ///< type of collision shape
+    bool is_mutable = false;                                  ///< flag indicating whether the shape is rigid or deformable
+    std::shared_ptr<ChContactMaterial> m_material = nullptr;  ///< surface contact material
+    ChCollisionShape* m_parent = nullptr;                     ///< parent collision shape (if part of compound)
 
     friend class ChCollisionModel;
 };

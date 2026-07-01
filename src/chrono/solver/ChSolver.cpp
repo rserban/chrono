@@ -39,6 +39,8 @@ class ChSolver_Type_enum_mapper : public ChSolver {
     CH_ENUM_MAPPER_END(Type);
 };
 
+ChSolver::ChSolver() : conditioning_factor(1), verbose(false), write_matrix(false), output_dir(""), frame_id("") {}
+
 void ChSolver::EnableWrite(bool val, const std::string& frame, const std::string& out_dir) {
     write_matrix = val;
     output_dir = out_dir;
@@ -65,6 +67,43 @@ void ChSolver::ArchiveIn(ChArchiveIn& archive_in) {
     archive_in >> CHNVP(typemapper(type), "solver_type");
     // stream in all member data:
     archive_in >> CHNVP(verbose);
+}
+
+std::string ChSolver::GetTypeAsString(Type type) {
+    switch (type) {
+        case Type::PSOR:
+            return "PSOR";
+        case Type::PSSOR:
+            return "PSSOR";
+        case Type::PJACOBI:
+            return "PJACOBI";
+        case Type::PMINRES:
+            return "PMINRES";
+        case Type::BARZILAIBORWEIN:
+            return "BARZILAIBORWEIN";
+        case Type::APGD:
+            return "APGD";
+        case Type::ADMM:
+            return "ADMM";
+        case Type::SPARSE_LU:
+            return "SPARSE_LU";
+        case Type::SPARSE_QR:
+            return "SPARSE_QR";
+        case Type::PARDISO_MKL:
+            return "PARDISO_MKL";
+        case Type::MUMPS:
+            return "MUMPS";
+        case Type::GMRES:
+            return "GMRES";
+        case Type::MINRES:
+            return "MINRES";
+        case Type::BICGSTAB:
+            return "BICGSTAB";
+        case Type::CUSTOM:
+            return "CUSTOM";
+    }
+
+    return "UNKNOWN";
 }
 
 }  // end namespace chrono

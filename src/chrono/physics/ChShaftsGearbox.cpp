@@ -66,9 +66,9 @@ bool ChShaftsGearbox::Initialize(std::shared_ptr<ChShaft> shaft_1,    // first (
     return true;
 }
 
-void ChShaftsGearbox::Update(double mytime, bool update_assets) {
+void ChShaftsGearbox::Update(double time, UpdateFlags update_flags) {
     // Inherit time changes of parent class
-    ChPhysicsItem::Update(mytime, update_assets);
+    ChPhysicsItem::Update(time, update_flags);
 
     // update class data
     // ...
@@ -92,6 +92,7 @@ void ChShaftsGearbox::IntLoadResidual_CqL(const unsigned int off_L,
 void ChShaftsGearbox::IntLoadConstraint_C(const unsigned int off_L,
                                           ChVectorDynamic<>& Qc,
                                           const double c,
+                                          const double c_vel,  
                                           bool do_clamp,
                                           double recovery_clamp) {
     double res = 0;  // no residual anyway! allow drifting...
