@@ -80,13 +80,13 @@ WVP_DoubleWishboneRear::WVP_DoubleWishboneRear(const std::string& name) : ChDoub
         {0.0250, 13950}, {0.0255, 17100}, {0.0260, 21150}, {0.0265, 26100}, {0.0270, 31050}};
     const std::vector<std::pair<double, double>> data_jounce{{0.0000, 0},    {0.0010, 2000}, {0.0020, 4000},
                                                              {0.0030, 6000}, {0.0040, 8000}, {0.0050, 10000}};
-    m_springForceCB = chrono_types::make_shared<LinearSpringForce>(m_springCoefficient);
-    auto force = std::static_pointer_cast<SpringForce>(m_springForceCB);
+    m_springForceCB = chrono_types::make_shared<utils::LinearSpringForce>(m_springCoefficient);
+    auto force = std::static_pointer_cast<utils::SpringForce>(m_springForceCB);
 
     force->set_stops(data_bump, data_jounce);
     force->enable_stops(m_springMinLength, m_springMaxLength);
     // m_shockForceCB = chrono_types::make_shared<LinearDamperForce>(m_dampingCoefficient); simple linear = unrealistic
-    m_shockForceCB = chrono_types::make_shared<DegressiveDamperForce>(
+    m_shockForceCB = chrono_types::make_shared<utils::DegressiveDamperForce>(
         m_damperCoefCompression, m_damperDegresCompression, m_damperCoefExpansion, m_damperDegresExpansion);
 }
 

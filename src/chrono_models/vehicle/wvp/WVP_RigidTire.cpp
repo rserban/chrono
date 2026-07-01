@@ -18,7 +18,7 @@
 
 #include <algorithm>
 
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 #include "chrono_models/vehicle/wvp/WVP_RigidTire.h"
 
 namespace chrono {
@@ -41,7 +41,7 @@ const std::string WVP_RigidTire::m_meshFile = "wvp/tire/WVP_Tire.obj";
 // -----------------------------------------------------------------------------
 WVP_RigidTire::WVP_RigidTire(const std::string& name, bool use_mesh) : ChRigidTire(name) {
     if (use_mesh) {
-        SetMeshFilename(GetDataFile("sedan/tire.obj"), 0.005);
+        SetContactMesh(GetVehicleDataFile("sedan/tire.obj"), 0.005);
     }
 }
 

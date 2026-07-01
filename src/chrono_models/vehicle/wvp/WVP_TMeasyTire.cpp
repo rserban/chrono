@@ -20,7 +20,7 @@
 #include <cmath>
 
 #include "chrono_models/vehicle/wvp/WVP_TMeasyTire.h"
-#include "chrono_vehicle/ChVehicleModelData.h"
+#include "chrono_vehicle/ChVehicleDataPath.h"
 
 namespace chrono {
 namespace vehicle {
@@ -58,8 +58,8 @@ void WVP_TMeasyTire::SetTMeasyParams() {
                       w,        // tire width [m]
                       r,        // aspect ratio []
                       rimdia,   // rim diameter [m],
-                      pres_li,  // infl. pressure for load index
-                      pres_use  // infl. pressure for usage
+                      pres_li,  // inflation pressure for load index
+                      pres_use  // inflation pressure for usage
     );
 }
 
