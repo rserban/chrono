@@ -30,6 +30,10 @@
     #include "chrono_vehicle/terrain/CRMTerrain.h"
 #endif
 
+#include "chrono_vsg/ChVisualSystemVSG.h"
+
+#include "chrono_parsers/urdf/ChParserURDFVisualizationVSG.h"
+
 #ifdef CHRONO_FSI_SPH
     #include "chrono_fsi/sph/visualization/ChSphVisualizationVSG.h"
 #endif
@@ -185,7 +189,7 @@ static std::shared_ptr<vehicle::CRMTerrain> CreateTerrainCRM(ChSystem& sys, Robo
     for (const auto& wheel : rs.GetWheelBodies())
         terrain->AddRigidBody(wheel, rs.GetWheelGeometry(), false);
 
-    terrain->SetActiveDomain(1.25 * ChVector3d(rs.GetWheelRadius()));
+    terrain->SetActiveDomain(1.25 * ChVector3d(2 * rs.GetWheelRadius()));
 
     // Initialize the CRM terrain
     terrain->Initialize();
@@ -257,14 +261,18 @@ static void Simulate(ChSystem& sys, RoboSimianURDF& rs, TerrainType terrain_type
     auto camera_lookat = rs.GetTorsoBody()->GetPos();
     auto camera_loc = camera_lookat + ChVector3d(3, 3, 0);
 
+    auto visURDF = chrono_types::make_shared<parsers::ChParserURDFVisualizationVSG>(rs.GetURDF());
+
     auto vis = chrono_types::make_shared<vsg3d::ChVisualSystemVSG>();
     vis->AttachSystem(&sys);
+    vis->AttachPlugin(visURDF);
     vis->SetCameraVertical(CameraVerticalDir::Z);
     vis->SetWindowTitle("RoboSimian - " + LocomotionModeAsString(rs.GetLocomotionMode()) + " - " + TerrainTypeString(terrain_type));
     vis->AddCamera(camera_loc, camera_lookat);
     vis->SetWindowSize(1280, 800);
     vis->SetWindowPosition(100, 100);
-    vis->SetBackgroundColor(ChColor(0.455f, 0.525f, 0.640f));
+    vis->EnableSkyTexture();
+    ////vis->SetBackgroundColor(ChColor(0.455f, 0.525f, 0.640f));
     vis->SetCameraAngleDeg(40.0);
     vis->SetLightIntensity(1.0f);
     vis->SetLightDirection(1.5 * CH_PI_2, CH_PI_4);
@@ -382,7 +390,7 @@ int main(int argc, char* argv[]) {
     ////SimulateSimulateToStartPose(sys, rs);
 
     // Simulate from checkpoint on specified terrain type
-    Simulate(sys, rs, TerrainType::CRM);
+    Simulate(sys, rs, TerrainType::RIGID);
 
     return 0;
 }
