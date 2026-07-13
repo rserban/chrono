@@ -301,7 +301,7 @@ std::shared_ptr<ChMesh> CreateANCFCable(ChSystem& sysMBS, double x, int n) {
     double density = 8000;
     double BeamRayleighDamping = 0.1;
 
-    auto section = chrono_types::make_shared<ChBeamSectionCable>();
+    auto section = chrono_types::make_shared<ChBeamSectionCableANCF>();
     section->SetDiameter(section_dim);
     section->SetYoungModulus(E);
     section->SetDensity(density);

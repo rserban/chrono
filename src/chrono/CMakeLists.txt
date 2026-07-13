@@ -475,6 +475,7 @@ set(Chrono_fea_materials_HEADERS
     fea/ChContinuumPoisson3D.h
     fea/ChContinuumThermal.h
     fea/ChContinuumElectrostatics.h
+    fea/ChMaterialFEA.h
     fea/ChMaterialBeamANCF.h
     fea/ChMaterialShellANCF.h
     fea/ChMaterialHexaANCF.h
@@ -490,7 +491,7 @@ set(Chrono_fea_sections_SOURCES
     fea/ChBeamSectionEuler.cpp
     fea/ChBeamSectionTaperedTimoshenko.cpp
     fea/ChBeamSectionTaperedTimoshenkoFPM.cpp
-    fea/ChBeamSectionCable.cpp
+    fea/ChBeamSectionCableANCF.cpp
     )
 set(Chrono_fea_sections_HEADERS
     fea/ChBeamSection.h
@@ -499,7 +500,7 @@ set(Chrono_fea_sections_HEADERS
     fea/ChBeamSectionEuler.h
     fea/ChBeamSectionTaperedTimoshenko.h
     fea/ChBeamSectionTaperedTimoshenkoFPM.h
-    fea/ChBeamSectionCable.h
+    fea/ChBeamSectionCableANCF.h
     )
 source_group(fea\\sections FILES ${Chrono_fea_sections_SOURCES} ${Chrono_fea_sections_HEADERS})
 

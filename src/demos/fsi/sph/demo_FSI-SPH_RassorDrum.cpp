@@ -41,34 +41,33 @@
     #include "chrono_fsi/sph/visualization/ChSphVisualizationVSG.h"
 #endif
 
-// Chrono namespaces
 using namespace chrono;
 using namespace chrono::fsi;
 using namespace chrono::fsi::sph;
 
-// Physical properties of terrain particles
+// Soil density
 double density = 1700;
-double slope_angle;  // Terrain slope
+
+// Terrain slope
+double slope_angle;
 
 // Dimension of the terrain container
 double smalldis = 1.0e-9;
-// double bxDim = 5.0 + smalldis;
 double bxDim = 2.0 + smalldis;
 double byDim = 0.5 + smalldis;  // byDim depending on the wheel width
 double bzDim = 0.1 + smalldis;
 
-// Size of the wheel
+// Wheel radius
 double wheel_radius = 0.2;
-double wheel_wide = 0.205;
 
+// Wheel slip
 double wheel_slip = 0.0;
 
-// Initial Position of wheel
+// Wheel initial state
 ChVector3d wheel_IniPos(-bxDim / 2 + wheel_radius * 1.2, 0.0, wheel_radius + bzDim / 2.0);
-// ChVector<> wheel_IniVel(0.0, 0.0, -5.0f);
 ChVector3d wheel_IniVel(0.0, 0.0, 0.0f);
 
-// linear actuator and angular actuator
+// Linear and angular actuators
 auto actuator = chrono_types::make_shared<ChLinkLockLinActuator>();
 auto motor = chrono_types::make_shared<ChLinkMotorRotationAngle>();
 
@@ -86,6 +85,7 @@ std::string drum_BCE_csvfile = "robot/rassor/bce/single_drum.csv";
 void CreateSolidPhase(ChFsiSystemSPH& sysFSI, double wheel_vel, double wheel_AngVel, double total_mass) {
     ChFsiFluidSystemSPH& sysSPH = sysFSI.GetFluidSystemSPH();
     ChSystem& sysMBS = sysFSI.GetMultibodySystem();
+
     // Common contact material
     auto cmaterial = chrono_types::make_shared<ChContactMaterialSMC>();
     cmaterial->SetYoungModulus(1e8);
@@ -144,7 +144,7 @@ void CreateSolidPhase(ChFsiSystemSPH& sysFSI, double wheel_vel, double wheel_Ang
     std::cout << "principal inertia: " << std::endl;
     std::cout << mdensity * principal_I << std::endl;
     drum->SetPosDt(wheel_IniVel);
-    drum->SetAngVelLocal(ChVector3d(0.0, 0.0, 0.0));  // set an initial anular velocity (rad/s)
+    drum->SetAngVelLocal(ChVector3d(0.0, 0.0, 0.0));  // set an initial angular velocity (rad/s)
 
     // Set the absolute position of the body:
     drum->SetFrameRefToAbs(ChFrame<>(ChVector3d(wheel_IniPos), ChQuaternion<>(wheel_Rot)));
@@ -172,7 +172,7 @@ void CreateSolidPhase(ChFsiSystemSPH& sysFSI, double wheel_vel, double wheel_Ang
     // Now add the drum to the FSI system
     sysFSI.AddFsiBody(drum, BCE_drum, ChFrame<>(), true);
 
-    std::cout << "Added " << BCE_drum.size() << " BCE particles for rassor wheel" << std::endl;
+    std::cout << "Added " << BCE_drum.size() << " BCE particles for Rassor wheel" << std::endl;
 
     // Create the chassis -- always THIRD body in the system
     auto chassis = chrono_types::make_shared<ChBody>();
@@ -190,9 +190,6 @@ void CreateSolidPhase(ChFsiSystemSPH& sysFSI, double wheel_vel, double wheel_Ang
     axle->SetPos(drum->GetPos());
     axle->EnableCollision(false);
     axle->SetFixed(false);
-
-    // Add geometry of the axle.
-    // chrono::utils::AddSphereGeometry(axle.get(), cmaterial, 0.5, ChVector3d(0, 0, 0));
 
     sysMBS.AddBody(axle);
 
@@ -434,7 +431,7 @@ int main(int argc, char* argv[]) {
     sysMBS.SetGravitationalAcceleration(gravity);
     sysFSI.SetGravitationalAcceleration(gravity);
 
-    // Set the simulation stepsize
+    // Set the simulation step size
     sysFSI.SetStepSizeCFD(params.time_step);
     sysFSI.SetStepsizeMBD(params.time_step);
 
@@ -588,7 +585,7 @@ int main(int argc, char* argv[]) {
     ChTimer timer;
     timer.start();
     while (time < params.total_time) {
-        // Get the infomation of the wheel
+        // Get the information of the wheel
         reaction = actuator->GetReaction2();
         force = reaction.force;
         torque = motor->GetReaction1().torque;

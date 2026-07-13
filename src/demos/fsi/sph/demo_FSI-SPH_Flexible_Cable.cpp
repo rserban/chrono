@@ -431,7 +431,7 @@ std::shared_ptr<ChMesh> CreateFlexibleCable(ChSystem& sysMBS, double loc_x, doub
     double density = 8000;
     double rayleigh_damping = 0.02;
 
-    auto section_cable = chrono_types::make_shared<ChBeamSectionCable>();
+    auto section_cable = chrono_types::make_shared<ChBeamSectionCableANCF>();
     section_cable->SetDiameter(0.02);
     section_cable->SetYoungModulus(E);
     section_cable->SetDensity(density);
