@@ -174,9 +174,10 @@ static std::shared_ptr<vehicle::CRMTerrain> CreateTerrainCRM(ChSystem& sys, Robo
     terrain->SetSPHParameters(sph_params);
 
     // Construct the terrain
-    terrain->Construct({length, width, height},                           // length X width X height
-                       ChVector3d(length / 2 - offset, 0, -2 * spacing),  // patch center
-                       BoxSide::ALL & ~BoxSide::Z_POS                     // all boundaries, except top
+    double depth = 0.2;
+    terrain->Construct({length, width, depth},                                            // length X width X height
+                       ChVector3d(length / 2 - offset, 0, height - depth - 2 * spacing),  // patch center
+                       BoxSide::ALL & ~BoxSide::Z_POS                                     // all boundaries, except top
     );
 
     // Add robot bodies as FSI bodies
@@ -250,7 +251,7 @@ static void SimulateSimulateToStartPose(ChSystem& sys, RoboSimianURDF& rs) {
 
 // -----------------------------------------------------------------------------
 
-static void Simulate(ChSystem& sys, RoboSimianURDF& rs, TerrainType terrain_type) {
+static void Simulate(ChSystem& sys, RoboSimianURDF& rs, TerrainType terrain_type, double fps) {
     // Read system state from checkpoint file
     rs.LoadCheckpoint();
 
@@ -330,9 +331,17 @@ static void Simulate(ChSystem& sys, RoboSimianURDF& rs, TerrainType terrain_type
 
     // Simulation loop
     ChRealtimeStepTimer real_timer;
+    double render_frame = 0;
 
-    while (vis->Run()) {
+    while (true) {
         double time = sys.GetChTime();
+
+        if (time >= render_frame / fps) {
+            if (!vis->Run())
+                break;
+            vis->Render();
+            render_frame++;
+        }
 
         // Update camera location
         const auto& torso_pos = rs.GetTorsoBody()->GetPos();
@@ -390,7 +399,7 @@ int main(int argc, char* argv[]) {
     ////SimulateSimulateToStartPose(sys, rs);
 
     // Simulate from checkpoint on specified terrain type
-    Simulate(sys, rs, TerrainType::RIGID);
+    Simulate(sys, rs, TerrainType::CRM, 20);
 
     return 0;
 }
